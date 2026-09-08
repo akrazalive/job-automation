@@ -1,0 +1,455 @@
+JOB AUTOMATION AGENT — TECHNICAL PLAN
+======================================
+Last updated: 2026-09-08
+Read this file first in any new session. It is the source of truth for
+what's decided, what's built, and what to do next. Update it as you go —
+especially the STATUS block and the "NEXT STEPS" section at the bottom.
+
+------------------------------------------------------------
+0. LOCKED-IN DECISIONS (from requirements conversation)
+------------------------------------------------------------
+- Apply mode:        FULL-AUTO submit on LinkedIn & Indeed (no human click
+                      before final submit). User explicitly accepted the
+                      ban/CAPTCHA risk that comes with this. Mitigate with
+                      rate limits + circuit breaker (see section 6), do not
+                      silently drop these safeguards to "simplify" later.
+- Language:           Python 3.11+
+- Job sources v1:     LinkedIn, Indeed, SimplyHired
+- Resume tailoring:   Reorder skills section + rewrite bullet PHRASING to
+                      mirror JD keywords only. Do NOT touch company names,
+                      titles, dates, education. Do NOT invent projects.
+- Storage/hosting:    AWS Free Tier for storage/dashboard only (S3 +
+                      DynamoDB + dashboard compute). The actual browser
+                      automation (login/search/apply on LinkedIn & Indeed)
+                      runs LOCALLY on the user's own machine/home IP, not
+                      on AWS — see section 6. This is a deliberate
+                      anti-ban decision, not a placeholder: AWS EC2 IPs
+                      are known datacenter ranges that LinkedIn/Indeed
+                      flag on their own, independent of timing/behavior.
+                      Do not "simplify" this later by moving apply
+                      automation to EC2 without re-confirming with the
+                      user — it changes the risk profile.
+- Report/admin view:  A dashboard the user can open to see: jobs found,
+                      jobs applied (success), jobs failed (with a reason),
+                      duplicates skipped. Filterable by site/date/company.
+- Source resume:      "Full Stack Developer - Complete.docx" in repo root
+                      (git-ignored — PII, never commit it or any tailored
+                      copy). This is the input to digitize into
+                      resume/master_resume.json in Phase 0/1.
+
+------------------------------------------------------------
+1. STATUS
+------------------------------------------------------------
+[x] Repo initialized, .gitignore + .samignore written (secrets, PII,
+    browser sessions, logs, build artifacts all excluded from both git
+    and the AWS Lambda deploy package)
+[x] README.md written (architecture overview, current status, disclaimers)
+[x] This technical plan written
+[x] Phase 7 (partial) — Admin dashboard built ahead of schedule, at the
+    user's request, before Phase 0-6. It currently runs on sample/seed
+    data (no real jobs/applications exist yet since scraping/tailoring/
+    apply don't exist). Built:
+      - src/common/job_schema.py   — Job + Application pydantic models
+      - src/storage/base.py        — ApplicationStore interface
+      - src/storage/local_store.py — local JSON backend, seeded w/ sample
+        data, zero AWS setup required (this is what's running today)
+      - src/storage/dynamo_store.py — DynamoDB + S3 backend, activates
+        via STORAGE_BACKEND=aws once infra/aws is deployed
+      - src/dashboard/app.py + templates/index.html — FastAPI app:
+        summary cards, filterable table (status/source/company/date),
+        JSON API (/api/summary, /api/applications), Lambda handler via
+        Mangum for AWS deploy
+      - infra/aws/template.yaml — AWS SAM: 2 DynamoDB tables (5/5
+        provisioned RCU/WCU, within always-free tier), 1 private
+        encrypted S3 bucket, 1 Lambda (dashboard, READ-ONLY IAM policies)
+        behind an HTTP API
+      - tests/test_local_store.py + test_dashboard_app.py — 9 tests,
+        all passing (verified via pytest in a local .venv)
+      - Verified locally: server boots, /healthz, /api/summary,
+        /api/applications, and / (HTML) all confirmed working via curl.
+      - DEPLOYED AND LIVE as of 2026-09-08 — see full detail under Phase
+        7 in section 4 (deploy URL, resource names, and a security
+        incident that was caught and fixed during this deploy — read
+        that before touching infra/aws again).
+[x] Phase 0 — Resume digitization (master_resume.json). Built:
+      - src/common/resume_schema.py — pydantic MasterResume schema +
+        PROTECTED_EXPERIENCE_FIELDS/PROTECTED_EDUCATION_FIELDS constants
+        that Phase 2's guardrail check will diff against.
+      - resume/master_resume.json — the real digitized resume (git-
+        ignored, PII: name/email/phone/home address). Source docx is a
+        designed template (Canva-style) where content lives in text-box
+        fallback XML, not normal paragraphs/tables — python-docx's
+        normal API found nothing; extracted via raw document.xml <w:t>
+        run parsing instead. Minor typo fixed in transcription
+        ("Postqresql" -> "PostgreSQL"); no other content changed.
+      - tests/test_resume_schema.py — 4 tests validating the schema,
+        skipped automatically when the (git-ignored) file isn't present.
+      - NOT built yet: resume/templates/resume_template.docx (the
+        docxtpl template that renders master_resume.json back into a
+        clean .docx/.pdf) — needed before Phase 2 can produce an actual
+        tailored resume file, not just tailored JSON.
+      - FLAG FOR USER: the "Artistry Epoxy" entry has an end_date of
+        2026-04 (Apr 2026), which is in the past relative to today
+        (2026-09-08) — if this is still your current job it should
+        probably read "Present" instead of a fixed end date. Left
+        exactly as transcribed since changing dates requires your
+        confirmation, not an assumption. Ask the user before Phase 2
+        ships a tailored resume using this date.
+[ ] Everything else below — Phase 1-6 and the rest of Phase 7/8.
+
+------------------------------------------------------------
+2. HIGH-LEVEL ARCHITECTURE
+------------------------------------------------------------
+Scheduler -> Scrapers -> Dedupe (DynamoDB) -> Tailoring Engine (Claude API)
+  -> Apply Engine (Playwright) -> S3 (tailored resume/cover letter artifacts)
+  + DynamoDB (job + application log) -> Dashboard (reads DynamoDB/S3)
+
+See README.md for the diagram version. Keep both in sync when the
+architecture changes.
+
+------------------------------------------------------------
+3. REPO LAYOUT (create as each phase needs it — don't scaffold empty
+   dirs speculatively beyond what's listed here)
+------------------------------------------------------------
+job-automation/
+  README.md
+  TECHNICAL_PLAN.txt
+  .gitignore
+  requirements.txt
+  .env.example
+  config/
+    search_criteria.yaml       # titles, locations, keywords, remote y/n
+  resume/
+    master_resume.json         # structured source of truth (git-ignored)
+    templates/resume_template.docx
+  src/
+    common/
+      job_schema.py            # Job dataclass/pydantic model
+      dedupe.py                # hash(company+title+url) -> DynamoDB check
+      logger.py
+    scrapers/
+      base.py                  # shared Playwright session mgmt, retry logic
+      linkedin.py
+      indeed.py
+      simplyhired.py
+    tailoring/
+      engine.py                # orchestrates the rewrite
+      claude_client.py         # Anthropic API wrapper
+    apply/
+      base.py
+      linkedin_apply.py
+      indeed_apply.py
+      simplyhired_apply.py
+    storage/
+      s3_store.py
+      dynamo_store.py
+    dashboard/
+      app.py                   # FastAPI (or similar) reading DynamoDB
+      static/ or templates/
+    scheduler/
+      run.py                   # entrypoint: one full search+apply cycle
+  infra/aws/
+      # IaC (CDK/CloudFormation/Terraform — pick one in Phase 3) for
+      # S3 bucket, DynamoDB tables, IAM least-privilege role, and
+      # whatever compute we land on
+  tests/
+
+------------------------------------------------------------
+4. PHASED BUILD ORDER
+------------------------------------------------------------
+Do these roughly in order — each phase should be runnable/testable on its
+own before moving to the next. Update STATUS above as phases complete.
+
+PHASE 0 — Resume digitization  [master_resume.json DONE, template render
+  still TODO — see STATUS section 1]
+  - DONE: resume/master_resume.json (contact, summary, skills, experience,
+    education, projects, spoken_languages) validated against
+    src/common/resume_schema.py.
+  - TODO: Build resume/templates/resume_template.docx (docxtpl) that can
+    re-render master_resume.json (+ per-job tailored overrides) back into
+    a clean .docx/.pdf. Needed before Phase 2 can output an actual
+    tailored resume file, not just tailored JSON.
+  - TODO: Verify a round-trip render matches the original resume visually
+    before trusting the pipeline with real applications.
+  - TODO: resolve the Artistry Epoxy end-date question with the user
+    (flagged in STATUS section 1) before that entry is used in any
+    tailored output.
+
+PHASE 1 — Job schema + first scraper  [DONE except live-run verification
+  — see STATUS section 1]
+  - DONE: src/common/job_schema.py (built in the dashboard pass).
+  - DONE: src/scrapers/base.py — shared Playwright browser_context() +
+    human_delay(), built for reuse by Indeed/LinkedIn scrapers later.
+  - DONE: src/scrapers/simplyhired.py — search + job-detail scraping.
+    Selectors pinned to verified real data-testid attributes (fetched
+    and inspected the live site directly, not guessed from memory/docs —
+    see the module docstring for specifics and the caveat about what an
+    empty result means).
+  - DONE: src/common/dedupe.py — local JSON SeenJobsCache stopgap,
+    job_id_for() designed to become the DynamoDB partition key directly
+    once Phase 3 lands (no format change needed at that point).
+  - DONE: config/search_criteria.yaml — query/location list the scraper
+    reads.
+  - DONE: 6 new tests (19 total passing) — parsing logic tested against
+    fixture HTML (tests/fixtures/), no live network calls in the test
+    suite itself, so tests stay fast/deterministic and don't hammer
+    SimplyHired on every CI run.
+  - CONFIRMED LIVE (2026-09-08): ran a real 3-result search against
+    SimplyHired end-to-end — got back real jobs (e.g. "Fullstack
+    Developer @ Leocode", "Software Engineer 2 (Full-Stack) @
+    Prometheum") with full JD text (1.2-5k chars each). Pinned selectors
+    match the live site. Note for this dev sandbox specifically (not
+    relevant to the user's own machine): Playwright's Chromium download
+    and the browser subprocess both needed the sandbox's network
+    restriction lifted (cdn.playwright.dev wasn't on the default
+    egress allowlist) — if a future session hits the same DNS failure
+    installing Playwright browsers, that's why.
+  - NOT built yet: writing scraped Jobs into the DynamoStore/S3 (Phase 3
+    needs to exist first) or into the dashboard's ApplicationStore at all
+    — right now search results only land in data/found_jobs_simplyhired.json,
+    they don't yet appear on the dashboard. Wiring that up (Job ->
+    Application with status=pending, feeding LocalJsonStore or
+    DynamoStore) is a good next increment once a live run is confirmed.
+
+PHASE 2 — Resume tailoring engine
+  - src/tailoring/claude_client.py: wraps Anthropic API calls.
+  - src/tailoring/engine.py: given master_resume.json + a Job's JD text,
+    ask Claude to (a) extract key skills/keywords from the JD, (b) return
+    a reordered skills list, (c) return rewritten bullet text for
+    existing bullets ONLY (same underlying achievement, JD-mirrored
+    phrasing) — as structured JSON, never touching company/title/dates.
+  - Render the result through resume_template.docx to produce the
+    tailored .docx/.pdf for that job.
+  - Add a guardrail check: diff tailored vs master resume and hard-fail
+    if company names, job titles, dates, or education changed.
+
+PHASE 3 — AWS free-tier storage
+  - Decide IaC tool (recommend AWS CDK in Python, keeps everything in one
+    language) and write infra/aws/.
+  - S3 bucket: tailored resumes + cover letters, one object per
+    application (job_id/resume.docx).
+  - DynamoDB tables:
+      Jobs        (pk: job_id) — source, title, company, url, JD text hash,
+                  first_seen_at
+      Applications (pk: job_id) — status [applied|failed|skipped_duplicate|
+                  blocked], reason, applied_at, resume_s3_key
+  - Compute decision: DECIDED (see section 0 and section 6) — the scraper
+    and apply automation run LOCALLY on the user's machine via Windows
+    Task Scheduler, on the user's home/residential IP. AWS is used only
+    for S3 (resume storage), DynamoDB (job/application log), and the
+    dashboard backend (API Gateway + Lambda, or a small always-on service
+    — pick in Phase 7). This is chosen specifically to avoid the
+    datacenter-IP ban signal that comes with running LinkedIn/Indeed
+    automation from EC2. Do not move apply automation to EC2 later
+    without re-confirming with the user — it changes the risk profile.
+  - IAM: create a dedicated least-privilege IAM user/role (S3 read/write
+    on the one bucket, DynamoDB read/write on the two tables only) — never
+    use root AWS credentials in .env.
+
+PHASE 4 — LinkedIn scraper + Easy Apply automation
+  - Playwright login flow, persist storage_state.json (git-ignored) so we
+    don't re-login every run — repeated fresh logins are a major ban
+    trigger.
+  - Search matching config/search_criteria.yaml.
+  - Easy Apply flow: upload tailored resume, step through the modal,
+    answer generic screening questions (years of experience,
+    authorization to work, etc. — pull answers from master_resume.json /
+    a small answers config), submit.
+  - Detect and handle: CAPTCHA prompts, "application already submitted",
+    multi-page custom question forms it can't answer confidently (log as
+    failed with reason "unhandled question: <text>" rather than guessing).
+
+PHASE 5 — Indeed apply automation
+  - Same pattern as Phase 4, adapted to Indeed's apply flow (Indeed Apply
+    vs external redirect to company ATS — for external redirects, log as
+    "failed - manual apply required" with the URL rather than trying to
+    automate every possible ATS on the internet).
+
+PHASE 6 — SimplyHired apply automation
+  - SimplyHired often redirects to Indeed or an external ATS; likely a
+    thin wrapper around Phase 5's logic plus "manual apply required"
+    fallback for anything else.
+
+PHASE 7 — Admin dashboard  [DEPLOYED AND LIVE, 2026-09-08]
+  - Built: FastAPI app (src/dashboard/app.py) with read-only endpoints
+    backed by the ApplicationStore interface (list applications filtered
+    by status/site/date/company, summary counts, presigned resume URL).
+  - Built: minimal server-rendered HTML/JS frontend (Jinja2 + vanilla JS,
+    no build step) — table view with filters and status badges.
+  - Built: infra/aws/template.yaml (AWS SAM) — deploys it as Lambda +
+    HTTP API + the 2 DynamoDB tables + 1 S3 bucket, all free-tier sized.
+  - DEPLOYED: stack "job-automation-dashboard" in us-east-1, account
+    607581913131 (IAM user aws_akrazalive, AdministratorAccess — NOT
+    root). Live URL, confirmed working (healthz/api/summary/html all
+    200):
+      https://6rtyzoij61.execute-api.us-east-1.amazonaws.com/
+    Resource names: DynamoDB tables job-automation-jobs-prod +
+    job-automation-applications-prod, S3 bucket
+    job-automation-resumes-607581913131-prod. All currently empty (0
+    applications) — expected, nothing writes to DynamoDB yet (see Phase
+    1 status: scraper output still only reaches a local JSON file).
+  - SECURITY INCIDENT CAUGHT DURING THIS DEPLOY, FIXED — read before
+    touching infra/aws again: a plain `sam build` with CodeUri pointed
+    at the repo root did NOT honor .samignore the way expected. It
+    copied the whole repo — real resume .docx, master_resume.json
+    (name/email/phone/address), and an AWS access-key CSV the user had
+    sitting in the repo folder — into the local build artifact. Caught
+    before `sam deploy` (which is the step that actually uploads to
+    AWS) ran on that artifact. Fixed by NOT relying on .samignore at
+    all: infra/aws/prepare_lambda_src.py now stages an explicit
+    allow-listed copy (only src/common, src/storage, src/dashboard + a
+    trimmed requirements.txt) at infra/aws/.lambda_src/, and
+    template.yaml's CodeUri points there instead of the repo root.
+    Verified clean (13 files, no PII/secrets) before this deploy ran.
+    ALWAYS run `python infra/aws/prepare_lambda_src.py` before `sam
+    build` — see README.md's deploy section, which has the full command.
+  - Separately: the user pasted a ROOT account access key in chat mid-
+    session. It was NOT used for anything and the user deleted it in
+    IAM before a replacement IAM-user key was used instead. The
+    `.gitignore` was also missing a pattern for AWS credential CSV
+    exports (`*_accessKeys.csv` etc.) at the time one landed in the repo
+    folder — fixed, now covered, but that file (aws_akrazalive_accessKeys.csv)
+    may still be sitting in the repo folder on disk; recommend the user
+    delete it now that `aws configure` has the values persisted in
+    ~/.aws/credentials.
+  - REMAINING (nice-to-have, not blocking): S3 GSI/Query instead of Scan
+    if the Applications table ever grows large (see dynamo_store.py
+    comment); basic auth/IP allowlist on the dashboard before it's judged
+    "done" — right now anyone with the URL can view it, which is fine
+    for solo use but worth a look before wide use.
+
+PHASE 8 — Safety hardening & scheduling
+  - Daily application cap per site (config value, e.g. 15/day/site).
+  - Randomized delays between actions (a few seconds to a couple minutes,
+    not fixed intervals — fixed timing is itself a bot signal).
+  - Circuit breaker: on CAPTCHA/block detection, pause that site's
+    automation for N hours (config), log the run as "blocked", and surface
+    it prominently on the dashboard — don't let the loop keep hammering a
+    site that's actively blocking us.
+  - Alerting: simple email (SES free tier) or just a dashboard banner when
+    a site gets blocked or the daily cap is hit.
+  - Scheduling: cron (EC2) or Windows Task Scheduler (local) to run
+    src/scheduler/run.py on an interval (e.g. every few hours).
+
+------------------------------------------------------------
+5. OPEN QUESTIONS / DECIDE-LATER
+------------------------------------------------------------
+- Exact compute location (local machine vs EC2) — deferred to Phase 3,
+  see note there. Leaning "local first, AWS storage only" to keep AWS
+  bill at $0 during development.
+- Cover letters — not in original requirements explicitly; ask user
+  before building this (would extend Phase 2).
+- How to answer LinkedIn/Indeed custom screening questions with any
+  confidence — needs a small answers-config the user fills in (e.g.
+  "years of React experience: 4", "authorized to work in US: yes",
+  "requires sponsorship: no") rather than having Claude guess.
+- IaC tool: DECIDED as AWS SAM (infra/aws/template.yaml) — simpler than
+  CDK for this small a footprint (2 tables, 1 bucket, 1 Lambda), standard
+  `sam build && sam deploy --guided` flow, no bootstrapping step. Revisit
+  only if the AWS footprint grows enough to need CDK's programmatic power.
+- Dashboard has no authentication yet — once deployed it's a public URL.
+  Fine for solo use short-term; add basic auth (e.g. an API Gateway
+  Lambda authorizer checking a shared secret header/cookie) before
+  relying on it long-term or if the URL might leak. Not built yet —
+  flag to user before/at first real deploy.
+
+------------------------------------------------------------
+6. SAFETY / ANTI-BAN NOTES (do not skip when implementing Phase 4/5)
+------------------------------------------------------------
+User explicitly chose full-auto submit and accepted the risk — that does
+NOT mean skip the mitigations, it means these mitigations are the only
+thing standing between "works for months" and "account banned week one".
+
+IMPORTANT: delay length between actions is the SMALLEST factor in ban
+risk, not the biggest. A fixed "wait 5-10 min then apply" scheme was
+considered and rejected as insufficient on its own (see conversation
+2026-09-08) — it only addresses the "search->apply->search->apply" loop
+pattern. The real risk factors, ranked by impact, and what we do about
+each:
+
+  1. IP REPUTATION (biggest factor, independent of timing)
+     AWS/EC2/any datacenter IP is itself a red flag to LinkedIn/Indeed
+     regardless of how slow or human-like the behavior is. DECISION:
+     browser automation runs on the user's LOCAL machine / home IP, not
+     on AWS (see section 0/3). Do not change this without re-confirming.
+
+  2. BROWSER FINGERPRINT (second biggest factor, independent of timing)
+     Playwright/Selenium have detectable signatures (navigator.webdriver,
+     headless quirks, missing Chrome-only APIs). Mitigate with:
+     - playwright-stealth (or equivalent) patches
+     - ONE persistent browser profile / storage_state.json reused across
+       every run (a login session and fingerprint that stays consistent
+       over time looks like a real returning user; a fresh fingerprint
+       each run looks like a bot farm)
+     - Never spin up a "clean" browser context per job application.
+
+  3. BEHAVIORAL PATTERN (this is where the user's traverse-then-apply
+     idea lives — it helps here, but only here, and only if randomized)
+     - Two-phase design, as the user proposed: a "traverse" pass collects
+       new job postings + application links into DynamoDB; a separate
+       "apply" pass, run later, walks that queue and submits. This
+       breaks the naive search->apply->search->apply loop signature.
+     - The traverse pass itself must ALSO be throttled — rapid-fire
+       pagination through search results is a bot signal on its own,
+       separate from applying.
+     - The gap before applying must be RANDOMIZED, not fixed. A flat
+       "always 5-10 minutes" is itself a detectable pattern. Use a wide
+       randomized jitter (e.g. uniform or log-normal across a few minutes
+       to tens of minutes), and occasionally vary further (skip a job,
+       batch two applies close together sometimes) so there's no single
+       learnable interval.
+     - The apply action itself should not be an instant jump from
+       "stored link" to "form submitted." Simulate a normal visit first:
+       open the job page, scroll/dwell for a realistic amount of time
+       (~15-45s, randomized), then proceed to apply — mirrors how a human
+       actually reads a posting before applying.
+     - Vary run times day to day (don't run the exact same clock schedule
+       every single day forever — humans don't job-hunt on a perfect
+       schedule).
+
+  4. VOLUME (matters on top of all the above, even if 1-3 are perfect)
+     - Hard daily cap per site, configurable, conservative default (start
+       low, e.g. 10-15/day, raise only after weeks of stable runs).
+     - Weekly cap as a second ceiling, in case daily caps get raised too
+       aggressively over time.
+
+  5. CIRCUIT BREAKER (last line of defense when 1-4 aren't enough)
+     - On any block/CAPTCHA signal, stop that site's automation
+       immediately, log it as "blocked", and cool down for a configurable
+       window (hours, not minutes) before trying that site again.
+     - Never retry a block in a tight loop.
+     - Treat "failed - blocked" as a distinct, prominent status on the
+       dashboard so the user always knows if a site has started blocking
+       them, and can log in manually to check/clear any challenge.
+
+  Never share/commit storage_state.json (equivalent to a live login).
+
+  Net effect: this reduces risk substantially but does not eliminate it.
+  Full-auto submit always carries some residual chance of a temporary
+  block or CAPTCHA wall — the user has accepted that tradeoff.
+
+------------------------------------------------------------
+7. NEXT STEPS (update this each session — this is what "resume from
+   here" means)
+------------------------------------------------------------
+NEXT (as of 2026-09-08): Phase 0's master_resume.json is done. Ask the
+user first whether the Artistry Epoxy end-date is right (see STATUS
+section 1 flag) before it appears in any tailored output. Then either:
+
+  A) Deploy what's built: install AWS CLI + SAM CLI, `aws configure`,
+     then `cd infra/aws && sam build && sam deploy --guided`. Confirm the
+     live dashboard URL loads (it'll show empty — no DynamoDB data yet).
+
+  B) Start Phase 1: the first job scraper (SimplyHired or Indeed,
+     Playwright-based) — needed before there's any real data to tailor
+     resumes against or show on the dashboard.
+
+  C) Finish Phase 0: build resume/templates/resume_template.docx
+     (docxtpl) so master_resume.json can round-trip back into an actual
+     .docx file — needed before Phase 2 (tailoring engine) can produce a
+     real tailored resume file, not just tailored JSON.
+
+Recommend B next — it's the biggest unblock (feeds both the dashboard and
+Phase 2), and A has no
+new data to show until a scraper exists to feed it — but ask the user
+which they'd rather see move first.

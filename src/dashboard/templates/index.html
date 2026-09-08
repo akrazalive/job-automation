@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Automation — Admin Dashboard</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --panel: #ffffff; --text: #1a1a1a; --muted: #6b7280;
+    --border: #e5e7eb; --accent: #2563eb;
+    --applied: #16a34a; --failed: #dc2626; --blocked: #d97706;
+    --skipped: #6b7280; --pending: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #171a21; --text: #e6e6e6; --muted: #9ca3af;
+      --border: #2a2e37;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header { padding: 24px 32px 8px; }
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .sub { color: var(--muted); font-size: .85rem; }
+  .summary { display: flex; gap: 12px; padding: 16px 32px; flex-wrap: wrap; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 18px; min-width: 110px;
+  }
+  .card .n { font-size: 1.6rem; font-weight: 700; }
+  .card .l {
+    color: var(--muted); font-size: .72rem; text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .filters {
+    display: flex; gap: 10px; padding: 8px 32px 16px; flex-wrap: wrap;
+    align-items: end;
+  }
+  .filters label {
+    display: block; font-size: .7rem; color: var(--muted); margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  .filters select, .filters input, .filters button {
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: .85rem;
+  }
+  .filters button { cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filters button:hover { opacity: .9; }
+  table { width: 100%; border-collapse: collapse; }
+  .table-wrap { padding: 0 32px 32px; overflow-x: auto; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .85rem; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.wrap { white-space: normal; max-width: 360px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; color: #fff; }
+  .badge.applied { background: var(--applied); }
+  .badge.failed { background: var(--failed); }
+  .badge.blocked { background: var(--blocked); }
+  .badge.skipped_duplicate { background: var(--skipped); }
+  .badge.pending { background: var(--pending); }
+  .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Job Automation — Admin Dashboard</h1>
+  <div class="sub">What the agent applied to, what failed, and why.</div>
+</header>
+
+<div class="summary" id="summary-cards">
+  {% for key, label in [("total","Total"), ("applied","Applied"), ("failed","Failed"), ("blocked","Blocked"), ("skipped_duplicate","Skipped (dup)"), ("pending","Pending")] %}
+  <div class="card"><div class="n">{{ summary.get(key, 0) }}</div><div class="l">{{ label }}</div></div>
+  {% endfor %}
+</div>
+
+<div class="filters">
+  <div>
+    <label>Status</label>
+    <select id="f-status">
+      <option value="">All</option>
+      {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Source</label>
+    <select id="f-source">
+      <option value="">All</option>
+      {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label>Company</label><input id="f-company" type="text" placeholder="e.g. Acme"></div>
+  <div><label>From</label><input id="f-from" type="date"></div>
+  <div><label>To</label><input id="f-to" type="date"></div>
+  <div><button id="f-apply">Apply filters</button></div>
+</div>
+
+<div class="table-wrap">
+  <table id="app-table">
+    <thead>
+      <tr><th>Updated</th><th>Source</th><th>Company</th><th>Title</th><th>Status</th><th>Reason</th><th>Link</th></tr>
+    </thead>
+    <tbody id="app-tbody">
+      {% for a in applications %}
+      <tr>
+        <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ a.source.value }}</td>
+        <td>{{ a.company }}</td>
+        <td class="wrap">{{ a.title }}</td>
+        <td><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
+        <td class="wrap">{{ a.reason or "" }}</td>
+        <td><a href="{{ a.url }}" target="_blank" rel="noopener">view</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No applications yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+async function loadApplications() {
+  const params = new URLSearchParams();
+  const status = document.getElementById('f-status').value;
+  const source = document.getElementById('f-source').value;
+  const company = document.getElementById('f-company').value;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  if (status) params.set('status', status);
+  if (source) params.set('source', source);
+  if (company) params.set('company', company);
+  if (from) params.set('date_from', from);
+  if (to) params.set('date_to', to);
+
+  const [appsRes, summaryRes] = await Promise.all([
+    fetch('/api/applications?' + params.toString()),
+    fetch('/api/summary'),
+  ]);
+  const apps = await appsRes.json();
+  const summary = await summaryRes.json();
+  renderTable(apps.items);
+  renderSummary(summary);
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('app-tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching applications.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(a => `
+    <tr>
+      <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
+      <td>${a.source}</td>
+      <td>${escapeHtml(a.company)}</td>
+      <td class="wrap">${escapeHtml(a.title)}</td>
+      <td><span class="badge ${a.status}">${a.status}</span></td>
+      <td class="wrap">${escapeHtml(a.reason || '')}</td>
+      <td><a href="${a.url}" target="_blank" rel="noopener">view</a></td>
+    </tr>
+  `).join('');
+}
+
+function renderSummary(summary) {
+  const labels = [["total","Total"],["applied","Applied"],["failed","Failed"],["blocked","Blocked"],["skipped_duplicate","Skipped (dup)"],["pending","Pending"]];
+  document.getElementById('summary-cards').innerHTML = labels.map(([key, label]) => `
+    <div class="card"><div class="n">${summary[key] || 0}</div><div class="l">${label}</div></div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('f-apply').addEventListener('click', loadApplications);
+</script>
+</body>
+</html>

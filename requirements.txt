@@ -1,0 +1,19 @@
+# Core web app (dashboard)
+fastapi>=0.115
+uvicorn[standard]>=0.32
+jinja2>=3.1
+python-dotenv>=1.0
+
+# AWS Lambda ASGI adapter (used only when deployed; harmless locally)
+mangum>=0.19
+
+# AWS SDK (DynamoDB + S3 storage backend)
+boto3>=1.35
+
+# Data models
+pydantic>=2.9
+
+# Scrapers (Phase 1+)
+playwright>=1.47
+beautifulsoup4>=4.12
+pyyaml>=6.0

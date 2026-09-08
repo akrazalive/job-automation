@@ -1,0 +1,34 @@
+<!--
+Schematic reconstruction of a SimplyHired search-results page, using the
+real data-testid attributes/structure verified against the live site on
+2026-09-08 (see src/scrapers/simplyhired.py docstring). Not a captured
+copy of the actual page — trimmed to the structural contract the parser
+depends on, with the noisy generated CSS/tracking removed.
+-->
+<html>
+<body>
+<div data-testid="headerSerpJobCount">1,234 full stack developer jobs</div>
+<ul>
+  <li>
+    <div data-jobkey="abc123" data-testid="searchSerpJob">
+      <h2 data-testid="searchSerpJobTitle"><a href="/job/abc123">Full Stack Developer</a></h2>
+      <p><span><span data-testid="companyName">Acme Corp</span> &mdash;</span>
+      <span data-testid="searchSerpJobLocation">Remote</span></p>
+    </div>
+  </li>
+  <li>
+    <div data-jobkey="def456" data-testid="searchSerpJob">
+      <h2 data-testid="searchSerpJobTitle"><a href="/job/def456">Senior Full Stack Engineer</a></h2>
+      <p><span><span data-testid="companyName">Globex Inc</span> &mdash;</span>
+      <span data-testid="searchSerpJobLocation">Chicago, IL</span></p>
+    </div>
+  </li>
+  <li>
+    <!-- edge case: title link with no href should be skipped, not crash -->
+    <div data-jobkey="ghi789" data-testid="searchSerpJob">
+      <h2 data-testid="searchSerpJobTitle"><a>Sponsored Placeholder</a></h2>
+    </div>
+  </li>
+</ul>
+</body>
+</html>

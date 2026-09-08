@@ -1,0 +1,16 @@
+# What the scrapers search for. Each entry under `searches` is one
+# independent search, run every cycle. Location/query syntax here is
+# SimplyHired's; Indeed/LinkedIn (Phase 4/5) may need per-source
+# overrides if their query params differ — revisit this file's shape
+# then rather than assuming it transfers as-is.
+
+searches:
+  - query: "Full Stack Developer"
+    location: "Remote"
+  - query: "Full Stack Engineer"
+    location: "Remote"
+
+# Safety limits (see TECHNICAL_PLAN.txt section 6). This caps SEARCH
+# volume; APPLY volume gets its own, separate daily/weekly caps in
+# Phase 8 — don't conflate the two when that config is added.
+max_results_per_search: 25

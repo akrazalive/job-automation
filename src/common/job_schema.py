@@ -1,0 +1,61 @@
+"""Shared data models for jobs and applications.
+
+These are the records that flow through the whole pipeline: scrapers
+produce Job records, the apply engine produces/updates Application
+records, and the dashboard reads Application records back out. Keeping
+this schema in one place means the scrapers, the tailoring engine, the
+apply engine, and the dashboard all agree on what a "job" and an
+"application" look like.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class JobSource(str, Enum):
+    LINKEDIN = "linkedin"
+    INDEED = "indeed"
+    SIMPLYHIRED = "simplyhired"
+
+
+class ApplicationStatus(str, Enum):
+    PENDING = "pending"  # found + tailored, not yet attempted
+    APPLIED = "applied"
+    FAILED = "failed"
+    BLOCKED = "blocked"  # circuit breaker tripped (CAPTCHA/block signal)
+    SKIPPED_DUPLICATE = "skipped_duplicate"
+
+
+class Job(BaseModel):
+    """A job posting found by a scraper."""
+
+    job_id: str
+    source: JobSource
+    title: str
+    company: str
+    location: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+    posted_at: Optional[datetime] = None
+    first_seen_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Application(BaseModel):
+    """One attempt (or planned attempt) to apply to a Job. This is what
+    the admin dashboard reads and displays."""
+
+    job_id: str
+    source: JobSource
+    title: str
+    company: str
+    url: str
+    status: ApplicationStatus
+    reason: Optional[str] = None  # why it failed/was blocked/was skipped
+    resume_s3_key: Optional[str] = None
+    applied_at: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

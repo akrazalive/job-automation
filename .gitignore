@@ -1,0 +1,94 @@
+# ============================================================
+# job-automation .gitignore
+# Personal data, credentials, and generated artifacts must
+# NEVER be committed. This repo may end up on a public remote.
+# ============================================================
+
+# --- Secrets & credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+aws_credentials*
+*accessKeys*.csv
+*_accessKeys.csv
+rootkey.csv
+credentials.json
+secrets/
+config/local_*.yaml
+
+# --- Personal resume / PII ---
+# Your real resume, tailored copies, and any generated cover
+# letters contain your name, phone, address, work history.
+# These live locally and in AWS S3, never in git history.
+*.docx
+*.pdf
+resume/original/
+resume/output/
+resume/tailored/
+resume/master_resume.json
+cover_letters/
+"Full Stack Developer - Complete.docx"
+
+# --- Browser automation state ---
+# Playwright/Selenium session cookies = live login sessions.
+# Leaking these is equivalent to leaking your password.
+storage_state.json
+*.storage_state.json
+browser_profile/
+playwright/.auth/
+.playwright-cache/
+
+# --- Job/application data dumps (local caches) ---
+# Source of truth is DynamoDB/S3; local exports are scratch.
+data/
+*.db
+*.sqlite
+*.sqlite3
+job_cache/
+applications_log.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# --- Node (dashboard frontend, if any) ---
+node_modules/
+.next/
+dist/
+npm-debug.log*
+
+# --- AWS / IaC ---
+.aws-sam/
+infra/aws/.lambda_src/
+cdk.out/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# --- Logs & runtime artifacts ---
+logs/
+*.log
+*.log.*
+screenshots/
+debug_screenshots/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

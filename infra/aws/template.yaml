@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Job Automation Agent - admin dashboard + storage (AWS Free Tier).
+  Deploys: 2 DynamoDB tables (Jobs, Applications), 1 private S3 bucket
+  (tailored resumes/cover letters), and 1 Lambda function serving the
+  FastAPI dashboard behind an HTTP API. This stack is READ-ONLY toward
+  LinkedIn/Indeed - it never scrapes or applies to jobs. Job scraping and
+  applying run LOCALLY on the operator's own machine/network, per
+  TECHNICAL_PLAN.txt section 6 (avoids the datacenter-IP ban signal); the
+  local process writes results here so the dashboard can show them.
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 256
+    Runtime: python3.13
+
+Parameters:
+  StageName:
+    Type: String
+    Default: prod
+    Description: Deployment stage, used to namespace resource names.
+
+Resources:
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub job-automation-jobs-${StageName}
+      # 5/5 provisioned capacity fits comfortably under DynamoDB's
+      # always-free tier (25 RCU/25 WCU + 25 GB storage) at hobby scale.
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+
+  ApplicationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub job-automation-applications-${StageName}
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+
+  ResumeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub job-automation-resumes-${AWS::AccountId}-${StageName}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      # CodeUri points at a STAGED, explicitly allow-listed copy of only
+      # what the dashboard needs (src/common, src/storage, src/dashboard)
+      # - see prepare_lambda_src.py. Do NOT point this at the repo root:
+      # verified empirically (2026-09-08) that relying on .samignore to
+      # exclude personal files (resume, .env, credential CSVs) from a
+      # repo-root CodeUri does not reliably work with SAM's Python
+      # builder - it copied the whole repo, secrets included, into the
+      # build artifact despite .samignore listing them. Run
+      # `python prepare_lambda_src.py` (from this directory) before every
+      # `sam build` - see README.md's deploy instructions.
+      CodeUri: .lambda_src
+      Handler: src.dashboard.app.handler
+      Environment:
+        Variables:
+          STORAGE_BACKEND: aws
+          DYNAMODB_JOBS_TABLE: !Ref JobsTable
+          DYNAMODB_APPLICATIONS_TABLE: !Ref ApplicationsTable
+          S3_BUCKET_NAME: !Ref ResumeBucket
+      Policies:
+        # Read-only: the dashboard displays results, it never writes.
+        # The local apply engine writes via its own separately-issued
+        # AWS credentials (see TECHNICAL_PLAN.txt Phase 3 IAM notes).
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ApplicationsTable
+        - S3ReadPolicy:
+            BucketName: !Ref ResumeBucket
+      Events:
+        RootGet:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: GET
+        ProxyAny:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  DashboardUrl:
+    Description: Public URL of the admin dashboard
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/
+  JobsTableName:
+    Value: !Ref JobsTable
+  ApplicationsTableName:
+    Value: !Ref ApplicationsTable
+  ResumeBucketName:
+    Value: !Ref ResumeBucket

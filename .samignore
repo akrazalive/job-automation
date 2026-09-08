@@ -1,0 +1,38 @@
+# DEFENSE IN DEPTH ONLY — NOT the primary safety mechanism.
+#
+# CodeUri (infra/aws/template.yaml) points at infra/aws/.lambda_src/, an
+# explicitly allow-listed staged copy built by prepare_lambda_src.py, not
+# at the repo root. That's deliberate: verified empirically (2026-09-08)
+# that SAM CLI's Python builder did NOT reliably honor this file when
+# CodeUri pointed at the repo root — it copied the whole repo, including
+# a stray AWS credentials CSV and the real resume, into the build
+# artifact despite these excludes. Don't re-point CodeUri at the repo
+# root and trust this file alone to protect PII/secrets again.
+#
+# This file is kept only in case CodeUri ever points somewhere broader
+# again — keep it in sync with .gitignore's intent if so.
+
+.git/
+.gitignore
+.samignore
+.env
+.env.*
+*.docx
+*.pdf
+data/
+tests/
+infra/
+docs/
+logs/
+*.log
+README.md
+TECHNICAL_PLAN.txt
+requirements-dev.txt
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.idea/
+node_modules/
