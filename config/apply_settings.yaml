@@ -1,0 +1,31 @@
+# Settings for the (not-yet-built) auto-apply engine's pacing, and for
+# the local scrape schedule. See TECHNICAL_PLAN.txt section 6 for the
+# full anti-ban reasoning behind these numbers — they're deliberately
+# conservative defaults, not arbitrary.
+#
+# Editable from the dashboard's Settings page when running locally
+# (http://127.0.0.1:8000/settings) — that page reads/writes this exact
+# file, so hand-editing here works too.
+
+apply_delay:
+  # Randomized gap between individual apply actions. A FIXED delay is
+  # itself a detectable bot pattern — see TECHNICAL_PLAN.txt section 6,
+  # factor #3 — so this is always a min/max range, never a single value.
+  min_minutes: 3
+  max_minutes: 12
+
+daily_application_cap:
+  # Conservative starting point per site per day. Raise only after weeks
+  # of stable, unblocked runs — see TECHNICAL_PLAN.txt section 6, factor
+  # #4.
+  linkedin: 15
+  indeed: 15
+  simplyhired: 15
+
+scrape_schedule:
+  # Informational only — nothing in this repo runs this cron expression
+  # automatically yet. Wire it up via your OS scheduler (Windows Task
+  # Scheduler) running `python -m src.pipeline.ingest` — see README.md
+  # "Automate the scraper".
+  cron: "0 */4 * * *"
+  description: "Every 4 hours"

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Job Automation</title>
+<style>
+  :root {
+    --bg: #f5f9f6; --panel: #ffffff; --text: #16241a; --muted: #5b6b60;
+    --border: #dbe8df; --accent: #16a34a; --accent-dark: #15803d;
+    --accent-contrast: #ffffff; --error: #dc2626; --error-bg: #fef2f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1410; --panel: #131d16; --text: #e8f2ea; --muted: #93a89b;
+      --border: #203024; --accent: #22c55e; --accent-dark: #16a34a;
+      --accent-contrast: #06210f; --error: #f87171; --error-bg: #2a1414;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  form.card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 32px 28px; width: 320px; max-width: calc(100vw - 32px);
+    box-shadow: 0 4px 24px rgba(20, 40, 28, .08);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.05rem; margin-bottom: 18px; }
+  .brand .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  label { display: block; font-size: .72rem; color: var(--muted); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .03em; }
+  input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: .9rem;
+  }
+  button {
+    width: 100%; margin-top: 20px; padding: 10px; border-radius: 8px; border: none;
+    background: var(--accent); color: var(--accent-contrast); font-weight: 700; font-size: .9rem; cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  .error { margin-top: 14px; padding: 8px 10px; border-radius: 8px; background: var(--error-bg); color: var(--error); font-size: .8rem; }
+</style>
+</head>
+<body>
+<form class="card" method="post" action="/login">
+  <div class="brand"><span class="dot"></span> Job Automation</div>
+  <label for="username">Username</label>
+  <input id="username" name="username" autocomplete="username" required autofocus>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Sign in</button>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+</form>
+</body>
+</html>

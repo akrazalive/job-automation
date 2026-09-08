@@ -1,0 +1,105 @@
+import os
+
+from src.common.resume_schema import (
+    ContactInfo,
+    EducationEntry,
+    ExperienceEntry,
+    MasterResume,
+    SkillItem,
+)
+from src.tailoring.engine import _validate_llm_content
+
+
+def _sample_resume() -> MasterResume:
+    return MasterResume(
+        contact=ContactInfo(
+            name="Test Person", headline="Full Stack Engineer", email="test@example.com",
+            phone="+1 555 0100", location="Remote", linkedin="https://linkedin.com/in/test",
+        ),
+        summary="A test summary.",
+        skills={"backend": [SkillItem(name="Node.js", level=5)]},
+        experience=[
+            ExperienceEntry(
+                company="Co A", title="Developer", location="Remote",
+                date_text="2020 - Present", start_date="2020", end_date=None,
+                bullets=["Did thing one.", "Did thing two."],
+            ),
+            ExperienceEntry(
+                company="Co B", title="Junior Developer", location="Remote",
+                date_text="2018 - 2020", start_date="2018", end_date="2020",
+                bullets=["Did another thing."],
+            ),
+        ],
+        education=[EducationEntry(degree="BS CS", institution="Test U", date_text="2014 - 2018")],
+        projects=[],
+        spoken_languages=[],
+    )
+
+
+def test_validate_llm_content_accepts_matching_bullet_counts():
+    resume = _sample_resume()
+    content = {
+        "summary": "Tailored summary.",
+        "experience_bullets": [
+            ["Rewrote thing one.", "Rewrote thing two."],
+            ["Rewrote another thing."],
+        ],
+    }
+    assert _validate_llm_content(resume, content) is True
+
+
+def test_validate_llm_content_rejects_wrong_entry_count():
+    resume = _sample_resume()
+    content = {"summary": "x", "experience_bullets": [["only one entry"]]}
+    assert _validate_llm_content(resume, content) is False
+
+
+def test_validate_llm_content_rejects_wrong_bullet_count_within_entry():
+    resume = _sample_resume()
+    content = {
+        "summary": "x",
+        "experience_bullets": [
+            ["only one bullet, should be two"],
+            ["Rewrote another thing."],
+        ],
+    }
+    assert _validate_llm_content(resume, content) is False
+
+
+def test_validate_llm_content_rejects_empty_summary():
+    resume = _sample_resume()
+    content = {
+        "summary": "   ",
+        "experience_bullets": [
+            ["Rewrote thing one.", "Rewrote thing two."],
+            ["Rewrote another thing."],
+        ],
+    }
+    assert _validate_llm_content(resume, content) is False
+
+
+def test_validate_llm_content_rejects_non_string_bullets():
+    resume = _sample_resume()
+    content = {
+        "summary": "x",
+        "experience_bullets": [
+            ["Rewrote thing one.", 42],
+            ["Rewrote another thing."],
+        ],
+    }
+    assert _validate_llm_content(resume, content) is False
+
+
+def test_claude_client_unavailable_without_api_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    from src.tailoring import claude_client
+
+    assert claude_client.is_available() is False
+    assert claude_client.request_tailored_content(_sample_resume(), "Title", "JD text") is None
+
+
+def test_claude_client_available_with_api_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-fake-key")
+    from src.tailoring import claude_client
+
+    assert claude_client.is_available() is True

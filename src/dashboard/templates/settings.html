@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Settings — Job Automation{% endblock %}
+{% block head %}
+<style>
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .section { padding: 18px 20px; margin-bottom: 18px; }
+  .section h2 { margin: 0 0 4px; font-size: 1rem; }
+  .section .hint { color: var(--muted); font-size: .8rem; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 10px; }
+  .row > div { flex: 1; min-width: 120px; }
+  table.plain { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.plain th, table.plain td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  table.plain th { color: var(--muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; }
+  .banner {
+    padding: 12px 16px; border-radius: 10px; margin-bottom: 18px; font-size: .85rem;
+    background: var(--accent-light); color: var(--accent-dark); border: 1px solid var(--accent);
+  }
+  .banner.disabled { background: transparent; border-color: var(--border); color: var(--muted); }
+  #scrape-log {
+    background: #0d1410; color: #b9f5c9; font-family: ui-monospace, monospace; font-size: .75rem;
+    padding: 12px; border-radius: 8px; height: 220px; overflow-y: auto; white-space: pre-wrap;
+    display: none;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:4px;">Settings</h1>
+<p class="muted" style="margin-top:0;">Scrape pacing, apply-delay defaults, and search keywords.</p>
+
+{% if local_actions_enabled %}
+  <div class="banner">Running locally — scraping and settings edits are enabled.</div>
+{% else %}
+  <div class="banner disabled">
+    You're viewing the AWS-hosted dashboard. Scraping and setting changes only run on your own
+    machine (avoids applying from a datacenter IP — see TECHNICAL_PLAN.txt section 6). Run
+    <code>python -m src.pipeline.ingest</code> locally, or open this same dashboard at
+    <code>http://127.0.0.1:8000/settings</code> to edit these.
+  </div>
+{% endif %}
+
+<div class="card section">
+  <h2>Manual scrape</h2>
+  <div class="hint">Runs every search in the list below once, right now, with the anti-ban delays already built into the scraper.</div>
+  <button class="btn" id="scrape-btn" {{ 'disabled' if not local_actions_enabled }}>Scrape now</button>
+  <span id="scrape-state" class="muted" style="margin-left:10px;"></span>
+  <div id="scrape-log"></div>
+</div>
+
+<div class="grid">
+  <div class="card section">
+    <h2>Apply delay (auto-apply pacing)</h2>
+    <div class="hint">
+      Randomized gap between apply actions once the auto-apply engine exists (not built yet — see
+      README). A fixed delay is itself a bot signal, so this is always a min/max range.
+    </div>
+    <form method="post" action="/settings/apply-delay">
+      <div class="row">
+        <div>
+          <label>Min minutes</label>
+          <input type="number" name="min_minutes" min="1" value="{{ apply_settings.apply_delay.min_minutes }}" {{ 'disabled' if not local_actions_enabled }}>
+        </div>
+        <div>
+          <label>Max minutes</label>
+          <input type="number" name="max_minutes" min="1" value="{{ apply_settings.apply_delay.max_minutes }}" {{ 'disabled' if not local_actions_enabled }}>
+        </div>
+      </div>
+      <button class="btn secondary" type="submit" {{ 'disabled' if not local_actions_enabled }}>Save</button>
+    </form>
+
+    <h2 style="margin-top:20px;">Daily application caps</h2>
+    <div class="hint">Edit config/apply_settings.yaml directly to change these.</div>
+    <table class="plain">
+      <tr><th>Source</th><th>Cap / day</th></tr>
+      {% for source, cap in apply_settings.daily_application_cap.items() %}
+      <tr><td>{{ source }}</td><td>{{ cap }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card section">
+    <h2>Scrape schedule</h2>
+    <div class="hint">
+      Informational — nothing runs this automatically yet. Wire it to your OS scheduler (Windows
+      Task Scheduler) running <code>python -m src.pipeline.ingest</code> on this cadence.
+    </div>
+    <form method="post" action="/settings/schedule">
+      <label>Cron expression</label>
+      <input name="cron" value="{{ apply_settings.scrape_schedule.cron }}" style="width:100%;margin-bottom:10px;" {{ 'disabled' if not local_actions_enabled }}>
+      <label>Description</label>
+      <input name="description" value="{{ apply_settings.scrape_schedule.description }}" style="width:100%;margin-bottom:10px;" {{ 'disabled' if not local_actions_enabled }}>
+      <button class="btn secondary" type="submit" {{ 'disabled' if not local_actions_enabled }}>Save</button>
+    </form>
+  </div>
+</div>
+
+<div class="card section">
+  <h2>Search keywords</h2>
+  <div class="hint">Each row is one independent search, run every scrape cycle.</div>
+  <table class="plain">
+    <tr><th>Query</th><th>Location</th><th>Category</th></tr>
+    {% for s in searches %}
+    <tr><td>{{ s.query }}</td><td>{{ s.location }}</td><td>{{ s.category or "—" }}</td></tr>
+    {% endfor %}
+  </table>
+  <form method="post" action="/settings/add-search" style="margin-top:14px;">
+    <div class="row">
+      <div><label>Query</label><input name="query" placeholder="e.g. Ruby on Rails Developer" required {{ 'disabled' if not local_actions_enabled }}></div>
+      <div><label>Location</label><input name="location" value="Remote" {{ 'disabled' if not local_actions_enabled }}></div>
+      <div><label>Category</label><input name="category" placeholder="e.g. backend" {{ 'disabled' if not local_actions_enabled }}></div>
+    </div>
+    <button class="btn secondary" type="submit" {{ 'disabled' if not local_actions_enabled }}>Add search</button>
+  </form>
+</div>
+
+<script>
+const scrapeBtn = document.getElementById('scrape-btn');
+const scrapeState = document.getElementById('scrape-state');
+const scrapeLog = document.getElementById('scrape-log');
+let polling = null;
+
+async function pollStatus() {
+  const res = await fetch('/actions/scrape-status');
+  const data = await res.json();
+  if (data.disabled) return;
+  scrapeLog.style.display = 'block';
+  scrapeLog.textContent = (data.log || []).join('\n');
+  scrapeLog.scrollTop = scrapeLog.scrollHeight;
+  if (data.running) {
+    scrapeState.textContent = `Running... (${data.completed_searches || 0}/${data.total_searches || '?'} searches, ${data.total_new || 0} new jobs)`;
+    scrapeBtn.disabled = true;
+  } else {
+    scrapeState.textContent = data.total_new !== undefined ? `Last run: ${data.total_new} new jobs found.` : '';
+    scrapeBtn.disabled = false;
+    if (polling) { clearInterval(polling); polling = null; }
+  }
+}
+
+if (scrapeBtn && !scrapeBtn.disabled) {
+  scrapeBtn.addEventListener('click', async () => {
+    scrapeBtn.disabled = true;
+    scrapeState.textContent = 'Starting...';
+    await fetch('/actions/scrape', { method: 'POST' });
+    polling = setInterval(pollStatus, 2000);
+    pollStatus();
+  });
+  pollStatus();
+}
+</script>
+{% endblock %}

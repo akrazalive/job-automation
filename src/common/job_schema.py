@@ -59,3 +59,10 @@ class Application(BaseModel):
     resume_s3_key: Optional[str] = None
     applied_at: Optional[datetime] = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Populated by the ingest pipeline (src/pipeline/ingest.py) at scrape
+    # time - see src/common/skills.py for how required_skills is derived.
+    required_skills: list[str] = Field(default_factory=list)
+    posted_at: Optional[datetime] = None  # when the job was posted, if the source exposed it
+    is_remote: bool = False
+    category: Optional[str] = None  # which config/search_criteria.yaml entry found this job

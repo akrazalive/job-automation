@@ -20,7 +20,9 @@ descriptions. Applying is Phase 6.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote_plus, urljoin
 
@@ -39,6 +41,33 @@ class SearchResultRow:
     company: str
     location: str
     detail_url: str
+    date_text: Optional[str] = None  # raw stamp, e.g. "7d", "20h" — see parse_date_stamp()
+
+
+def parse_date_stamp(text: Optional[str], now: Optional[datetime] = None) -> Optional[datetime]:
+    """Parses SimplyHired's compact relative date stamp ("20h", "7d") into
+    an absolute UTC datetime. Verified format against the live site
+    2026-09-08 (hours/days only observed; "mo"/"y" handled defensively in
+    case older postings use them). Returns None if the format doesn't
+    match anything recognized — callers should treat that as "unknown
+    date", not "very old"."""
+    if not text:
+        return None
+    text = text.strip().lower()
+    now = now or datetime.now(timezone.utc)
+    match = re.fullmatch(r"(\d+)\s*(h|d|mo|y)", text)
+    if not match:
+        return None
+    amount, unit = int(match.group(1)), match.group(2)
+    if unit == "h":
+        return now - timedelta(hours=amount)
+    if unit == "d":
+        return now - timedelta(days=amount)
+    if unit == "mo":
+        return now - timedelta(days=amount * 30)
+    if unit == "y":
+        return now - timedelta(days=amount * 365)
+    return None  # pragma: no cover — unreachable given the regex above
 
 
 def build_search_url(query: str, location: str = "", page: int = 0) -> str:
@@ -60,6 +89,7 @@ def parse_search_results(html: str) -> list[SearchResultRow]:
         title_el = card.select_one('[data-testid="searchSerpJobTitle"] a')
         company_el = card.select_one('[data-testid="companyName"]')
         location_el = card.select_one('[data-testid="searchSerpJobLocation"]')
+        date_el = card.select_one('[data-testid="searchSerpJobDateStamp"]')
         if not title_el or not title_el.get("href"):
             continue  # sponsored/placeholder cards without a real job link
         rows.append(
@@ -68,6 +98,7 @@ def parse_search_results(html: str) -> list[SearchResultRow]:
                 company=company_el.get_text(strip=True) if company_el else "Unknown",
                 location=location_el.get_text(strip=True) if location_el else "",
                 detail_url=urljoin(BASE_URL, title_el["href"]),
+                date_text=date_el.get_text(strip=True) if date_el else None,
             )
         )
     return rows
@@ -114,6 +145,7 @@ def search_simplyhired(
                     location=row.location,
                     url=row.detail_url,
                     description=description,
+                    posted_at=parse_date_stamp(row.date_text),
                 )
             )
         page.close()

@@ -1,16 +1,137 @@
 # What the scrapers search for. Each entry under `searches` is one
-# independent search, run every cycle. Location/query syntax here is
-# SimplyHired's; Indeed/LinkedIn (Phase 4/5) may need per-source
-# overrides if their query params differ — revisit this file's shape
-# then rather than assuming it transfers as-is.
+# independent search, run every cycle. `category` groups results for the
+# dashboard's category breakdown/report and for skill-tag matching
+# context — it's free text, not validated against a fixed list.
+#
+# This list covers the keyword set requested 2026-09-08: CMS/e-commerce,
+# PHP stack, JS frontend frameworks, backend/full-stack roles, general
+# developer/engineer titles at all seniority levels, AI/ML, and
+# UI/UX/Shopify. Add more entries any time — either by editing this file
+# directly, or via the dashboard's Settings page (local runs only).
+#
+# Location/query syntax here is SimplyHired's; Indeed/LinkedIn (Phase
+# 4/5, not built yet) may need per-source overrides if their query params
+# differ — revisit this file's shape then rather than assuming it
+# transfers as-is.
 
 searches:
+  # --- CMS / e-commerce ---
+  - query: "WordPress Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "WooCommerce Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Shopify Developer"
+    location: "Remote"
+    category: "cms"
+
+  # --- PHP stack ---
+  - query: "Laravel Developer"
+    location: "Remote"
+    category: "php"
+  - query: "PHP Developer"
+    location: "Remote"
+    category: "php"
+  - query: "CodeIgniter Developer"
+    location: "Remote"
+    category: "php"
+
+  # --- Frontend frameworks ---
+  - query: "React Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Next.js Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Vue.js Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Angular Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Front End Developer"
+    location: "Remote"
+    category: "frontend"
+
+  # --- Backend ---
+  - query: "Node.js Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Backend Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Python Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Django Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Flask Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "MongoDB Developer"
+    location: "Remote"
+    category: "backend"
+
+  # --- Full stack / general developer & engineer titles ---
   - query: "Full Stack Developer"
     location: "Remote"
+    category: "fullstack"
   - query: "Full Stack Engineer"
     location: "Remote"
+    category: "fullstack"
+  - query: "Full Stack Programmer"
+    location: "Remote"
+    category: "fullstack"
+  - query: "Software Developer"
+    location: "Remote"
+    category: "general"
+  - query: "Software Engineer"
+    location: "Remote"
+    category: "general"
+  - query: "Web Developer"
+    location: "Remote"
+    category: "general"
+  - query: "Webmaster"
+    location: "Remote"
+    category: "general"
+  - query: "Senior Full Stack Developer"
+    location: "Remote"
+    category: "fullstack"
+  - query: "Junior Full Stack Developer"
+    location: "Remote"
+    category: "fullstack"
+
+  # --- AI / ML ---
+  - query: "AI Developer"
+    location: "Remote"
+    category: "ai_ml"
+  - query: "ML Developer"
+    location: "Remote"
+    category: "ai_ml"
+
+  # --- Design ---
+  - query: "UI/UX Developer"
+    location: "Remote"
+    category: "design"
 
 # Safety limits (see TECHNICAL_PLAN.txt section 6). This caps SEARCH
 # volume; APPLY volume gets its own, separate daily/weekly caps in
-# Phase 8 — don't conflate the two when that config is added.
-max_results_per_search: 25
+# config/apply_settings.yaml — don't conflate the two.
+max_results_per_search: 8
+
+# Only keep jobs that look remote with no location restriction (not
+# "Remote - US only" etc.) — best-effort text heuristic, see
+# src/pipeline/ingest.py:is_globally_remote(). Some restricted listings
+# may slip through if they don't use a recognizable phrase; this filters
+# the obvious cases, it isn't a guarantee.
+remote_only: true
+
+# Only keep jobs posted within this many days. SimplyHired's search
+# results show a relative date stamp ("7d", "20h") which the scraper
+# parses into an absolute date — see src/scrapers/simplyhired.py
+# parse_date_stamp(). A job whose date stamp couldn't be parsed is kept
+# rather than dropped (better to show it with an unknown date than
+# silently lose it).
+max_age_days: 7

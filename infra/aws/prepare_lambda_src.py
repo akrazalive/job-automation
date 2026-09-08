@@ -35,14 +35,23 @@ STAGING_DIR = Path(__file__).resolve().parent / ".lambda_src"
 SRC_PACKAGES = ["common", "storage", "dashboard"]
 
 # A slimmer requirements.txt than the repo's main one: the Lambda never
-# needs playwright/beautifulsoup4/pyyaml (scraper-only deps) or uvicorn
-# (Mangum replaces uvicorn's serving role under Lambda).
+# needs playwright/beautifulsoup4/reportlab (scraper/tailoring-only deps,
+# and those packages aren't even staged - see SRC_PACKAGES above) or
+# uvicorn (Mangum replaces uvicorn's serving role under Lambda). pyyaml,
+# python-multipart, and itsdangerous ARE needed here even though the
+# settings-editing *routes* are local-only (403 on Lambda) — app.py
+# imports yaml/itsdangerous at module load time, and the login form
+# needs python-multipart, so these must be present for the Lambda to
+# import successfully at all.
 LAMBDA_REQUIREMENTS = """\
 fastapi>=0.115
 mangum>=0.19
 boto3>=1.35
 pydantic>=2.9
 jinja2>=3.1
+pyyaml>=6.0
+python-multipart>=0.0.12
+itsdangerous>=2.2
 """
 
 

@@ -25,101 +25,175 @@ what failed and why.
   [.gitignore](.gitignore)). They live only on your machine and in your own
   AWS account.
 
-## What this does (end to end)
+## What this does (end to end — the target; see "Current status" below for what's actually built today)
 
 1. **Search** — polls LinkedIn, Indeed, and SimplyHired for jobs matching
-   your title/location/keyword criteria.
+   your title/location/keyword criteria. *(SimplyHired is live; LinkedIn/
+   Indeed are not built yet.)*
 2. **Fetch** — pulls the full job description for each new posting and
    normalizes it into a common record (title, company, location, JD text,
-   URL, source, posted date).
-3. **Tailor** — sends your master resume + the job description to Claude,
-   which reorders your skills section and rewrites bullet emphasis to mirror
-   the JD's language. Company names, job titles, dates, and education are
-   never touched.
+   URL, source, posted date), and tags it with the tech skills it
+   requires. *(Live.)*
+3. **Tailor** — reorders your skills section to put the job's required
+   skills first and renders a real PDF. Company names, job titles, dates,
+   and education are never touched. *(Live, reorder-only. Bullet-phrasing
+   rewrite via Claude is a planned addition, not built.)*
 4. **Apply** — drives a real browser (Playwright) to open the job's Apply
    flow, upload the tailored resume, fill the form (including generic
    screening questions where possible), and submit — no human click needed.
-5. **Report** — logs every attempt (applied / failed / skipped-duplicate)
-   with a reason, so you can see it all in one place: an admin
-   dashboard reading from your own AWS account.
+   *(NOT built. The dashboard currently links you to the real job posting
+   to apply yourself.)*
+5. **Report** — logs every attempt (found / applied / failed / skipped-
+   duplicate) with a reason, categorized and filterable, in a login-
+   protected admin dashboard. *(Live — "applied" won't show real entries
+   until step 4 exists, everything else does.)*
 
 ## Current status
 
-**Admin dashboard is built and runnable.** Scraping, tailoring, and apply
-code don't exist yet — those are the next phases. See
-[TECHNICAL_PLAN.txt](TECHNICAL_PLAN.txt) for the phased build order; that
-file is the source of truth for "what's done and what's next" — read it
-first in any future session before writing code.
+**Search → tailor → dashboard is built, live, and running on real data.
+The actual "click apply" bot (LinkedIn/Indeed automation) is NOT built
+yet** — see the callout below. See [TECHNICAL_PLAN.txt](TECHNICAL_PLAN.txt)
+for the phased build order; that file is the source of truth for "what's
+done and what's next" — read it first in any future session before
+writing code.
+
+> ⚠️ **"Auto-apply" today means the pacing settings exist, not the apply
+> bot.** The Settings page has apply-delay/daily-cap fields with sensible
+> defaults, ready for when the apply engine (Phase 4-6) is built — but
+> nothing in this repo can currently log into LinkedIn/Indeed and submit
+> an application. The dashboard's "Open ↗" link takes you to the real
+> job posting to apply yourself for now.
 
 What works right now:
-- A FastAPI admin dashboard ([src/dashboard](src/dashboard)) — summary
-  counts + filterable table of applications (status/source/company/date).
+- **A working SimplyHired scraper** ([src/scrapers/simplyhired.py](src/scrapers/simplyhired.py))
+  covering 29 searches across the roles you asked for — WordPress,
+  WooCommerce, Shopify, Laravel, PHP, CodeIgniter, Python, Django, Flask,
+  MongoDB, React, Next.js, Vue, Angular, Node.js, backend/frontend/
+  full-stack/general developer & engineer titles at all seniority levels,
+  AI/ML, UI/UX (see [config/search_criteria.yaml](config/search_criteria.yaml)).
+- **Filtered to globally-remote, posted within the last 7 days**
+  ([src/common/location_filters.py](src/common/location_filters.py)) —
+  jobs restricted to one country ("Remote (US only)" etc.) are filtered
+  out by a text heuristic (best-effort, not perfect — see the module
+  docstring), and SimplyHired's relative date stamp ("7d", "20h") is
+  parsed into a real date to drop anything older than
+  `max_age_days` (config/search_criteria.yaml, default 7). A job whose
+  date couldn't be parsed is kept rather than guessed-and-dropped.
+- **Automatic skill tagging** ([src/common/skills.py](src/common/skills.py))
+  — each job's description is scanned for known tech keywords and shown
+  as tags on the dashboard, so you can see at a glance what's required.
+- **Tailored resume PDFs that actually reflect the job description**
+  ([src/tailoring/](src/tailoring/)) — two modes, auto-selected per job:
+  - **LLM-assisted** (when `ANTHROPIC_API_KEY` is set): Claude rewrites
+    your summary and bullet *phrasing* to mirror the job description's
+    language — same underlying facts, different emphasis/wording. A
+    guardrail rejects the result outright if the bullet count per job
+    doesn't exactly match the original, falling back to the safe mode
+    below rather than risk a wrong resume.
+  - **Deterministic fallback** (always available, and all that's run so
+    far — no key has been provided yet): skills reordered to put the
+    job's required skills first, nothing reworded.
+  Company names, titles, dates, and education are never touched in
+  either mode — see "Enabling Claude-assisted tailoring" below.
+- **The end-to-end pipeline** ([src/pipeline/ingest.py](src/pipeline/ingest.py))
+  that ties scraping → filtering → skill tagging → resume tailoring →
+  dashboard storage together in one run.
+- **A password-protected admin dashboard** ([src/dashboard](src/dashboard))
+  — login screen, summary stats, a jobs-by-category report, a paginated
+  and filterable table (status/source/company/date/category) with
+  posted-date, remote badges, skill tags, and a working tailored-resume
+  download link per job, plus a Settings page (local runs only — see
+  below) to edit search keywords, apply-delay defaults, and trigger a
+  manual scrape.
 - A storage layer ([src/storage](src/storage)) with two interchangeable
-  backends: a local JSON file (zero setup, seeded with sample data — what
-  you're looking at if you run it today) and a DynamoDB+S3 backend that
-  activates the moment `infra/aws` is deployed — no app code changes
-  needed, just `STORAGE_BACKEND=aws` in `.env`.
-- An AWS SAM template ([infra/aws/template.yaml](infra/aws/template.yaml))
-  that deploys the dashboard as a Lambda behind an HTTP API, plus the 2
-  DynamoDB tables and the private S3 bucket — all sized to stay in AWS's
-  free tier.
+  backends: local JSON (zero setup) and DynamoDB+S3 (real AWS) — same
+  code either way, switched with one env var.
+- **Deployed and live on AWS**, populated with real, filtered, current
+  scraped jobs: https://6rtyzoij61.execute-api.us-east-1.amazonaws.com/ —
+  login credentials are in `dashboard_login_credentials.txt`
+  (git-ignored, generated at deploy time — move it to a password manager
+  and delete the file).
 - Your resume, digitized into a structured, schema-validated
   `resume/master_resume.json` (git-ignored — it's your real name, email,
-  phone, and address). The docx-to-structured-data step is done; turning
-  it back into a downloadable tailored resume file (Phase 2) is next.
-- A working SimplyHired scraper ([src/scrapers/simplyhired.py](src/scrapers/simplyhired.py))
-  — searches by [config/search_criteria.yaml](config/search_criteria.yaml),
-  pulls the full job description for each result, and normalizes it into
-  a `Job` record. Selectors are pinned to SimplyHired's `data-testid`
-  attributes (verified against the live site, not guessed). No login
-  needed for this site, so it's the lowest-risk one to start with.
-- **The dashboard is deployed and live on AWS**:
-  https://6rtyzoij61.execute-api.us-east-1.amazonaws.com/ — currently
-  shows all zeros since nothing writes into DynamoDB yet.
-- 19 passing tests ([tests/](tests/)) — parsing/dashboard logic is tested
-  against fixtures/local data, so the suite runs fast and doesn't hit the
-  live site or AWS on every run.
+  phone, and address).
+- 61 passing tests ([tests/](tests/)).
 
-Not wired up yet: scraped jobs currently only land in a local JSON file
-(`data/found_jobs_simplyhired.json`, git-ignored) — they don't appear on
-the dashboard yet. That wiring (and Indeed/LinkedIn scrapers, and the
-tailoring engine) is next.
-
-### Run the scraper locally
+### Run the full pipeline locally (scrape → filter → tailor → save)
 
 ```bash
 pip install -r requirements-dev.txt
 playwright install chromium     # one-time browser download
-python -m src.scrapers.simplyhired
-# writes data/found_jobs_simplyhired.json
+python -m src.pipeline.ingest
+# takes a while (29 searches x anti-ban delays) - progress prints live,
+# and is also visible from the dashboard's Settings page while it runs
 ```
 
-### Run it locally right now
+To write straight into the live AWS tables instead of the local file,
+set `STORAGE_BACKEND=aws` plus the table/bucket env vars (see "Run the
+dashboard against real AWS data" below) before running this — the
+scraper itself still runs on your machine either way; only where the
+results are saved changes.
+
+### Enabling Claude-assisted resume tailoring
+
+By default, tailoring only reorders skills (deterministic, always safe).
+To have Claude also rewrite your summary and bullet *phrasing* to mirror
+each job description:
+
+1. Get an API key at [console.anthropic.com](https://console.anthropic.com/) (pay-as-you-go —
+   **this costs real money per job tailored**, roughly one API call per
+   new job found; keep that in mind before pointing it at a 29-search run).
+2. Set it before running the pipeline:
+   ```bash
+   $env:ANTHROPIC_API_KEY = "sk-ant-..."
+   python -m src.pipeline.ingest
+   ```
+3. That's it — [src/tailoring/engine.py](src/tailoring/engine.py) detects
+   the key automatically and switches modes per job. Nothing else changes:
+   same guardrail, same protected fields, same PDF output location.
+
+If the key is missing, invalid, or the API call fails for any reason, it
+silently falls back to the deterministic skill-reorder — a broken API
+call never blocks the pipeline or produces a broken resume.
+
+### Run the dashboard locally
 
 ```bash
 python -m venv .venv
 .venv/Scripts/activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
+$env:DASHBOARD_USERNAME="admin"; $env:DASHBOARD_PASSWORD="pick-something"; $env:SESSION_SECRET="pick-something-random"
 uvicorn src.dashboard.app:app --reload
-# open http://127.0.0.1:8000
+# open http://127.0.0.1:8000 and log in
 ```
 
-It'll boot with sample seed data (no AWS needed) so you can see exactly
-what the report will look like once real applications start flowing in.
+Running locally (not on Lambda) also enables the Settings page's "Scrape
+now" button and keyword editing — the same dashboard shown read-only on
+AWS becomes interactive here, since scraping is safe to run from your own
+IP but not from AWS (see "Where automation runs" below).
 
 ### Deploy the dashboard to AWS (free tier)
 
-**Already deployed and live:** https://6rtyzoij61.execute-api.us-east-1.amazonaws.com/
-(stack `job-automation-dashboard`, region `us-east-1`). It currently shows
-all zeros — expected, since no scraper writes into DynamoDB yet (see
-"Current status" above). To redeploy after a code change:
+**Already deployed and live, populated with real jobs:**
+https://6rtyzoij61.execute-api.us-east-1.amazonaws.com/ (stack
+`job-automation-dashboard`, region `us-east-1`) — log in with the
+credentials in `dashboard_login_credentials.txt`. To redeploy after a
+code change:
 
 ```bash
 cd infra/aws
 python prepare_lambda_src.py   # ALWAYS run this first — see why below
 sam build
-sam deploy
+sam deploy --stack-name job-automation-dashboard --resolve-s3 --capabilities CAPABILITY_IAM --region us-east-1 \
+  --parameter-overrides "DashboardUsername=admin" "DashboardPassword=<same-or-new-password>" "SessionSecret=<same-secret>"
 ```
+
+No `samconfig.toml` was saved (deploys so far used explicit flags, not
+`sam deploy --guided`), so **every** deploy needs the full
+`--parameter-overrides` — reuse the values from
+`dashboard_login_credentials.txt` to keep the same login, or pass a new
+`DashboardPassword` to rotate it (keep `SessionSecret` the same, or every
+existing session gets logged out).
 
 ⚠️ **Always run `prepare_lambda_src.py` before `sam build`.** The Lambda's
 `CodeUri` points at `infra/aws/.lambda_src/`, an explicitly allow-listed
@@ -155,55 +229,90 @@ Decisions locked in so far:
 | Hosting/storage | AWS Free Tier for storage/dashboard only (S3 + DynamoDB) — the browser automation itself runs locally, see below |
 | Where automation runs | **Locally, on your machine/home IP** — not AWS. LinkedIn/Indeed treat datacenter IPs (like EC2) as a red flag independent of timing, so the risky part stays on your own network. |
 
+> **Worth re-confirming before Phase 4/5 (the actual apply bot) gets
+> built:** the "Apply mode" row above was decided early on, but a later
+> session described wanting to click the job link and apply yourself
+> manually — which sounds more like the semi-auto option that was
+> originally considered and turned down. Don't assume either way; ask
+> before starting Phase 4.
+
 ## Architecture
 
 ```
                  ┌─────────────────┐
- search config → │   Scrapers       │  (LinkedIn / Indeed / SimplyHired,
-                 │ (Playwright)     │   Playwright, persisted login session)
+ search config → │   Scrapers       │  (SimplyHired live; LinkedIn/Indeed
+                 │ (Playwright)     │   not built yet — Phase 4/5)
                  └────────┬─────────┘
                           │ new job postings
                           ▼
                  ┌─────────────────┐
-                 │  Dedupe check    │──── already seen? → skip, log
-                 │ (DynamoDB)       │
+                 │  Dedupe check    │──── already seen? → skip
+                 │ (local/DynamoDB) │
                  └────────┬─────────┘
                           │ new job
                           ▼
                  ┌─────────────────┐
- master_resume   │ Tailoring Engine │  Claude API rewrites skills/bullets
- .json  ───────► │                  │  to mirror the JD's keywords
+                 │ Filters          │  globally-remote-only + posted-within-
+                 │ (location_filters│  N-days (src/common/location_filters.py,
+                 │  .py, posted_at) │  simplyhired.py:parse_date_stamp)
                  └────────┬─────────┘
-                          │ tailored resume (docx/pdf)
-                          ▼
-                 ┌─────────────────┐        ┌───────────────┐
-                 │  Apply Engine    │───────►│   AWS S3      │ tailored resume
-                 │ (Playwright)     │        │  (free tier)  │ + cover letter
-                 └────────┬─────────┘        └───────────────┘
-                          │ result: applied / failed / blocked
+                          │ passes filters
                           ▼
                  ┌─────────────────┐
-                 │   DynamoDB       │  full application log
+                 │ Skill tagging    │  matches JD text against a known
+                 │ (src/common/     │  tech-keyword list → tags shown
+                 │  skills.py)      │  on the dashboard
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐        ┌───────────────┐
+ master_resume   │ Tailoring Engine │───────►│ Claude API    │ (optional: rewrites
+ .json  ───────► │ (engine.py)      │◄───────│ ANTHROPIC_    │  summary/bullet
+                 │                  │ mode2  │ API_KEY)      │  phrasing; guardrail-
+                 └────────┬─────────┘        └───────────────┘  checked before use
+                          │ tailored resume PDF (reportlab;
+                          │ mode1 = skill-reorder only, always available)
+                          ▼
+                 ┌─────────────────┐        ┌───────────────┐
+                 │  save_application│───────►│   AWS S3      │ tailored PDF
+                 │  (ingest.py)     │        │  (free tier)  │
+                 └────────┬─────────┘        └───────────────┘
+                          │ Application(status=pending, ...)
+                          ▼
+                 ┌─────────────────┐
+                 │   DynamoDB       │  full job/application log
                  │  (free tier)     │
                  └────────┬─────────┘
                           │
                           ▼
                  ┌─────────────────┐
-                 │  Admin Dashboard │  what was applied, what failed & why,
-                 │  (small web app) │  filters by site/date/company
+                 │  Admin Dashboard │  login-gated; stats, category report,
+                 │  (FastAPI/Lambda)│  filters, skill tags, resume downloads
                  └─────────────────┘
+
+Not built yet: the box that would sit between "Admin Dashboard" (you click
+Apply) and the job site actually being applied to — see the ⚠️ callout
+above "Current status".
 ```
 
 ## Tech stack
 
-- **Python 3.11+** — scraping, automation, orchestration
-- **Playwright** — browser automation for search + apply flows
-- **Anthropic Claude API** — resume tailoring (skills reorder, bullet rewrite)
+- **Python 3.13** — scraping, automation, orchestration, the dashboard
+- **Playwright** — browser automation for search (SimplyHired live)
+- **BeautifulSoup** — HTML parsing (kept separate from Playwright so
+  parsing logic is unit-testable against fixtures, no live network needed)
+- **reportlab** — tailored resume PDF generation, pure Python, no system
+  deps
+- **FastAPI + Jinja2 + vanilla JS** — the dashboard, server-rendered with
+  light client-side filtering; **itsdangerous** for signed session
+  cookies (login)
 - **AWS Free Tier** — S3 (resume storage), DynamoDB (job/application log),
-  EC2 t2/t3.micro or a scheduled task (worker), API Gateway + Lambda or a
-  small FastAPI app (dashboard backend)
-- **Dashboard** — lightweight web UI reading DynamoDB (framework TBD in
-  Phase 6, see technical plan)
+  API Gateway + Lambda (dashboard, via **Mangum**'s ASGI adapter)
+- **AWS SAM** — infrastructure as code for the AWS resources above
+- **Anthropic Claude API** (`anthropic` SDK, model `claude-sonnet-5`) —
+  optional bullet-phrasing rewrite, active when `ANTHROPIC_API_KEY` is
+  set (see "Enabling Claude-assisted resume tailoring" above); not used
+  in any run so far since no key has been provided yet
 
 ## Repo layout
 
@@ -214,24 +323,37 @@ job-automation/
 ├── .gitignore / .samignore
 ├── requirements.txt / requirements-dev.txt
 ├── .env.example                # copy to .env, fill in your own keys — never commit .env
+├── config/
+│   ├── search_criteria.yaml    # 29 searches; remote_only + max_age_days filters ✅
+│   └── apply_settings.yaml     # apply-delay/cap defaults, scrape schedule      ✅
 ├── src/
 │   ├── common/
-│   │   └── job_schema.py       # Job / Application pydantic models   ✅ built
-│   ├── storage/
-│   │   ├── base.py             # ApplicationStore interface          ✅ built
-│   │   ├── local_store.py      # local JSON backend (no AWS needed)  ✅ built
-│   │   └── dynamo_store.py     # DynamoDB + S3 backend                ✅ built
-│   ├── dashboard/
-│   │   ├── app.py              # FastAPI app + Lambda handler        ✅ built
-│   │   └── templates/index.html
-│   ├── scrapers/                # linkedin.py, indeed.py, simplyhired.py   ⏳ Phase 1
-│   ├── tailoring/                # Claude-based rewrite engine              ⏳ Phase 2
-│   ├── apply/                     # per-site application submitters         ⏳ Phase 4-6
-│   └── scheduler/                  # run.py entrypoint                       ⏳ Phase 8
+│   │   ├── job_schema.py       # Job / Application models (+ posted_at)        ✅
+│   │   ├── resume_schema.py    # MasterResume model + PROTECTED_* guardrails    ✅
+│   │   ├── skills.py           # keyword-based required-skills tagging         ✅
+│   │   ├── location_filters.py # globally-remote-vs-restricted heuristic       ✅
+│   │   └── dedupe.py           # job_id hashing + local seen-jobs cache         ✅
+│   ├── storage/                # ApplicationStore: local JSON + DynamoDB/S3,    ✅
+│   │                            # both with real cursor pagination
+│   ├── scrapers/
+│   │   ├── base.py             # shared Playwright session + anti-ban delays    ✅
+│   │   └── simplyhired.py      # live, incl. parse_date_stamp()                ✅
+│   │                            # linkedin.py, indeed.py                       ⏳ Phase 4/5
+│   ├── tailoring/
+│   │   ├── pdf_renderer.py      # reportlab PDF, skill-reorder + LLM-content modes ✅
+│   │   ├── engine.py             # mode selection + LLM-result guardrail        ✅
+│   │   └── claude_client.py       # Anthropic wrapper (needs ANTHROPIC_API_KEY) ✅
+│   ├── pipeline/
+│   │   └── ingest.py            # scrape → filter → tag → tailor → save         ✅
+│   ├── apply/                    # per-site application submitters              ⏳ Phase 4-6
+│   └── dashboard/
+│       ├── app.py                # FastAPI app: auth, settings, pagination API ✅
+│       └── templates/            # base.html, login.html, settings.html, index.html ✅
 ├── infra/aws/
-│   └── template.yaml            # AWS SAM: DynamoDB + S3 + Lambda dashboard ✅ built
-├── resume/                      # master_resume.json + docx template        ⏳ Phase 0
-└── tests/                       # 9 passing                                 ✅
+│   ├── template.yaml             # AWS SAM: DynamoDB x2 + S3 + Lambda dashboard ✅
+│   └── prepare_lambda_src.py     # explicit allow-list staging - see its docstring ✅
+├── resume/                       # master_resume.json (git-ignored) + output/   ✅
+└── tests/                        # 61 passing                                  ✅
 ```
 
 ## Setup (Windows PowerShell)
@@ -241,40 +363,75 @@ cd D:\PROJECTS\job-automation
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-pytest -q                        # 19 tests should pass
+pytest -q                        # 61 tests should pass
 ```
 
-**Run the dashboard** (local sample data, no AWS needed):
+Then see "Run the full pipeline locally" and "Run the dashboard locally"
+above for how to actually use it — this section only covers install +
+tests. macOS/Linux: same commands, but `source .venv/bin/activate`
+instead of `.venv\Scripts\Activate.ps1`, and `export VAR=value` instead
+of `$env:VAR = "value"`.
+
+## Using the dashboard
+
+- **Login** — every page except `/healthz` requires signing in. On the
+  AWS deploy, credentials are in `dashboard_login_credentials.txt`
+  (git-ignored); locally, whatever you set `DASHBOARD_USERNAME`/
+  `DASHBOARD_PASSWORD` to.
+- **Dashboard (`/`)** — summary stat cards, a "jobs by category" report
+  (found vs. applied, with a share bar), and a paginated (25/page,
+  Prev/Next), filterable table (status, source, company, date) showing
+  each job's posted date, category, remote badge, required-skill tags,
+  and a resume download link.
+- **Resume downloads** — the "PDF ↓" link on each row works from either
+  storage backend: a presigned S3 URL on the AWS deploy, the local file
+  straight off disk when running locally.
+- **Settings (`/settings`)** — apply-delay min/max (defaults: 3-12
+  minutes), the scrape cron description, the current search keyword
+  list plus a form to add more, and a "Scrape now" button with a live
+  log. **Only active when running locally** — on the AWS deploy this
+  page is read-only with an explanation, since scraping must run from
+  your own IP (see "Where automation runs" above), not AWS.
+
+## Checking the AWS database directly
+
+The dashboard is the easiest way (it's reading the exact same data), but
+if you want to look at the raw DynamoDB tables:
+
+**Option A — AWS Console (no install needed):**
+1. Go to [console.aws.amazon.com/dynamodbv2](https://console.aws.amazon.com/dynamodbv2/) → make sure the region
+   selector (top right) says **US East (N. Virginia) us-east-1**.
+2. **Tables** in the left sidebar → click `job-automation-applications-prod`.
+3. **Explore table items** tab → browse, filter, or scan everything.
+4. `job-automation-jobs-prod` exists too but isn't currently written to —
+   all the real data is in `-applications-`.
+
+**Option B — AWS CLI** (already installed/configured on this machine):
 ```powershell
-uvicorn src.dashboard.app:app --reload
-# open http://127.0.0.1:8000
+aws dynamodb scan --table-name job-automation-applications-prod --region us-east-1 --max-items 10
 ```
+Add `--select COUNT` instead of browsing items if you just want a total
+count. S3's tailored PDFs: `aws s3 ls s3://job-automation-resumes-607581913131-prod/resumes/`.
 
-**Run the dashboard against real AWS data** (the live deployed tables —
-see "Deploy the dashboard to AWS" above for the URL) instead of local
-sample data:
-```powershell
-$env:STORAGE_BACKEND = "aws"
-$env:AWS_REGION = "us-east-1"
-$env:DYNAMODB_JOBS_TABLE = "job-automation-jobs-prod"
-$env:DYNAMODB_APPLICATIONS_TABLE = "job-automation-applications-prod"
-$env:S3_BUCKET_NAME = "job-automation-resumes-607581913131-prod"
-uvicorn src.dashboard.app:app --reload
-```
-(Or copy `.env.example` to `.env` with the same values and a tool like
-`python-dotenv` picks it up — either works.) It'll show all zeros right
-now since nothing writes into DynamoDB yet.
+## Can LinkedIn/Indeed/SimplyHired's own APIs be used to apply instead of browser automation?
 
-**Run the job scraper** (SimplyHired, no login needed):
-```powershell
-playwright install chromium      # one-time browser download, ~115 MB
-python -m src.scrapers.simplyhired
-# writes data\found_jobs_simplyhired.json — doesn't touch the dashboard yet
-```
+Short answer: **no, not for this** — asked and checked directly (2026-09-08):
 
-macOS/Linux: same commands, but `source .venv/bin/activate` instead of
-`.venv\Scripts\Activate.ps1`, and `export VAR=value` instead of
-`$env:VAR = "value"`.
+- **LinkedIn**: their Talent Solutions APIs are B2B/employer-partner-only
+  (job posting, ATS integrations), require a formal partnership
+  application, and explicitly prohibit exactly this use case — automating
+  applications on behalf of an individual job seeker.
+- **Indeed**: has a publisher API, but it's for *syndicating job listings
+  to a website* (read-only search), not for submitting applications as a
+  candidate. No public apply API exists.
+- **SimplyHired**: no public API of any kind for third parties.
+
+There's no official, sanctioned path to auto-apply across these
+platforms as an individual — browser automation (Playwright), with the
+anti-ban pacing already designed into this repo (see "Safety limits"
+below), remains the only technical option, and it's inherently
+ToS-violating regardless of how carefully it's built. That's unchanged
+from the original plan; Phase 4-6 (not built yet) is still the path.
 
 ## Safety limits (planned, see TECHNICAL_PLAN.txt section 6 for full detail)
 

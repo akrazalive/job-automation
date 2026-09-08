@@ -95,7 +95,102 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         exactly as transcribed since changing dates requires your
         confirmation, not an assumption. Ask the user before Phase 2
         ships a tailored resume using this date.
-[ ] Everything else below — Phase 1-6 and the rest of Phase 7/8.
+[x] Second pass, same day (2026-09-08) — dashboard fully wired to real
+    data, resume tailoring (deterministic half), settings, auth, and a
+    second live redeploy. Full detail under each Phase's entry below
+    (Phase 1's ingest-pipeline note, Phase 2, Phase 7's "UPDATE" block).
+    Summary: config/search_criteria.yaml expanded to 25 searches across
+    the requested keyword list; src/common/skills.py tags required
+    skills; src/pipeline/ingest.py ties scrape -> tag -> tailor -> store
+    together; src/tailoring/{pdf_renderer,engine}.py generate real
+    tailored PDFs (skill-reorder only, per the section 0 decision);
+    dashboard gained a login screen, a Settings page (local-only
+    actions), category/skills/remote columns, and a working resume
+    download link; redeployed live with the new auth env vars.
+[x] Third pass, same day (2026-09-08) — LLM tailoring, filters, pagination,
+    new keywords, redeploy. Built:
+      - src/tailoring/claude_client.py — Anthropic Claude wrapper (model
+        claude-sonnet-5, tool-use for structured output). Rewrites summary
+        + bullet PHRASING only. Auto-activates when ANTHROPIC_API_KEY is
+        set; src/tailoring/engine.py falls back to deterministic
+        skill-reorder when it isn't (not set as of this session — no key
+        provided, so all tailoring done so far is still skill-reorder
+        only; verify with a live job once a key is added).
+      - GUARDRAIL (engine.py:_validate_llm_content): rejects the LLM
+        result outright if experience-entry count or per-entry bullet
+        count doesn't exactly match the original, or summary is empty/
+        non-string bullets — falls back to deterministic on any mismatch.
+        Company/title/dates/education are never sent to Claude at all
+        (not just "asked not to change") - no code path exists where they
+        could come back altered. pdf_renderer.py additionally raises
+        ValueError if tailored_experience_bullets length ever mismatches
+        resume.experience length, as defense in depth.
+      - src/common/skills.py: added "Flask" (Django/Python/MongoDB were
+        already present). config/search_criteria.yaml: added Python
+        Developer, Django Developer, Flask Developer, MongoDB Developer
+        (category backend) — 25 -> 29 searches total.
+      - src/scrapers/simplyhired.py: parse_date_stamp() parses
+        SimplyHired's compact relative date stamp ("7d", "20h" — verified
+        format against live site) into an absolute UTC datetime;
+        Job.posted_at populated from it. Unparseable/missing -> None
+        (kept, not dropped — see next item).
+      - src/common/location_filters.py: is_globally_remote() — best-effort
+        text-heuristic filter for "remote, no country restriction" vs.
+        "remote (US only)" etc. Documented limitation: phrasing not in
+        RESTRICTION_PATTERNS slips through uncaught.
+      - config/apply_settings.yaml-adjacent new search_criteria.yaml keys:
+        remote_only (default true), max_age_days (default 7). ingest.py
+        applies both: skips non-globally-remote jobs, skips jobs whose
+        posted_at is older than max_age_days — but KEEPS jobs with an
+        unparseable/missing date rather than guessing they're old.
+      - Application schema gained posted_at (datetime | null).
+      - Pagination: local_store.py now does real offset-based cursor
+        paging (cursor = str(offset), was previously always None/whole-
+        list). Dashboard page size dropped from 200 to 25;
+        index.html/app.py gained Prev/Next controls with a client-side
+        cursor stack. DynamoStore's cursor (job_id via LastEvaluatedKey)
+        was already real, unchanged.
+      - Dashboard table gained a Posted column.
+      - 21 new tests (61 total) covering: date-stamp parsing, remote-
+        restriction heuristic, the LLM guardrail (mocked, no real API
+        calls in the test suite), pdf_renderer's tailored-content path +
+        its ValueError on mismatch, and pagination (cursor math, "no more
+        pages" case).
+      - Verified live: ran the updated pipeline against a throwaway
+        1-search test config first (caught a real restricted "Remote"
+        listing correctly filtered out, confirmed posted_at populated/
+        None-when-unparseable) before trusting it with the real 29-search
+        config again.
+      - Redeployed Lambda with the updated dashboard code (same
+        prepare_lambda_src.py allow-list process, verified clean again
+        before deploy).
+      - Cleared all 130 stale pre-filter items from the live
+        job-automation-applications-prod table (scan + batch_writer
+        delete via boto3) and re-ran the full 29-search pipeline against
+        AWS from scratch, since the old records predated the remote/age
+        filters and posted_at field. NOTE: this also wiped
+        data/seen_jobs.json's dedupe history as a side effect of testing
+        with a throwaway config — the third-pass full run therefore
+        re-fetched everything rather than only the 4 new keyword
+        categories. Check STATUS section 1's next entry (or search this
+        file for "third-pass ingest run result") for the final numbers -
+        add them here once the background run this session finishes.
+      - NOT done: S3 orphan cleanup (old resume PDFs from the deleted
+        DynamoDB rows are still sitting in the bucket, harmless/cheap but
+        untidy - low priority).
+[ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
+    — NOT STARTED. See the flag at the top of Phase 4 below; don't
+    mistake the apply-delay SETTINGS existing for the apply ENGINE
+    existing. User asked (2026-09-08) whether LinkedIn/Indeed/SimplyHired
+    official APIs could be used to apply instead of browser automation —
+    answered no (see chat: none of the three offer a candidate-facing
+    "search and apply" API; LinkedIn's Talent Solutions APIs are
+    B2B/employer-partner-only and explicitly prohibit this use case,
+    Indeed's publisher API is job-listing syndication only, SimplyHired
+    has no public API at all). Playwright automation remains the only
+    technical path, unchanged from the original Phase 4-6 plan.
+[ ] Phase 0's docx template renderer, Phase 8's scheduling/circuit
+    breaker, and everything else not called out as done above.
 
 ------------------------------------------------------------
 2. HIGH-LEVEL ARCHITECTURE
@@ -204,24 +299,40 @@ PHASE 1 — Job schema + first scraper  [DONE except live-run verification
     restriction lifted (cdn.playwright.dev wasn't on the default
     egress allowlist) — if a future session hits the same DNS failure
     installing Playwright browsers, that's why.
-  - NOT built yet: writing scraped Jobs into the DynamoStore/S3 (Phase 3
-    needs to exist first) or into the dashboard's ApplicationStore at all
-    — right now search results only land in data/found_jobs_simplyhired.json,
-    they don't yet appear on the dashboard. Wiring that up (Job ->
-    Application with status=pending, feeding LocalJsonStore or
-    DynamoStore) is a good next increment once a live run is confirmed.
+  - DONE (2026-09-08): scraper output now reaches the dashboard — see
+    src/pipeline/ingest.py (Phase 2/7 work). config/search_criteria.yaml
+    expanded from 2 to 25 searches covering the full keyword list
+    requested that session (CMS/e-commerce, PHP stack, JS frameworks,
+    backend/full-stack/general titles at all seniority levels, AI/ML,
+    design). src/common/skills.py tags each job's required_skills by
+    matching its description against a curated keyword list.
+    src/scrapers/simplyhired.py itself (the search+detail-page scraping)
+    is unchanged from this section's original DONE state above.
 
-PHASE 2 — Resume tailoring engine
-  - src/tailoring/claude_client.py: wraps Anthropic API calls.
-  - src/tailoring/engine.py: given master_resume.json + a Job's JD text,
-    ask Claude to (a) extract key skills/keywords from the JD, (b) return
-    a reordered skills list, (c) return rewritten bullet text for
-    existing bullets ONLY (same underlying achievement, JD-mirrored
-    phrasing) — as structured JSON, never touching company/title/dates.
-  - Render the result through resume_template.docx to produce the
-    tailored .docx/.pdf for that job.
-  - Add a guardrail check: diff tailored vs master resume and hard-fail
-    if company names, job titles, dates, or education changed.
+PHASE 2 — Resume tailoring engine  [DETERMINISTIC HALF DONE, 2026-09-08]
+  - DONE: src/tailoring/pdf_renderer.py — reportlab-based PDF renderer.
+    Given master_resume.json + a job's required_skills (from
+    src/common/skills.py), reorders each skill category to put matching
+    skills first. Company/title/dates/bullet text copied through
+    unchanged — this IS the guardrail (there's no code path that can
+    rewrite them, not a diff-check bolted on after).
+  - DONE: src/tailoring/engine.py — tailor_resume_for_job(job_id,
+    required_skills) renders the PDF, always saves it locally to
+    resume/output/<job_id>.pdf, and additionally uploads to S3
+    (resumes/<job_id>.pdf) when STORAGE_BACKEND=aws.
+  - DONE: wired into src/pipeline/ingest.py — every newly-scraped job
+    gets a tailored PDF automatically, resume_s3_key attached to its
+    Application record, downloadable from the dashboard.
+  - NOT built: the LLM-based half — using Claude to rewrite bullet
+    PHRASING (not the underlying facts) to mirror a JD's language, per
+    the original locked-in decision in section 0. The reorder-only
+    version above is what's live; bullet-phrasing rewrite remains a
+    clearly-scoped future addition, not started. Needs
+    ANTHROPIC_API_KEY wiring + the diff-guardrail described in the
+    original version of this section if it's built.
+  - NOT built: resume_template.docx / .docx output — PDF only for now.
+    docx generation is possible to add later (docxtpl) if a job's ATS
+    specifically wants .docx, not needed yet.
 
 PHASE 3 — AWS free-tier storage
   - Decide IaC tool (recommend AWS CDK in Python, keeps everything in one
@@ -246,7 +357,16 @@ PHASE 3 — AWS free-tier storage
     on the one bucket, DynamoDB read/write on the two tables only) — never
     use root AWS credentials in .env.
 
-PHASE 4 — LinkedIn scraper + Easy Apply automation
+PHASE 4 — LinkedIn scraper + Easy Apply automation  [STILL NOT STARTED]
+  - Explicitly flagged 2026-09-08: the user asked for "auto apply" pacing
+    settings (apply_delay min/max, daily caps — see config/apply_settings.yaml
+    and the dashboard's Settings page), and those ARE built with sensible
+    defaults. But the actual apply BOT — logging into LinkedIn/Indeed,
+    finding the Easy Apply / Apply button, filling the form, submitting —
+    does not exist yet. Nothing in this repo can apply to a job for the
+    user today; the "Apply" links on the dashboard open the real job
+    posting for the user to apply manually. Don't let the settings
+    existing be mistaken for the engine existing.
   - Playwright login flow, persist storage_state.json (git-ignored) so we
     don't re-login every run — repeated fresh logins are a major ban
     trigger.
@@ -312,11 +432,58 @@ PHASE 7 — Admin dashboard  [DEPLOYED AND LIVE, 2026-09-08]
     may still be sitting in the repo folder on disk; recommend the user
     delete it now that `aws configure` has the values persisted in
     ~/.aws/credentials.
+  - UPDATE 2026-09-08 (same day, second pass) — auth + settings +
+    reporting added, redeployed:
+      - Login screen added (src/dashboard/templates/login.html) — signed
+        session cookie (itsdangerous), single admin user, credentials via
+        DASHBOARD_USERNAME/DASHBOARD_PASSWORD/SESSION_SECRET env vars
+        (SAM parameters, NoEcho). Every route except /login and /healthz
+        requires it — the "anyone with the URL can view it" gap noted
+        above is now closed.
+      - Real random credentials generated for this deploy and saved to
+        dashboard_login_credentials.txt (git-ignored — added that
+        pattern to .gitignore the moment the file was created, same
+        lesson as the earlier accessKeys.csv incident). User should move
+        this to a password manager and can delete the file after.
+      - Settings page (src/dashboard/templates/settings.html) — edits
+        config/apply_settings.yaml (apply-delay min/max, scrape cron
+        description) and config/search_criteria.yaml (add a search),
+        plus a "Scrape now" button. ALL of this is gated behind
+        LOCAL_ACTIONS_ENABLED (auto-detected: true unless
+        AWS_LAMBDA_FUNCTION_NAME is set) — on the AWS-hosted dashboard
+        these show a disabled state with an explanation instead of
+        silently no-op'ing or (worse) trying to scrape from Lambda's
+        datacenter IP. Verified live: the deployed URL's /settings shows
+        the disabled banner correctly.
+      - Dashboard table extended: category, remote badge, required-skills
+        tags, and a working resume download link
+        (/api/applications/{job_id}/resume — redirects to a presigned S3
+        URL on the AWS backend, serves the local PDF directly on the
+        local backend). Added a category-breakdown "Jobs by category"
+        report above the table.
+      - Green-based color palette applied via templates/base.html's CSS
+        tokens (light+dark aware); status badge colors (red/amber/gray/
+        teal) deliberately kept distinct from the brand green for
+        at-a-glance meaning.
+      - Redeployed: same stack, same URL, new Lambda code + the 3 new
+        NoEcho parameters. Verified live: unauth redirect, wrong-password
+        rejection, correct login, authenticated dashboard/settings all
+        return the right thing against the real URL.
+      - Ran src/pipeline/ingest.py locally against the LIVE AWS backend
+        (STORAGE_BACKEND=aws) to populate real data. This is what "please
+        do the deployment thing... database thing... files uploading
+        thing" resolved to. FINAL RESULT (2026-09-08, all 25 searches
+        completed): 183 jobs found, 130 new, all with tailored PDFs
+        uploaded to S3 and Application records (status=pending) in
+        DynamoDB. Category breakdown: frontend 28, fullstack 27, cms 21,
+        php 17, ai_ml 13, general 8, design 8, backend 8. Verified via
+        the live /api/summary and /api/categories endpoints, and 130
+        matching PDFs confirmed in local resume/output/.
   - REMAINING (nice-to-have, not blocking): S3 GSI/Query instead of Scan
     if the Applications table ever grows large (see dynamo_store.py
-    comment); basic auth/IP allowlist on the dashboard before it's judged
-    "done" — right now anyone with the URL can view it, which is fine
-    for solo use but worth a look before wide use.
+    comment). Login is single-user/no-password-reset-UI — changing the
+    password means redeploying with a new --parameter-overrides value,
+    documented in README, not a settings-page toggle.
 
 PHASE 8 — Safety hardening & scheduling
   - Daily application cap per site (config value, e.g. 15/day/site).
@@ -432,24 +599,37 @@ each:
 7. NEXT STEPS (update this each session — this is what "resume from
    here" means)
 ------------------------------------------------------------
-NEXT (as of 2026-09-08): Phase 0's master_resume.json is done. Ask the
-user first whether the Artistry Epoxy end-date is right (see STATUS
-section 1 flag) before it appears in any tailored output. Then either:
+NEXT (as of 2026-09-08, end of second pass): everything through "dashboard
+shows real data end to end" is done and live. Remaining work, roughly in
+order of what the user is likely to ask for next:
 
-  A) Deploy what's built: install AWS CLI + SAM CLI, `aws configure`,
-     then `cd infra/aws && sam build && sam deploy --guided`. Confirm the
-     live dashboard URL loads (it'll show empty — no DynamoDB data yet).
+  A) Phase 4 — LinkedIn apply automation. This is the big one still
+     missing and the most likely next ask, given the user's "auto apply"
+     framing this session. Needs: LinkedIn credentials (from the user),
+     a Playwright login flow with persisted storage_state.json, Easy
+     Apply form-filling, and real testing against the live site — expect
+     this to take real back-and-forth, not a single pass. Read section 6
+     in full before starting; do not skip the pacing/circuit-breaker
+     pieces to move faster.
+  B) Same for Indeed (Phase 5) and SimplyHired (Phase 6) — SimplyHired's
+     "Apply" button is confirmed (2026-09-08) to be an outbound redirect
+     to an external ATS in most cases, so that one likely ends up mostly
+     "open the link for the user" rather than a full auto-submit anyway.
+  C) LLM-based bullet-phrasing tailoring (the other half of Phase 2) —
+     wire up ANTHROPIC_API_KEY, rewrite bullet phrasing (not facts) to
+     mirror each JD, with the diff-guardrail described in Phase 2's
+     original spec. The deterministic skill-reorder half is already live.
+  D) Windows Task Scheduler wiring so src/pipeline/ingest.py actually
+     runs on the cron schedule configured in config/apply_settings.yaml,
+     instead of being manually triggered — currently nothing runs it
+     automatically.
+  E) Nice-to-haves noted inline where they came up: DynamoDB GSI if the
+     Applications table grows large, a way to change the dashboard
+     password without a redeploy.
 
-  B) Start Phase 1: the first job scraper (SimplyHired or Indeed,
-     Playwright-based) — needed before there's any real data to tailor
-     resumes against or show on the dashboard.
-
-  C) Finish Phase 0: build resume/templates/resume_template.docx
-     (docxtpl) so master_resume.json can round-trip back into an actual
-     .docx file — needed before Phase 2 (tailoring engine) can produce a
-     real tailored resume file, not just tailored JSON.
-
-Recommend B next — it's the biggest unblock (feeds both the dashboard and
-Phase 2), and A has no
-new data to show until a scraper exists to feed it — but ask the user
-which they'd rather see move first.
+Before A/B: confirm with the user whether they still want FULL-AUTO
+submit (the section 0 decision) now that they've seen the "open the link
+myself" manual-apply flow in the dashboard — their phrasing this session
+("using the job link I can do apply myself manually") may mean they'd
+actually prefer starting with the safer semi-auto option after all. Don't
+assume; ask.

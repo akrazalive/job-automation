@@ -3,6 +3,8 @@ fastapi>=0.115
 uvicorn[standard]>=0.32
 jinja2>=3.1
 python-dotenv>=1.0
+python-multipart>=0.0.12   # login/settings form parsing
+itsdangerous>=2.2          # signed session cookies (dashboard auth)
 
 # AWS Lambda ASGI adapter (used only when deployed; harmless locally)
 mangum>=0.19
@@ -17,3 +19,9 @@ pydantic>=2.9
 playwright>=1.47
 beautifulsoup4>=4.12
 pyyaml>=6.0
+
+# Resume tailoring (Phase 2) - PDF generation, pure Python, no system deps
+reportlab>=4.2
+# LLM-assisted bullet-phrasing rewrite - only used when ANTHROPIC_API_KEY
+# is set; deterministic skill-reorder tailoring works without it.
+anthropic>=0.39

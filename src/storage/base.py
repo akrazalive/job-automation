@@ -49,3 +49,15 @@ class ApplicationStore(ABC):
     def get_resume_url(self, job_id: str) -> Optional[str]:
         """A link to the tailored resume used for this application (a
         presigned S3 URL in the AWS backend), or None if unavailable."""
+
+    @abstractmethod
+    def save_application(self, application: Application) -> None:
+        """Create or update (upsert by job_id) one application record.
+        Called by the ingest pipeline (src/pipeline/ingest.py) after a
+        job is scraped and its resume tailored."""
+
+    @abstractmethod
+    def get_category_breakdown(self) -> dict:
+        """Counts per category (config/search_criteria.yaml `category`
+        field), e.g. {"frontend": {"total": 12, "applied": 3, ...}, ...}.
+        Jobs with no category land under "Uncategorized"."""

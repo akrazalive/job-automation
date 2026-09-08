@@ -97,3 +97,24 @@ class DynamoStore(ApplicationStore):
             Params={"Bucket": self.bucket, "Key": key},
             ExpiresIn=300,
         )
+
+    def save_application(self, application: Application) -> None:
+        import json
+
+        item = json.loads(application.model_dump_json())
+        self.applications_table.put_item(Item=item)
+
+    def get_category_breakdown(self) -> dict:
+        # Same hobby-scale Scan caveat as list_applications/get_summary.
+        response = self.applications_table.scan(
+            ProjectionExpression="category, #s",
+            ExpressionAttributeNames={"#s": "status"},
+        )
+        items = response.get("Items", [])
+        breakdown: dict = {}
+        for i in items:
+            cat = i.get("category") or "Uncategorized"
+            bucket = breakdown.setdefault(cat, {"total": 0})
+            bucket["total"] += 1
+            bucket[i["status"]] = bucket.get(i["status"], 0) + 1
+        return breakdown

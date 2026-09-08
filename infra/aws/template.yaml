@@ -21,6 +21,18 @@ Parameters:
     Type: String
     Default: prod
     Description: Deployment stage, used to namespace resource names.
+  DashboardUsername:
+    Type: String
+    Default: admin
+    Description: Login username for the dashboard.
+  DashboardPassword:
+    Type: String
+    NoEcho: true
+    Description: Login password for the dashboard - required, no default. Pass via --parameter-overrides, never commit it.
+  SessionSecret:
+    Type: String
+    NoEcho: true
+    Description: Random secret used to sign session cookies - required, no default. Pass via --parameter-overrides, never commit it.
 
 Resources:
   JobsTable:
@@ -90,6 +102,9 @@ Resources:
           DYNAMODB_JOBS_TABLE: !Ref JobsTable
           DYNAMODB_APPLICATIONS_TABLE: !Ref ApplicationsTable
           S3_BUCKET_NAME: !Ref ResumeBucket
+          DASHBOARD_USERNAME: !Ref DashboardUsername
+          DASHBOARD_PASSWORD: !Ref DashboardPassword
+          SESSION_SECRET: !Ref SessionSecret
       Policies:
         # Read-only: the dashboard displays results, it never writes.
         # The local apply engine writes via its own separately-issued

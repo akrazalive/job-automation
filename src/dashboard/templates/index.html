@@ -1,81 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Job Automation — Admin Dashboard</title>
+{% extends "base.html" %}
+{% block title %}Dashboard — Job Automation{% endblock %}
+{% block head %}
 <style>
-  :root {
-    --bg: #f7f7f8; --panel: #ffffff; --text: #1a1a1a; --muted: #6b7280;
-    --border: #e5e7eb; --accent: #2563eb;
-    --applied: #16a34a; --failed: #dc2626; --blocked: #d97706;
-    --skipped: #6b7280; --pending: #2563eb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115; --panel: #171a21; --text: #e6e6e6; --muted: #9ca3af;
-      --border: #2a2e37;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  header { padding: 24px 32px 8px; }
   h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  .sub { color: var(--muted); font-size: .85rem; }
-  .summary { display: flex; gap: 12px; padding: 16px 32px; flex-wrap: wrap; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 18px; min-width: 110px;
-  }
-  .card .n { font-size: 1.6rem; font-weight: 700; }
-  .card .l {
-    color: var(--muted); font-size: .72rem; text-transform: uppercase;
-    letter-spacing: .04em;
-  }
-  .filters {
-    display: flex; gap: 10px; padding: 8px 32px 16px; flex-wrap: wrap;
-    align-items: end;
-  }
-  .filters label {
-    display: block; font-size: .7rem; color: var(--muted); margin-bottom: 4px;
-    text-transform: uppercase; letter-spacing: .03em;
-  }
-  .filters select, .filters input, .filters button {
-    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel); color: var(--text); font-size: .85rem;
-  }
-  .filters button { cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent); }
-  .filters button:hover { opacity: .9; }
-  table { width: 100%; border-collapse: collapse; }
-  .table-wrap { padding: 0 32px 32px; overflow-x: auto; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .85rem; white-space: nowrap; }
-  th { color: var(--muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
-  td.wrap { white-space: normal; max-width: 360px; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; color: #fff; }
-  .badge.applied { background: var(--applied); }
-  .badge.failed { background: var(--failed); }
-  .badge.blocked { background: var(--blocked); }
-  .badge.skipped_duplicate { background: var(--skipped); }
-  .badge.pending { background: var(--pending); }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+  .summary { display: flex; gap: 12px; padding: 0 0 18px; flex-wrap: wrap; }
+  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; min-width: 110px; box-shadow: var(--shadow); }
+  .stat-card .n { font-size: 1.6rem; font-weight: 700; }
+  .stat-card .l { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+  .reports { margin-bottom: 20px; }
+  .reports table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  .reports th, .reports td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .reports th { color: var(--muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; }
+  .bar-wrap { background: var(--border); border-radius: 4px; height: 6px; width: 100%; overflow: hidden; }
+  .bar-fill { background: var(--accent); height: 100%; }
+  .filters { display: flex; gap: 10px; padding: 4px 0 16px; flex-wrap: wrap; align-items: end; }
+  table#app-table { width: 100%; border-collapse: collapse; }
+  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.wrap { white-space: normal; max-width: 280px; }
+  .remote-pill { font-size: .68rem; color: var(--accent-dark); font-weight: 700; }
   .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
+  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 4px; justify-content: flex-end; }
+  .pagination .page-info { font-size: .8rem; color: var(--muted); }
 </style>
-</head>
-<body>
-<header>
-  <h1>Job Automation — Admin Dashboard</h1>
-  <div class="sub">What the agent applied to, what failed, and why.</div>
-</header>
+{% endblock %}
+{% block content %}
+<h1>Admin Dashboard</h1>
+<div class="sub">What the agent found and applied to, what failed, and why.</div>
 
 <div class="summary" id="summary-cards">
-  {% for key, label in [("total","Total"), ("applied","Applied"), ("failed","Failed"), ("blocked","Blocked"), ("skipped_duplicate","Skipped (dup)"), ("pending","Pending")] %}
-  <div class="card"><div class="n">{{ summary.get(key, 0) }}</div><div class="l">{{ label }}</div></div>
+  {% for key, label in [("total","Total"), ("pending","Pending"), ("applied","Applied"), ("failed","Failed"), ("blocked","Blocked"), ("skipped_duplicate","Skipped (dup)")] %}
+  <div class="stat-card"><div class="n">{{ summary.get(key, 0) }}</div><div class="l">{{ label }}</div></div>
   {% endfor %}
 </div>
+
+{% if categories %}
+<div class="card reports" style="padding: 16px 20px;">
+  <h2 style="margin:0 0 10px;font-size:1rem;">Jobs by category</h2>
+  <table>
+    <tr><th>Category</th><th>Found</th><th>Applied</th><th style="width:35%;">Share</th></tr>
+    {% set max_total = categories.values() | map(attribute='total') | max %}
+    {% for cat, counts in categories.items() | sort(attribute='1.total', reverse=True) %}
+    <tr>
+      <td>{{ cat }}</td>
+      <td>{{ counts.total }}</td>
+      <td>{{ counts.get('applied', 0) }}</td>
+      <td><div class="bar-wrap"><div class="bar-fill" style="width:{{ (counts.total / max_total * 100) | round(0, 'floor') }}%;"></div></div></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
 
 <div class="filters">
   <div>
@@ -95,34 +72,52 @@
   <div><label>Company</label><input id="f-company" type="text" placeholder="e.g. Acme"></div>
   <div><label>From</label><input id="f-from" type="date"></div>
   <div><label>To</label><input id="f-to" type="date"></div>
-  <div><button id="f-apply">Apply filters</button></div>
+  <div><button class="btn" id="f-apply">Apply filters</button></div>
 </div>
 
 <div class="table-wrap">
   <table id="app-table">
     <thead>
-      <tr><th>Updated</th><th>Source</th><th>Company</th><th>Title</th><th>Status</th><th>Reason</th><th>Link</th></tr>
+      <tr>
+        <th>Updated</th><th>Posted</th><th>Source</th><th>Company</th><th>Title</th><th>Category</th>
+        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Job</th><th>Resume</th>
+      </tr>
     </thead>
     <tbody id="app-tbody">
       {% for a in applications %}
       <tr>
         <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ a.posted_at.strftime("%Y-%m-%d") if a.posted_at else "—" }}</td>
         <td>{{ a.source.value }}</td>
         <td>{{ a.company }}</td>
         <td class="wrap">{{ a.title }}</td>
+        <td>{{ a.category or "—" }}</td>
+        <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="wrap">{% for sk in a.required_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
         <td><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
         <td class="wrap">{{ a.reason or "" }}</td>
-        <td><a href="{{ a.url }}" target="_blank" rel="noopener">view</a></td>
+        <td><a href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a></td>
+        <td><a href="/api/applications/{{ a.job_id }}/resume" target="_blank" rel="noopener">PDF ↓</a></td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="empty">No applications yet.</td></tr>
+      <tr><td colspan="12" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
       {% endfor %}
     </tbody>
   </table>
+  <div class="pagination">
+    <span class="page-info" id="page-info">Page 1</span>
+    <button class="btn secondary" id="page-prev" disabled>&larr; Prev</button>
+    <button class="btn secondary" id="page-next" {{ 'disabled' if not next_cursor }}>Next &rarr;</button>
+  </div>
 </div>
 
 <script>
-async function loadApplications() {
+const PAGE_SIZE = {{ page_size }};
+let cursorStack = [null];   // cursorStack[pageIndex] = cursor used to FETCH that page
+let currentPage = 0;
+let nextCursor = {{ (next_cursor | tojson) if next_cursor else 'null' }};
+
+function currentFilters() {
   const params = new URLSearchParams();
   const status = document.getElementById('f-status').value;
   const source = document.getElementById('f-source').value;
@@ -134,6 +129,13 @@ async function loadApplications() {
   if (company) params.set('company', company);
   if (from) params.set('date_from', from);
   if (to) params.set('date_to', to);
+  params.set('limit', PAGE_SIZE);
+  return params;
+}
+
+async function loadPage(cursor) {
+  const params = currentFilters();
+  if (cursor) params.set('cursor', cursor);
 
   const [appsRes, summaryRes] = await Promise.all([
     fetch('/api/applications?' + params.toString()),
@@ -143,31 +145,63 @@ async function loadApplications() {
   const summary = await summaryRes.json();
   renderTable(apps.items);
   renderSummary(summary);
+  nextCursor = apps.next_cursor;
+  updatePaginationControls();
 }
+
+function updatePaginationControls() {
+  document.getElementById('page-info').textContent = `Page ${currentPage + 1}`;
+  document.getElementById('page-prev').disabled = currentPage === 0;
+  document.getElementById('page-next').disabled = !nextCursor;
+}
+
+async function resetAndLoad() {
+  cursorStack = [null];
+  currentPage = 0;
+  await loadPage(null);
+}
+
+document.getElementById('page-next').addEventListener('click', async () => {
+  if (!nextCursor) return;
+  cursorStack.push(nextCursor);
+  currentPage += 1;
+  await loadPage(cursorStack[currentPage]);
+});
+
+document.getElementById('page-prev').addEventListener('click', async () => {
+  if (currentPage === 0) return;
+  currentPage -= 1;
+  await loadPage(cursorStack[currentPage]);
+});
 
 function renderTable(items) {
   const tbody = document.getElementById('app-tbody');
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching applications.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">No matching applications.</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(a => `
     <tr>
       <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
+      <td>${a.posted_at ? a.posted_at.slice(0, 10) : '—'}</td>
       <td>${a.source}</td>
       <td>${escapeHtml(a.company)}</td>
       <td class="wrap">${escapeHtml(a.title)}</td>
+      <td>${escapeHtml(a.category || '—')}</td>
+      <td>${a.is_remote ? '<span class="remote-pill">REMOTE</span>' : '<span class="muted">—</span>'}</td>
+      <td class="wrap">${(a.required_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</td>
       <td><span class="badge ${a.status}">${a.status}</span></td>
       <td class="wrap">${escapeHtml(a.reason || '')}</td>
-      <td><a href="${a.url}" target="_blank" rel="noopener">view</a></td>
+      <td><a href="${a.url}" target="_blank" rel="noopener">Open ↗</a></td>
+      <td><a href="/api/applications/${a.job_id}/resume" target="_blank" rel="noopener">PDF ↓</a></td>
     </tr>
   `).join('');
 }
 
 function renderSummary(summary) {
-  const labels = [["total","Total"],["applied","Applied"],["failed","Failed"],["blocked","Blocked"],["skipped_duplicate","Skipped (dup)"],["pending","Pending"]];
+  const labels = [["total","Total"],["pending","Pending"],["applied","Applied"],["failed","Failed"],["blocked","Blocked"],["skipped_duplicate","Skipped (dup)"]];
   document.getElementById('summary-cards').innerHTML = labels.map(([key, label]) => `
-    <div class="card"><div class="n">${summary[key] || 0}</div><div class="l">${label}</div></div>
+    <div class="stat-card"><div class="n">${summary[key] || 0}</div><div class="l">${label}</div></div>
   `).join('');
 }
 
@@ -175,7 +209,7 @@ function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-document.getElementById('f-apply').addEventListener('click', loadApplications);
+document.getElementById('f-apply').addEventListener('click', resetAndLoad);
+updatePaginationControls();
 </script>
-</body>
-</html>
+{% endblock %}
