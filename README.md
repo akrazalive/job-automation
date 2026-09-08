@@ -99,12 +99,15 @@ What works right now:
   that ties scraping → filtering → skill tagging → resume tailoring →
   dashboard storage together in one run.
 - **A password-protected admin dashboard** ([src/dashboard](src/dashboard))
-  — login screen, summary stats, a jobs-by-category report, a paginated
-  and filterable table (status/source/company/date/category) with
-  posted-date, remote badges, skill tags, and a working tailored-resume
-  download link per job, plus a Settings page (local runs only — see
-  below) to edit search keywords, apply-delay defaults, and trigger a
-  manual scrape.
+  — login screen (pre-filled locally), summary stats, a jobs-by-category
+  report, a real paginated (5/10/15/20 per page, selectable) and
+  filterable table (status/source/company/date/category) with
+  posted-date, remote badges, and skill tags. Each row has an Open link,
+  a Resume PDF button, and a **"Mark Applied" button** — there's no
+  auto-apply bot yet, so this is how you record that you applied
+  yourself and get it reflected in the stats. Plus a Settings page (local
+  runs only — see below) to edit search keywords, apply-delay defaults,
+  and trigger a manual scrape.
 - A storage layer ([src/storage](src/storage)) with two interchangeable
   backends: local JSON (zero setup) and DynamoDB+S3 (real AWS) — same
   code either way, switched with one env var.
@@ -116,7 +119,7 @@ What works right now:
 - Your resume, digitized into a structured, schema-validated
   `resume/master_resume.json` (git-ignored — it's your real name, email,
   phone, and address).
-- 61 passing tests ([tests/](tests/)).
+- 66 passing tests ([tests/](tests/)).
 
 ### Run the full pipeline locally (scrape → filter → tailor → save)
 
@@ -164,13 +167,26 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 $env:DASHBOARD_USERNAME="admin"; $env:DASHBOARD_PASSWORD="pick-something"; $env:SESSION_SECRET="pick-something-random"
 uvicorn src.dashboard.app:app --reload
-# open http://127.0.0.1:8000 and log in
+# open http://127.0.0.1:8000 — the login form is pre-filled locally
 ```
 
+⚠️ **`uvicorn` must be the one inside `.venv`, not a global install.** If
+you see `ModuleNotFoundError: No module named 'itsdangerous'` (or any
+other package this project installed), it means the `uvicorn` on your
+PATH is a *different* Python than the one `pip install -r
+requirements-dev.txt` used. Fix: either run `.venv\Scripts\Activate.ps1`
+first (Windows) / `source .venv/bin/activate` (macOS/Linux) so `uvicorn`
+resolves to the venv's copy, or skip activation entirely and call
+`.venv\Scripts\python.exe -m uvicorn src.dashboard.app:app --reload`
+directly.
+
 Running locally (not on Lambda) also enables the Settings page's "Scrape
-now" button and keyword editing — the same dashboard shown read-only on
-AWS becomes interactive here, since scraping is safe to run from your own
-IP but not from AWS (see "Where automation runs" below).
+now" button and keyword editing, and pre-fills the login form — the same
+dashboard shown read-only (and blank login) on AWS becomes interactive
+here, since scraping is safe to run from your own IP but not from AWS
+(see "Where automation runs" below), and the AWS login page is reachable
+by anyone with the URL so it never pre-fills your password into the page
+source.
 
 ### Deploy the dashboard to AWS (free tier)
 
@@ -363,7 +379,7 @@ cd D:\PROJECTS\job-automation
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-pytest -q                        # 61 tests should pass
+pytest -q                        # 66 tests should pass
 ```
 
 Then see "Run the full pipeline locally" and "Run the dashboard locally"
@@ -377,15 +393,22 @@ of `$env:VAR = "value"`.
 - **Login** — every page except `/healthz` requires signing in. On the
   AWS deploy, credentials are in `dashboard_login_credentials.txt`
   (git-ignored); locally, whatever you set `DASHBOARD_USERNAME`/
-  `DASHBOARD_PASSWORD` to.
+  `DASHBOARD_PASSWORD` to — and the form is pre-filled there (never on
+  AWS, see "Run the dashboard locally" above for why).
 - **Dashboard (`/`)** — summary stat cards, a "jobs by category" report
-  (found vs. applied, with a share bar), and a paginated (25/page,
+  (found vs. applied, with a share bar), and a paginated (5/page by
+  default — change it with the "Rows per page" selector: 5/10/15/20;
   Prev/Next), filterable table (status, source, company, date) showing
-  each job's posted date, category, remote badge, required-skill tags,
-  and a resume download link.
-- **Resume downloads** — the "PDF ↓" link on each row works from either
-  storage backend: a presigned S3 URL on the AWS deploy, the local file
-  straight off disk when running locally.
+  each job's posted date, category, remote badge, and required-skill tags.
+- **Actions column** — an "Open ↗" button to the real posting, a "Resume
+  PDF" button to download the tailored resume for that job, and either a
+  "Mark Applied" button or a "✓ Applied" flag. There's no auto-apply bot
+  yet (see the callout above) — this is how you record that *you*
+  applied yourself, and it's what moves a job from "Pending" into
+  "Applied" in the stats/category report.
+- **Resume downloads** — same PDF works from either storage backend: a
+  presigned S3 URL on the AWS deploy, the local file straight off disk
+  when running locally.
 - **Settings (`/settings`)** — apply-delay min/max (defaults: 3-12
   minutes), the scrape cron description, the current search keyword
   list plus a form to add more, and a "Scrape now" button with a live
@@ -399,12 +422,20 @@ The dashboard is the easiest way (it's reading the exact same data), but
 if you want to look at the raw DynamoDB tables:
 
 **Option A — AWS Console (no install needed):**
-1. Go to [console.aws.amazon.com/dynamodbv2](https://console.aws.amazon.com/dynamodbv2/) → make sure the region
-   selector (top right) says **US East (N. Virginia) us-east-1**.
-2. **Tables** in the left sidebar → click `job-automation-applications-prod`.
-3. **Explore table items** tab → browse, filter, or scan everything.
-4. `job-automation-jobs-prod` exists too but isn't currently written to —
+1. Direct link (skips the navigation entirely):
+   https://us-east-1.console.aws.amazon.com/dynamodbv2/home?region=us-east-1#table?name=job-automation-applications-prod
+   — or go to [console.aws.amazon.com/dynamodbv2](https://console.aws.amazon.com/dynamodbv2/), make sure the region
+   selector (top right) says **US East (N. Virginia) us-east-1**, **Tables**
+   in the left sidebar → `job-automation-applications-prod`.
+2. Click the **"Explore table items"** button. ⚠️ Not the **Permissions**
+   tab — that shows IAM policy JSON, not your data, and looks like an
+   empty table if you land there by accident.
+3. `job-automation-jobs-prod` exists too but isn't currently written to —
    all the real data is in `-applications-`.
+4. Still seeing nothing on the right tab/region? Check the **account ID**
+   next to the region selector matches `607581913131` — a different AWS
+   account (if you have more than one) would show a genuinely empty
+   console with no error.
 
 **Option B — AWS CLI** (already installed/configured on this machine):
 ```powershell

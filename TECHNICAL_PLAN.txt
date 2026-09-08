@@ -172,12 +172,77 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         data/seen_jobs.json's dedupe history as a side effect of testing
         with a throwaway config — the third-pass full run therefore
         re-fetched everything rather than only the 4 new keyword
-        categories. Check STATUS section 1's next entry (or search this
-        file for "third-pass ingest run result") for the final numbers -
-        add them here once the background run this session finishes.
+        categories. THIRD-PASS INGEST RUN RESULT (finished 2026-09-08
+        12:56 UTC): 215 found, 113 kept, 41 skipped by the remote/age
+        filters (e.g. correctly dropped a 14-day-old UI/UX listing).
+        Category breakdown: frontend 24, backend 23, fullstack 17, cms
+        15, php 11, general 9, ai_ml 8, design 6.
       - NOT done: S3 orphan cleanup (old resume PDFs from the deleted
         DynamoDB rows are still sitting in the bucket, harmless/cheap but
         untidy - low priority).
+[x] Fourth pass, same day (2026-09-08) — bug fix + dashboard UX round, NO
+    new scraping (user explicitly said not to). Built/fixed:
+      - REAL BUG FOUND AND FIXED: DynamoStore.list_applications computed
+        "is there a next page?" from DynamoDB's own internal
+        LastEvaluatedKey, which only appears once a single Scan response
+        exceeds DynamoDB's 1MB cap — never true for this table's size, so
+        pagination silently never advanced on the AWS-hosted dashboard
+        (user caught this live: "for pagination I need to load only 5
+        jobs" + testing showed Next always disabled). Fixed to use an
+        offset-based cursor (same scheme as LocalJsonStore) computed from
+        the actual in-memory result count instead; also fixed a second,
+        related correctness gap while in there — the old code only ever
+        issued ONE Scan call, so a table that ever exceeded DynamoDB's
+        1MB response cap would have silently returned incomplete results
+        with no error. Now loops internal ExclusiveStartKey pages until
+        exhausted before applying the UI-facing offset cursor. Verified
+        live before AND after the fix (confirmed broken with 84 items,
+        confirmed fixed with the same live table).
+      - Dashboard page size: default dropped from 25 to 5, with a
+        "Rows per page" selector (5/10/15/20) in the filter bar — resets
+        to page 1 on change.
+      - "Mark Applied" feature: a human can now click a button on any
+        non-applied row to record it as applied (NOT an apply bot — user
+        clicks the "Open" link, applies themselves, then flags it here).
+        New ApplicationStore.mark_applied() on both backends;
+        POST /api/applications/{job_id}/mark-applied. DELIBERATE IAM
+        CHANGE: this required granting the dashboard Lambda
+        dynamodb:UpdateItem on the Applications table (previously fully
+        read-only, see Phase 7's original notes) — scoped to exactly that
+        one action via a custom Statement in template.yaml, not a general
+        CRUD grant. Verified live: applied count went 0->1 on the real
+        table via the real endpoint after redeploy.
+      - Resume download changed from a bare "PDF ↓" text link to a
+        properly styled button (.btn.secondary.btn-sm), alongside "Open"
+        and the new "Mark Applied"/"✓ Applied" state in one Actions column.
+      - Login page prefill: username/password pre-filled in the form —
+        LOCAL RUNS ONLY (gated on LOCAL_ACTIONS_ENABLED, same pattern as
+        Settings). Deliberately NOT done on the AWS deploy: that page is
+        reachable with no auth by anyone with the URL, so baking the real
+        password into its HTML would let anyone view-source it and defeat
+        the login entirely. Flagged this tradeoff to the user rather than
+        silently doing the unsafe version or silently doing only the safe
+        version without explaining why AWS looks different from local.
+      - Config env var mixups this session doesn't reflect a code bug:
+        (a) user's local `uvicorn` command used a DIFFERENT global Python
+        install than this project's .venv, hence a bare
+        "ModuleNotFoundError: itsdangerous" despite it being installed —
+        needs `.venv\Scripts\Activate.ps1` first or
+        `.venv\Scripts\python.exe -m uvicorn ...`; (b) user was on
+        DynamoDB console's Permissions tab, not the Items/"Explore table
+        items" view, hence "no rows" despite the table having real data
+        (verified via CLI both times, table was never the problem).
+      - Claude subscription clarified for the user: a claude.ai Pro/Max
+        chat subscription and the Anthropic API are separate
+        products/billing — no supported way to use the former for API
+        calls. Offered (not yet built, needs user confirmation) a
+        cost-reducing alternative: an on-demand "Tailor with AI" button
+        per job instead of tailoring all scraped jobs during ingest.
+      - 5 new tests (66 total): mark_applied on LocalJsonStore (success +
+        unknown-job case), the dashboard endpoint (success + 404), and
+        login-page prefill.
+      - Redeployed (dashboard code + the new IAM policy) — did NOT re-run
+        src/pipeline/ingest.py, per explicit "don't do more scraping now."
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE
@@ -599,37 +664,39 @@ each:
 7. NEXT STEPS (update this each session — this is what "resume from
    here" means)
 ------------------------------------------------------------
-NEXT (as of 2026-09-08, end of second pass): everything through "dashboard
-shows real data end to end" is done and live. Remaining work, roughly in
-order of what the user is likely to ask for next:
+NEXT (as of 2026-09-08, end of fourth pass): dashboard now has real
+pagination, manual apply-tracking, and LLM-tailoring is built but
+INACTIVE (no ANTHROPIC_API_KEY provided — currently AWAITING the user's
+answer on whether/how to enable it, they replied "Other" with no text
+attached to that question and haven't followed up yet — ask again next
+session if still unresolved rather than assuming). Remaining work:
 
-  A) Phase 4 — LinkedIn apply automation. This is the big one still
-     missing and the most likely next ask, given the user's "auto apply"
-     framing this session. Needs: LinkedIn credentials (from the user),
-     a Playwright login flow with persisted storage_state.json, Easy
-     Apply form-filling, and real testing against the live site — expect
-     this to take real back-and-forth, not a single pass. Read section 6
-     in full before starting; do not skip the pacing/circuit-breaker
-     pieces to move faster.
-  B) Same for Indeed (Phase 5) and SimplyHired (Phase 6) — SimplyHired's
-     "Apply" button is confirmed (2026-09-08) to be an outbound redirect
-     to an external ATS in most cases, so that one likely ends up mostly
-     "open the link for the user" rather than a full auto-submit anyway.
-  C) LLM-based bullet-phrasing tailoring (the other half of Phase 2) —
-     wire up ANTHROPIC_API_KEY, rewrite bullet phrasing (not facts) to
-     mirror each JD, with the diff-guardrail described in Phase 2's
-     original spec. The deterministic skill-reorder half is already live.
+  A) UNRESOLVED QUESTION FROM THIS SESSION: does the user want Claude-
+     assisted tailoring enabled? They mentioned "if there is a way of
+     using free as I already have this subscription" — told them clearly
+     a claude.ai chat subscription doesn't grant API access, no supported
+     free path exists. Offered as a cost-conscious alternative: an
+     on-demand "Tailor with AI" button per job (pay only for jobs you
+     actually apply to, not all 100+ scraped) instead of tailoring
+     everything during ingest — NOT built yet, needs the user to confirm
+     they want it before building.
+  B) The "Mark Applied" feature added this pass, plus the user's earlier
+     "using the job link I can do apply myself manually" phrasing, both
+     point toward the user actually wanting a semi-auto workflow (find +
+     tailor + manual apply + track) rather than the original FULL-AUTO
+     section-0 decision. Still hasn't been asked point-blank and
+     confirmed either way — do that before ever starting Phase 4/5/6,
+     don't assume from inference alone.
+  C) Phase 4/5/6 (LinkedIn/Indeed/SimplyHired apply automation) — still
+     NOT STARTED. Only build this if C above is confirmed as still
+     wanted. Needs real site credentials from the user and expect real
+     back-and-forth, not a single pass. SimplyHired's "Apply" button
+     confirmed (2026-09-08) to be an outbound redirect to an external ATS
+     in most cases — that one likely ends up "open the link" regardless.
   D) Windows Task Scheduler wiring so src/pipeline/ingest.py actually
      runs on the cron schedule configured in config/apply_settings.yaml,
      instead of being manually triggered — currently nothing runs it
      automatically.
   E) Nice-to-haves noted inline where they came up: DynamoDB GSI if the
      Applications table grows large, a way to change the dashboard
-     password without a redeploy.
-
-Before A/B: confirm with the user whether they still want FULL-AUTO
-submit (the section 0 decision) now that they've seen the "open the link
-myself" manual-apply flow in the dashboard — their phrasing this session
-("using the job link I can do apply myself manually") may mean they'd
-actually prefer starting with the safer semi-auto option after all. Don't
-assume; ask.
+     password without a redeploy, S3 orphan cleanup.

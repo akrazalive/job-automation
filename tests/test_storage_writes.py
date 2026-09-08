@@ -94,3 +94,21 @@ def test_pagination_no_cursor_when_everything_fits_on_one_page(tmp_path: Path):
     apps, cursor = store.list_applications(limit=100)
     assert len(apps) == 1
     assert cursor is None
+
+
+def test_mark_applied_updates_status_and_applied_at(tmp_path: Path):
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    store.save_application(_make_application("job-1", status="pending"))
+
+    result = store.mark_applied("job-1")
+
+    assert result is True
+    apps, _ = store.list_applications(limit=1000)
+    updated = next(a for a in apps if a.job_id == "job-1")
+    assert updated.status.value == "applied"
+    assert updated.applied_at is not None
+
+
+def test_mark_applied_returns_false_for_unknown_job(tmp_path: Path):
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    assert store.mark_applied("does-not-exist") is False

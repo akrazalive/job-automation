@@ -165,3 +165,18 @@ class LocalJsonStore(ApplicationStore):
             bucket["total"] += 1
             bucket[r["status"]] = bucket.get(r["status"], 0) + 1
         return breakdown
+
+    def mark_applied(self, job_id: str) -> bool:
+        records = self._read()
+        now = datetime.now(timezone.utc).isoformat()
+        found = False
+        for r in records:
+            if r["job_id"] == job_id:
+                r["status"] = "applied"
+                r["applied_at"] = now
+                r["updated_at"] = now
+                found = True
+                break
+        if found:
+            self._write(records)
+        return found

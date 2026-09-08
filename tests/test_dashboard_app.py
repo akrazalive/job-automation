@@ -94,3 +94,30 @@ def test_logout_clears_session():
     resp = c.get("/", follow_redirects=False)
     assert resp.status_code in (302, 303, 307)
     assert resp.headers["location"] == "/login"
+
+
+def test_mark_applied_updates_status():
+    c = _login()
+    items = c.get("/api/applications", params={"limit": 50}).json()["items"]
+    pending = next(i for i in items if i["status"] != "applied")
+
+    resp = c.post(f"/api/applications/{pending['job_id']}/mark-applied")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "applied"
+
+    refreshed = c.get("/api/applications", params={"limit": 50}).json()["items"]
+    updated = next(i for i in refreshed if i["job_id"] == pending["job_id"])
+    assert updated["status"] == "applied"
+
+
+def test_mark_applied_unknown_job_returns_404():
+    c = _login()
+    resp = c.post("/api/applications/does-not-exist/mark-applied")
+    assert resp.status_code == 404
+
+
+def test_login_page_prefills_locally():
+    # LOCAL_ACTIONS_ENABLED is True in this test environment (no
+    # AWS_LAMBDA_FUNCTION_NAME set), so the login form should be prefilled.
+    resp = client.get("/login")
+    assert 'value="admin"' in resp.text

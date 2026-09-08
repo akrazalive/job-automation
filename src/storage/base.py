@@ -61,3 +61,10 @@ class ApplicationStore(ABC):
         """Counts per category (config/search_criteria.yaml `category`
         field), e.g. {"frontend": {"total": 12, "applied": 3, ...}, ...}.
         Jobs with no category land under "Uncategorized"."""
+
+    @abstractmethod
+    def mark_applied(self, job_id: str) -> bool:
+        """Manually marks one application as status=applied — set by a
+        human clicking "Mark Applied" on the dashboard, NOT by an apply
+        bot (Phase 4-6 doesn't exist yet). Sets applied_at to now.
+        Returns False if job_id doesn't exist, True on success."""

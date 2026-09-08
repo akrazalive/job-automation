@@ -104,7 +104,18 @@ async def auth_gate(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_form(request: Request):
-    return templates.TemplateResponse(request, "login.html", {"error": None})
+    # Prefill only when running locally. NEVER on the AWS deploy — that
+    # page is reachable by anyone with the URL with no auth at all, so
+    # baking the real password into its HTML would defeat the login
+    # entirely (view-source gets it). Locally, only you can reach
+    # 127.0.0.1, so the convenience tradeoff is reasonable there.
+    prefill_username = os.environ.get("DASHBOARD_USERNAME", "") if LOCAL_ACTIONS_ENABLED else ""
+    prefill_password = os.environ.get("DASHBOARD_PASSWORD", "") if LOCAL_ACTIONS_ENABLED else ""
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"error": None, "prefill_username": prefill_username, "prefill_password": prefill_password},
+    )
 
 
 @app.post("/login")
@@ -136,7 +147,7 @@ def healthz():
 
 # --- Dashboard -----------------------------------------------------------
 
-DASHBOARD_PAGE_SIZE = 25
+DASHBOARD_PAGE_SIZE = 5  # UI also offers 5/10/15/20 via a "rows per page" selector
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -178,7 +189,7 @@ def api_applications(
     company: Optional[str] = Query(default=None),
     date_from: Optional[str] = Query(default=None),
     date_to: Optional[str] = Query(default=None),
-    limit: int = Query(default=25, le=500),
+    limit: int = Query(default=5, le=500),
     cursor: Optional[str] = Query(default=None),
 ):
     applications, next_cursor = get_store().list_applications(
@@ -194,6 +205,17 @@ def api_applications(
 @app.get("/api/applications/{job_id}/resume-url")
 def api_resume_url(job_id: str):
     return {"job_id": job_id, "resume_url": get_store().get_resume_url(job_id)}
+
+
+@app.post("/api/applications/{job_id}/mark-applied")
+def mark_applied(job_id: str):
+    """Lets you manually record that you applied to a job yourself (via
+    the "Open" link) — NOT an apply bot, which doesn't exist yet. Works
+    on both backends; on AWS this is the one write the dashboard's Lambda
+    role is granted, scoped to exactly this update (see template.yaml)."""
+    if not get_store().mark_applied(job_id):
+        raise HTTPException(status_code=404, detail="Application not found")
+    return {"job_id": job_id, "status": "applied"}
 
 
 @app.get("/api/applications/{job_id}/resume")

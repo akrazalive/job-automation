@@ -106,15 +106,25 @@ Resources:
           DASHBOARD_PASSWORD: !Ref DashboardPassword
           SESSION_SECRET: !Ref SessionSecret
       Policies:
-        # Read-only: the dashboard displays results, it never writes.
-        # The local apply engine writes via its own separately-issued
-        # AWS credentials (see TECHNICAL_PLAN.txt Phase 3 IAM notes).
+        # Mostly read-only: the dashboard displays results; the local
+        # ingest pipeline writes new job/application records via its own
+        # separately-issued AWS credentials (see TECHNICAL_PLAN.txt Phase
+        # 3 IAM notes). The ONE exception is UpdateItem below, added
+        # 2026-09-08 for the dashboard's "Mark Applied" button (a human
+        # manually flagging an application as applied - not an apply bot,
+        # which doesn't exist yet) - scoped to that single action on the
+        # Applications table only, not a general write/CRUD grant.
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
         - DynamoDBReadPolicy:
             TableName: !Ref ApplicationsTable
         - S3ReadPolicy:
             BucketName: !Ref ResumeBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource: !GetAtt ApplicationsTable.Arn
       Events:
         RootGet:
           Type: HttpApi

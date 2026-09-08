@@ -19,11 +19,14 @@
   .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
-  td.wrap { white-space: normal; max-width: 280px; }
+  td.wrap { white-space: normal; max-width: 260px; }
   .remote-pill { font-size: .68rem; color: var(--accent-dark); font-weight: 700; }
   .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
-  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 4px; justify-content: flex-end; }
-  .pagination .page-info { font-size: .8rem; color: var(--muted); }
+  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 4px; justify-content: flex-end; flex-wrap: wrap; }
+  .pagination .page-info { font-size: .8rem; color: var(--muted); margin-right: auto; }
+  .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
+  .action-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn-sm.applied-flag { background: var(--applied); border-color: var(--applied); color: #fff; cursor: default; }
 </style>
 {% endblock %}
 {% block content %}
@@ -72,6 +75,14 @@
   <div><label>Company</label><input id="f-company" type="text" placeholder="e.g. Acme"></div>
   <div><label>From</label><input id="f-from" type="date"></div>
   <div><label>To</label><input id="f-to" type="date"></div>
+  <div>
+    <label>Rows per page</label>
+    <select id="f-pagesize">
+      {% for n in [5, 10, 15, 20] %}
+      <option value="{{ n }}" {{ 'selected' if n == page_size }}>{{ n }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <div><button class="btn" id="f-apply">Apply filters</button></div>
 </div>
 
@@ -80,12 +91,12 @@
     <thead>
       <tr>
         <th>Updated</th><th>Posted</th><th>Source</th><th>Company</th><th>Title</th><th>Category</th>
-        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Job</th><th>Resume</th>
+        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Actions</th>
       </tr>
     </thead>
     <tbody id="app-tbody">
       {% for a in applications %}
-      <tr>
+      <tr data-job-id="{{ a.job_id }}">
         <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
         <td>{{ a.posted_at.strftime("%Y-%m-%d") if a.posted_at else "—" }}</td>
         <td>{{ a.source.value }}</td>
@@ -94,13 +105,20 @@
         <td>{{ a.category or "—" }}</td>
         <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         <td class="wrap">{% for sk in a.required_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
-        <td><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
+        <td class="status-cell"><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
         <td class="wrap">{{ a.reason or "" }}</td>
-        <td><a href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a></td>
-        <td><a href="/api/applications/{{ a.job_id }}/resume" target="_blank" rel="noopener">PDF ↓</a></td>
+        <td class="action-cell">
+          <a class="btn secondary btn-sm" href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a>
+          <a class="btn secondary btn-sm" href="/api/applications/{{ a.job_id }}/resume" target="_blank" rel="noopener">Resume PDF</a>
+          {% if a.status.value == "applied" %}
+          <span class="btn-sm applied-flag">✓ Applied</span>
+          {% else %}
+          <button class="btn btn-sm mark-applied-btn" onclick="markApplied('{{ a.job_id }}', this)">Mark Applied</button>
+          {% endif %}
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="12" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
+      <tr><td colspan="11" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -112,7 +130,7 @@
 </div>
 
 <script>
-const PAGE_SIZE = {{ page_size }};
+let PAGE_SIZE = {{ page_size }};
 let cursorStack = [null];   // cursorStack[pageIndex] = cursor used to FETCH that page
 let currentPage = 0;
 let nextCursor = {{ (next_cursor | tojson) if next_cursor else 'null' }};
@@ -174,14 +192,43 @@ document.getElementById('page-prev').addEventListener('click', async () => {
   await loadPage(cursorStack[currentPage]);
 });
 
+document.getElementById('f-pagesize').addEventListener('change', (e) => {
+  PAGE_SIZE = parseInt(e.target.value, 10);
+  resetAndLoad();
+});
+
+async function markApplied(jobId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Marking...';
+  const res = await fetch(`/api/applications/${jobId}/mark-applied`, { method: 'POST' });
+  if (res.ok) {
+    await loadPage(cursorStack[currentPage]);  // refresh current page + summary in place
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Mark Applied';
+    alert('Could not mark this job as applied — it may have been removed.');
+  }
+}
+
+function actionCell(a) {
+  const appliedFlag = a.status === 'applied'
+    ? '<span class="btn-sm applied-flag">✓ Applied</span>'
+    : `<button class="btn btn-sm mark-applied-btn" onclick="markApplied('${a.job_id}', this)">Mark Applied</button>`;
+  return `
+    <a class="btn secondary btn-sm" href="${a.url}" target="_blank" rel="noopener">Open ↗</a>
+    <a class="btn secondary btn-sm" href="/api/applications/${a.job_id}/resume" target="_blank" rel="noopener">Resume PDF</a>
+    ${appliedFlag}
+  `;
+}
+
 function renderTable(items) {
   const tbody = document.getElementById('app-tbody');
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty">No matching applications.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching applications.</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(a => `
-    <tr>
+    <tr data-job-id="${a.job_id}">
       <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
       <td>${a.posted_at ? a.posted_at.slice(0, 10) : '—'}</td>
       <td>${a.source}</td>
@@ -190,10 +237,9 @@ function renderTable(items) {
       <td>${escapeHtml(a.category || '—')}</td>
       <td>${a.is_remote ? '<span class="remote-pill">REMOTE</span>' : '<span class="muted">—</span>'}</td>
       <td class="wrap">${(a.required_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</td>
-      <td><span class="badge ${a.status}">${a.status}</span></td>
+      <td class="status-cell"><span class="badge ${a.status}">${a.status}</span></td>
       <td class="wrap">${escapeHtml(a.reason || '')}</td>
-      <td><a href="${a.url}" target="_blank" rel="noopener">Open ↗</a></td>
-      <td><a href="/api/applications/${a.job_id}/resume" target="_blank" rel="noopener">PDF ↓</a></td>
+      <td class="action-cell">${actionCell(a)}</td>
     </tr>
   `).join('');
 }
