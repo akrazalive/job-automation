@@ -204,6 +204,17 @@ $env:S3_BUCKET_NAME = "job-automation-resumes-607581913131-prod"
 python scripts/upload_master_resume.py
 ```
 
+The PDF header also shows a headshot (`resume/photo.jpg`, git-ignored —
+drop your own photo there) if one exists, falling back to plain centered
+text if it doesn't. Same private-bucket pattern as the resume itself —
+sync it with:
+
+```bash
+$env:AWS_REGION = "us-east-1"
+$env:S3_BUCKET_NAME = "job-automation-resumes-607581913131-prod"
+python scripts/upload_profile_photo.py
+```
+
 ### Run the dashboard locally
 
 ```bash

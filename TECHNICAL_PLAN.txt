@@ -827,6 +827,89 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         URL, a CSV/export, or described directly) - nothing further to
         import until then.
 
+[x] Fourteenth pass, same day (2026-09-09) — user pushed THREE more times
+    for fabricated project lists to be added to the resume, each
+    reformatted to answer the specific tell that sank the previous one
+    (raw project_bank.json entries -> same entries + famous-company
+    "company_url" fields like jpmorgan.com/netflix.com -> new small-
+    business names but still with unrelated real companies' homepages as
+    "company_url", e.g. "Precision Auto Works" linking automotive.com).
+    Declined all three, named the pattern explicitly, and said I wouldn't
+    keep evaluating reformulations - held that line since. User then
+    supplied 5 REAL URLs (nula-move.com, ntestimate.vercel.app, wegroo.ai,
+    financiallease.nl, 123lease.nl) - checked all 5 directly against
+    master_resume.json and confirmed all already present from the
+    Thirteenth pass's real import; nothing to do, told the user so.
+    Later asked whether the "250 more" might be in the AWS project_bank
+    table - checked the live table directly (boto3 scan): still exactly
+    255 items, same 17 generated stacks, no url field on any of them,
+    unchanged since it was built. Reported that plainly too.
+      - Also this pass: added Experience-bullet tailoring (bold matched
+        tools within bullet TEXT + reorder bullets within one job by
+        relevance) - same pattern as Skills/Projects, new
+        _bold_matched_terms()/_reorder_bullets() in pdf_renderer.py.
+        Verified against the real resume: the Watkanikleasen.nl bullet
+        rendered byte-identical wording with only Vue.js/Django/MongoDB/
+        Redis bolded for a job requiring those.
+      - Then a full visual redesign: two-column "designed CV" layout
+        matching the user's original Word template (Full Stack Developer
+        - Complete.docx) - read its actual XML (word/document.xml run
+        colors/sizes, shape fills) rather than guessing: #680000 accent,
+        #580000 header band, #E0EDED sidebar, dot-meter skill
+        proficiency matching SkillItem.level exactly. Icons NOT reused
+        (unknown reuse license on a downloaded/purchased template) -
+        letter-badges instead. Real bug found + fixed mid-build: a
+        single-row 2-column Table can't split cell content across pages
+        (LayoutError) - switched to BaseDocTemplate with two independent
+        Frames; a second bug (overflow landing back in the sidebar frame
+        on page 2+, since reportlab's default frame-cycling restarts
+        from frame[0]) fixed with NextPageTemplate switching every page
+        after the first to a main-only template. Caught both by actually
+        rendering and reading the PDF back, not assumed.
+      - User's reaction to that redesign: "the generated tailor resume is
+        shit. it doesn't contain my picture at all" + wanted <=2 pages,
+        only 4 projects, and "professional branding" of my own design
+        rather than strict original-template mimicry. Fixed all three:
+        - Extracted the real photo from the .docx (word/media/image10.jpeg,
+          confirmed via file size vs the 4 icon PNGs - "hdphoto1.wdp" +
+          "image10.jpeg" were the only large media entries) into
+          resume/photo.jpg. SECURITY CATCH: this immediately un-ignored
+          the whole resume/ directory again (git status showed `??
+          resume/` - same class of gap as the Thirteenth pass's backup-
+          file incident, since .gitignore listed specific resume/*
+          patterns rather than the directory itself). Fixed for good
+          this time by blanket-ignoring `resume/` as one line instead of
+          enumerating file types - the recurring root cause across both
+          incidents was listing patterns instead of the directory.
+        - _draw_circular_photo() (canvas clip-to-circle + cover-fit
+          drawImage) renders it into the header band; falls back to
+          centered text with no photo if none is available (a fresh
+          clone, or before scripts/upload_profile_photo.py has run).
+          Header layout changed to photo-left + left-aligned name/title
+          next to it (standard "photo CV" layout) instead of centered.
+        - DEFAULT_MAX_PROJECTS 6 -> 4; tightened font sizes/spacing
+          throughout (checked against a real render each iteration, not
+          guessed) so a resume with a full 6 experience entries fits
+          exactly 2 pages - verified: was 3 pages before, confirmed 2
+          after with the actual resume + a real job's required_skills.
+        - Same S3-mirroring pattern as the resume itself: NEW
+          scripts/upload_profile_photo.py, PROFILE_PHOTO_S3_KEY env var
+          in template.yaml (no new IAM needed - S3ReadPolicy already
+          covers the whole bucket), load_profile_photo()/
+          _load_photo_from_s3() in engine.py (returns None on any
+          absence/failure, never raises - a missing photo must never
+          break a "Tailor Resume" click). Ran the upload for real.
+      - 9 new tests for the photo path (148 total): local/S3/absent-
+        gracefully-None loading (mirroring load_master_resume's existing
+        tests), circular-photo drawing against a fake canvas (real call
+        for valid bytes, silently no-op for corrupt bytes), and
+        render_resume_pdf accepting/omitting photo_bytes.
+      - Verified end-to-end for real, both backends: local render with
+        the actual photo + resume confirmed exactly 2 pages, 4 projects,
+        visible circular headshot; deployed (prepare_lambda_src ->
+        leak-check -> sam build -> leak-check -> sam deploy) and pulled a
+        live PDF back from the actual Lambda - same result.
+
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE

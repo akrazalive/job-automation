@@ -12,12 +12,25 @@ from src.tailoring.pdf_renderer import (
     DEFAULT_MAX_PROJECTS,
     _bold_matched_terms,
     _dot_meter,
+    _draw_circular_photo,
     _reorder_bullets,
     _reorder_projects_for_job,
     _reorder_skills_for_job,
     _skill_is_relevant,
     render_resume_pdf,
 )
+
+
+def _tiny_jpeg_bytes() -> bytes:
+    """A real, tiny, valid JPEG (not PII - solid color, generated here)
+    for testing photo rendering without needing an actual photo file."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (20, 30), color=(120, 60, 60)).save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def _sample_resume(projects: list[ProjectEntry] | None = None) -> MasterResume:
@@ -304,4 +317,69 @@ def test_render_resume_pdf_handles_content_spanning_multiple_pages():
     for entry in resume.experience:
         entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
     pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"], max_projects=20)
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_resume_pdf_default_caps_at_four_projects_for_two_page_fit():
+    # User-facing requirement: a resume with a full 6 experience entries
+    # needs to fit 2 pages, which is why DEFAULT_MAX_PROJECTS is 4, not
+    # the earlier 6 - checked against a real render, not assumed.
+    assert DEFAULT_MAX_PROJECTS == 4
+
+
+class _FakeCanvas:
+    """Minimal stand-in for reportlab's canvas - just enough surface for
+    _draw_circular_photo to exercise its real clipping/drawing calls
+    without needing an actual PDF document/page underneath it."""
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def saveState(self):
+        self.calls.append("saveState")
+
+    def restoreState(self):
+        self.calls.append("restoreState")
+
+    def beginPath(self):
+        return _FakePath()
+
+    def clipPath(self, path, stroke=0, fill=0):
+        self.calls.append("clipPath")
+
+    def drawImage(self, img, x, y, width, height, mask="auto"):
+        self.calls.append("drawImage")
+
+
+class _FakePath:
+    def circle(self, cx, cy, r):
+        pass
+
+
+def test_draw_circular_photo_draws_image_for_valid_bytes():
+    canvas = _FakeCanvas()
+    _draw_circular_photo(canvas, _tiny_jpeg_bytes(), cx=10, cy=10, diameter=20)
+    assert "drawImage" in canvas.calls
+    assert canvas.calls[0] == "saveState"
+    assert canvas.calls[-1] == "restoreState"  # always restores, even on the happy path
+
+
+def test_draw_circular_photo_silently_does_nothing_for_corrupt_bytes():
+    # A corrupt/unreadable photo must never break the rest of the PDF -
+    # this is called from inside a page-decoration callback with no
+    # upstream error handling of its own.
+    canvas = _FakeCanvas()
+    _draw_circular_photo(canvas, b"not a real image", cx=10, cy=10, diameter=20)
+    assert canvas.calls == []
+
+
+def test_render_resume_pdf_accepts_photo_bytes_and_produces_valid_pdf():
+    resume = _sample_resume()
+    pdf_bytes = render_resume_pdf(resume, photo_bytes=_tiny_jpeg_bytes())
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_resume_pdf_without_photo_still_renders():
+    resume = _sample_resume()
+    pdf_bytes = render_resume_pdf(resume, photo_bytes=None)
     assert pdf_bytes.startswith(b"%PDF")

@@ -128,6 +128,9 @@ Resources:
           # on-demand "Tailor Resume" button can render a fresh PDF from
           # inside this Lambda too - see src/tailoring/engine.py.
           MASTER_RESUME_S3_KEY: private/master_resume.json
+          # Same pattern, for the headshot in the PDF header - see
+          # scripts/upload_profile_photo.py.
+          PROFILE_PHOTO_S3_KEY: private/photo.jpg
           DASHBOARD_USERNAME: !Ref DashboardUsername
           DASHBOARD_PASSWORD: !Ref DashboardPassword
           SESSION_SECRET: !Ref SessionSecret

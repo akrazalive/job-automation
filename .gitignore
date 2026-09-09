@@ -25,11 +25,14 @@ config/local_*.yaml
 # These live locally and in AWS S3, never in git history.
 *.docx
 *.pdf
-resume/original/
-resume/output/
-resume/tailored/
-resume/master_resume.json
-resume/master_resume*.json
+# Blanket-ignore the whole directory rather than listing file types one
+# by one - every specific pattern added here so far (master_resume.json,
+# then master_resume*.json for a backup copy) has been caught reactively
+# AFTER a new file type slipped through untracked (see TECHNICAL_PLAN.txt
+# Thirteenth pass, and again for resume/photo.jpg here) - everything
+# under resume/ is either PII or generated, nothing in it should ever be
+# committed, so ignore the directory itself instead of its contents.
+resume/
 cover_letters/
 "Full Stack Developer - Complete.docx"
 

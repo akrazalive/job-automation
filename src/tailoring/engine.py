@@ -28,6 +28,7 @@ from src.tailoring import claude_client
 from src.tailoring.pdf_renderer import render_resume_pdf
 
 MASTER_RESUME_PATH = Path("resume/master_resume.json")
+LOCAL_PHOTO_PATH = Path("resume/photo.jpg")
 LOCAL_OUTPUT_DIR = Path("resume/output")
 
 # Where scripts/upload_master_resume.py puts a copy in the private S3
@@ -39,8 +40,10 @@ LOCAL_OUTPUT_DIR = Path("resume/output")
 # the local file genuinely doesn't exist, so a real local run is never
 # affected by this at all.
 MASTER_RESUME_S3_KEY = os.environ.get("MASTER_RESUME_S3_KEY", "private/master_resume.json")
+PROFILE_PHOTO_S3_KEY = os.environ.get("PROFILE_PHOTO_S3_KEY", "private/photo.jpg")
 
 _s3_resume_cache: Optional[MasterResume] = None  # per-warm-Lambda-container cache
+_s3_photo_cache: Optional[bytes] = None  # per-warm-Lambda-container cache
 
 
 class TailoringResult(TypedDict):
@@ -76,6 +79,44 @@ def _load_master_resume_from_s3() -> MasterResume:
     data = json.loads(response["Body"].read().decode("utf-8"))
     _s3_resume_cache = MasterResume(**data)
     return _s3_resume_cache
+
+
+def load_profile_photo(path: Path = LOCAL_PHOTO_PATH) -> Optional[bytes]:
+    """A headshot for the PDF header is optional, unlike the resume
+    itself — returns None (never raises) if there isn't one anywhere,
+    local or S3, so a fresh clone without a photo still renders a valid
+    resume, just without one. Same local-file-then-S3 fallback as
+    load_master_resume, and same reasoning: the Lambda has no local
+    resume/photo.jpg (git-ignored PII, never staged into the Lambda
+    package), so it needs the S3 copy scripts/upload_profile_photo.py
+    puts in the same private bucket."""
+    if path.exists():
+        return path.read_bytes()
+    if os.environ.get("STORAGE_BACKEND", "local").lower() == "aws":
+        return _load_photo_from_s3()
+    return None
+
+
+def _load_photo_from_s3() -> Optional[bytes]:
+    global _s3_photo_cache
+    if _s3_photo_cache is not None:
+        return _s3_photo_cache
+
+    import boto3
+    from botocore.exceptions import ClientError
+
+    bucket = os.environ["S3_BUCKET_NAME"]
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    try:
+        response = boto3.client("s3", region_name=region).get_object(
+            Bucket=bucket, Key=PROFILE_PHOTO_S3_KEY
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            return None  # no photo uploaded yet - not an error, just absent
+        raise
+    _s3_photo_cache = response["Body"].read()
+    return _s3_photo_cache
 
 
 def _validate_llm_content(resume: MasterResume, content: claude_client.TailoredContent) -> bool:
@@ -120,6 +161,7 @@ def tailor_resume_for_job(
     STORAGE_BACKEND=aws is set, returning that key so the caller can
     attach it to the job's Application.resume_s3_key."""
     resume = load_master_resume()
+    photo_bytes = load_profile_photo()
 
     tailored_summary = None
     tailored_bullets = None
@@ -140,6 +182,7 @@ def tailor_resume_for_job(
         required_skills=required_skills,
         tailored_summary=tailored_summary,
         tailored_experience_bullets=tailored_bullets,
+        photo_bytes=photo_bytes,
     )
 
     output_dir = _local_output_dir()

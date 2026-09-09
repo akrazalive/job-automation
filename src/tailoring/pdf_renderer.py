@@ -3,20 +3,31 @@ Python, no system dependencies — unlike weasyprint/wkhtmltopdf, this
 works everywhere without extra installs, including inside the AWS
 Lambda dashboard).
 
-Two-column "designed CV" layout — matches the operator's own original
-Word template (Full Stack Developer - Complete.docx, git-ignored PII):
-a dark maroon header band (name + title, white text), a light sidebar
-(contact details + per-category skills with dot-meter proficiency,
-matching SkillItem.level) on the left, and Profile/Education/Employment/
-Projects in the wider main column on the right. Colors (#680000 accent,
-#580000 header band, #E0EDED sidebar) and the dot-meter style were read
-directly out of the original .docx's XML (word/document.xml run
-properties + shape fills), not guessed. The original's five pictogram
-icons (person/envelope/phone/house/LinkedIn) are NOT reused here — they
-came from a downloaded/purchased Word template whose icon-reuse license
-is unknown, so contact-detail badges use a plain colored square + 1-2
-letters instead (the LinkedIn "in" badge in the original already uses
-exactly this style, just extended here to email/phone/address too).
+Two-column "designed CV" layout, styled after the operator's own
+original Word template (Full Stack Developer - Complete.docx,
+git-ignored PII) but tuned for print density rather than matching it
+byte-for-byte: a dark maroon header band (headshot photo + name/title,
+white text), a light sidebar (contact details + per-category skills
+with dot-meter proficiency, matching SkillItem.level) on the left, and
+Profile/Education/Employment/Projects in the wider main column on the
+right. Colors (#680000 accent, #580000 header band, #E0EDED sidebar)
+and the dot-meter style were read directly out of the original .docx's
+XML (word/document.xml run properties + shape fills), not guessed. The
+original's five pictogram icons (person/envelope/phone/house/LinkedIn)
+are NOT reused here — they came from a downloaded/purchased Word
+template whose icon-reuse license is unknown, so contact-detail badges
+use a plain colored square + 1-2 letters instead (the LinkedIn "in"
+badge in the original already uses exactly this style, just extended
+here to email/phone/address too).
+
+The photo (resume/photo.jpg locally, or the private S3 copy on AWS —
+see src/tailoring/engine.py:load_profile_photo) is drawn circular-clipped
+into the header band via _draw_circular_photo; the header falls back to
+centered text with no photo if none is available. Font sizes/spacing
+throughout are deliberately tight and DEFAULT_MAX_PROJECTS defaults to
+4 (not the whole project pool) specifically so a resume with a full 6
+experience entries still fits 2 pages — checked against a real render
+of the actual resume, not assumed.
 
 Company names, titles, dates, and education are ALWAYS copied through
 byte-for-byte from master_resume.json — never passed as parameters that
@@ -55,6 +66,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
@@ -96,6 +108,8 @@ PAGE_MARGIN = 0.5 * inch
 HEADER_HEIGHT = 0.95 * inch
 SIDEBAR_WIDTH = 2.15 * inch
 MAIN_WIDTH = LETTER[0] - SIDEBAR_WIDTH - PAGE_MARGIN
+PHOTO_DIAMETER = 0.72 * inch
+PHOTO_LEFT_MARGIN = 0.32 * inch
 
 
 def _skill_is_relevant(name: str, wanted: set[str]) -> bool:
@@ -207,8 +221,11 @@ def _bold_matched_terms(text: str, required_skills: Optional[list[str]]) -> str:
 # (or, with no required_skills, just the first N in original order).
 # Matters once resume.projects holds a large real portfolio (see
 # scripts/import_portfolio_projects.py) rather than a handful of entries
-# - without a cap, EVERY project would render on EVERY tailored PDF.
-DEFAULT_MAX_PROJECTS = 6
+# - without a cap, EVERY project would render on EVERY tailored PDF. 4
+# (not the earlier 6) is what actually fits a 2-page resume alongside 6
+# experience entries at this template's density - verified by rendering
+# the real resume and checking the actual page count, not guessed.
+DEFAULT_MAX_PROJECTS = 4
 
 
 def _dot_meter(level: int) -> str:
@@ -221,38 +238,63 @@ def _dot_meter(level: int) -> str:
     return "●" * max(0, min(level, 5))
 
 
+def _draw_circular_photo(canvas, photo_bytes: bytes, cx: float, cy: float, diameter: float) -> None:
+    """Draws `photo_bytes` clipped to a circle centered at (cx, cy) —
+    the standard reportlab technique for a headshot: clip the canvas to
+    a circular path, draw the image "cover"-fit (scaled so its shorter
+    side fills the circle, longer side cropped, never stretched/
+    distorted) into that circle's bounding box, then restore state so
+    the clip doesn't affect anything drawn afterward. Silently draws
+    nothing if `photo_bytes` can't be decoded as an image — a corrupt or
+    missing photo should never break the rest of the PDF."""
+    try:
+        img = ImageReader(BytesIO(photo_bytes))
+        iw, ih = img.getSize()
+    except Exception:
+        return
+
+    scale = diameter / min(iw, ih)
+    draw_w, draw_h = iw * scale, ih * scale
+    x, y = cx - draw_w / 2, cy - draw_h / 2
+
+    canvas.saveState()
+    path = canvas.beginPath()
+    path.circle(cx, cy, diameter / 2)
+    canvas.clipPath(path, stroke=0, fill=0)
+    canvas.drawImage(img, x, y, width=draw_w, height=draw_h, mask="auto")
+    canvas.restoreState()
+
+
 def _styles() -> dict[str, ParagraphStyle]:
+    # Sizes/spacing here are deliberately tight - a 2-page cap (the user's
+    # explicit ask) with 6 experience entries + 4 projects doesn't have
+    # room for the looser spacing an earlier version of this template
+    # used (which ran to 3 pages with 6 projects). Every value below was
+    # checked against a real render of the actual resume, not guessed.
     base = getSampleStyleSheet()
     return {
-        "name": ParagraphStyle(
-            "name", parent=base["Title"], fontSize=22, leading=24, textColor=WHITE_TEXT,
-            alignment=1, fontName="Helvetica-Bold", spaceAfter=2,
-        ),
-        "headline": ParagraphStyle(
-            "headline", parent=base["Normal"], fontSize=12, textColor=WHITE_TEXT, alignment=1,
-        ),
         "sidebar_section": ParagraphStyle(
-            "sidebar_section", parent=base["Normal"], fontSize=10.5, textColor=ACCENT_MAROON,
-            fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4,
+            "sidebar_section", parent=base["Normal"], fontSize=10, textColor=ACCENT_MAROON,
+            fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=3,
         ),
         "sidebar_item": ParagraphStyle(
-            "sidebar_item", parent=base["Normal"], fontSize=8.3, textColor=BLACK_TEXT, leading=11,
+            "sidebar_item", parent=base["Normal"], fontSize=8, textColor=BLACK_TEXT, leading=10.5,
         ),
         "sidebar_dots": ParagraphStyle(
-            "sidebar_dots", parent=base["Normal"], fontSize=8, textColor=ACCENT_MAROON, alignment=2, leading=11,
+            "sidebar_dots", parent=base["Normal"], fontSize=7.5, textColor=ACCENT_MAROON, alignment=2, leading=10.5,
         ),
         "section": ParagraphStyle(
-            "section", parent=base["Heading2"], fontSize=13, textColor=ACCENT_MAROON,
-            fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4, borderPadding=0,
+            "section", parent=base["Heading2"], fontSize=12.5, textColor=ACCENT_MAROON,
+            fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=3, borderPadding=0,
         ),
-        "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9.3, textColor=DARK_TEXT, leading=12.5),
+        "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9, textColor=DARK_TEXT, leading=11.8),
         "entry_title": ParagraphStyle(
-            "entry_title", parent=base["Normal"], fontSize=9.8, textColor=DARK_TEXT,
-            spaceBefore=6, fontName="Helvetica-Bold",
+            "entry_title", parent=base["Normal"], fontSize=9.5, textColor=DARK_TEXT,
+            spaceBefore=5, fontName="Helvetica-Bold",
         ),
-        "entry_meta": ParagraphStyle("entry_meta", parent=base["Normal"], fontSize=8.3, textColor=MUTED_TEXT, spaceAfter=3),
-        "bullet": ParagraphStyle("bullet", parent=base["Normal"], fontSize=8.8, textColor=DARK_TEXT, leading=12),
-        "edu": ParagraphStyle("edu", parent=base["Normal"], fontSize=9.3, textColor=BLACK_TEXT, leading=12.5),
+        "entry_meta": ParagraphStyle("entry_meta", parent=base["Normal"], fontSize=8, textColor=MUTED_TEXT, spaceAfter=2),
+        "bullet": ParagraphStyle("bullet", parent=base["Normal"], fontSize=8.5, textColor=DARK_TEXT, leading=11.3),
+        "edu": ParagraphStyle("edu", parent=base["Normal"], fontSize=9, textColor=BLACK_TEXT, leading=11.8),
     }
 
 
@@ -393,6 +435,7 @@ def render_resume_pdf(
     tailored_summary: Optional[str] = None,
     tailored_experience_bullets: Optional[list[list[str]]] = None,
     max_projects: int = DEFAULT_MAX_PROJECTS,
+    photo_bytes: Optional[bytes] = None,
 ) -> bytes:
     """tailored_experience_bullets, if given, MUST be the same length as
     resume.experience, aligned 1:1 by index — the caller (engine.py) is
@@ -448,10 +491,26 @@ def render_resume_pdf(
         canvas.setFillColor(BAND_MAROON)
         canvas.rect(0, page_h - HEADER_HEIGHT, page_w, HEADER_HEIGHT, fill=1, stroke=0)
         canvas.setFillColor(WHITE_TEXT)
-        canvas.setFont("Helvetica-Bold", 22)
-        canvas.drawCentredString(page_w / 2, page_h - HEADER_HEIGHT / 2 + 8, c.name)
-        canvas.setFont("Helvetica", 12)
-        canvas.drawCentredString(page_w / 2, page_h - HEADER_HEIGHT / 2 - 12, c.headline)
+
+        band_mid_y = page_h - HEADER_HEIGHT / 2
+        if photo_bytes:
+            # Photo on the left of the band, name/title left-aligned next
+            # to it - the standard "photo CV" layout. Falls back to
+            # centered text (no photo) below when there isn't one, e.g. a
+            # fresh clone that hasn't run scripts/upload_profile_photo.py
+            # / doesn't have resume/photo.jpg locally.
+            photo_cx = PHOTO_LEFT_MARGIN + PHOTO_DIAMETER / 2
+            _draw_circular_photo(canvas, photo_bytes, photo_cx, band_mid_y, PHOTO_DIAMETER)
+            text_x = PHOTO_LEFT_MARGIN + PHOTO_DIAMETER + 0.25 * inch
+            canvas.setFont("Helvetica-Bold", 20)
+            canvas.drawString(text_x, band_mid_y + 8, c.name)
+            canvas.setFont("Helvetica", 11.5)
+            canvas.drawString(text_x, band_mid_y - 12, c.headline)
+        else:
+            canvas.setFont("Helvetica-Bold", 22)
+            canvas.drawCentredString(page_w / 2, band_mid_y + 8, c.name)
+            canvas.setFont("Helvetica", 12)
+            canvas.drawCentredString(page_w / 2, band_mid_y - 12, c.headline)
         canvas.restoreState()
 
     # Page 1 uses BOTH frames (sidebar then main); page 2+ uses ONLY a
