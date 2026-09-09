@@ -910,6 +910,76 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         leak-check -> sam build -> leak-check -> sam deploy) and pulled a
         live PDF back from the actual Lambda - same result.
 
+[x] Fifteenth pass, same day (2026-09-09) — direct feedback: "you are
+    keeping the profile summary in sidebar... keep that in content area
+    at the very top. same for the employment... keep the photo only on
+    first page in top left. no need of header on 2nd page... come up
+    with other good professional color."
+      - VERIFIED this was a real bug, not a misreading of the layout, by
+        extracting actual text x-coordinates with pdfplumber rather than
+        eyeballing a rendered preview: "PROFILE"/"EDUCATION"/the start of
+        "EMPLOYMENT" were rendering at x=10pt on page 2 - the EXACT same
+        x as the sidebar's own "PERSONAL"/"BACKEND" headers - while
+        "PROJECTS" (later in the same page) correctly landed at x=170.8pt
+        (the real main column). Root cause, found by bisecting with
+        isolated repro scripts rather than guessing: the SIDEBAR content
+        itself (4 skill categories + languages, ~40 rows at the previous
+        spacing) didn't fit within one page's sidebar-frame height -
+        confirmed directly by rendering the sidebar alone into its own
+        frame and checking it needed 2 pages. Once frame 0 itself
+        overflows, NextPageTemplate("later") queued mid-story (right
+        after the sidebar's FrameBreak, per the Fourteenth pass's "fix")
+        stops behaving as "only affects the next actual page turn" and
+        the frame-cycling gets ambiguous - confirmed by isolating a
+        minimal case: with sidebar content that fits in one page, that
+        placement works fine; past that threshold, main content stops
+        appearing on page 1 at all and later renders at the sidebar's
+        x-position instead. Fixed at the actual root: moved
+        NextPageTemplate("later") to be the VERY FIRST flowable in the
+        whole story (before any sidebar content, not after the
+        FrameBreak) - eliminates the ambiguity entirely - AND tightened
+        sidebar spacing (HEADER_HEIGHT 0.95in -> 0.82in, sidebar font
+        sizes/leading/row padding all reduced slightly) so the real
+        resume's sidebar reliably fits one page with margin to spare,
+        removing the overflow condition that triggered the ambiguity in
+        the first place. Both fixes verified together against the real
+        resume: PROFILE/EDUCATION/EMPLOYMENT/PROJECTS all now correctly
+        at x=171 (main column) starting on PAGE 1, sidebar content
+        entirely on page 1 at x=10, total 2 pages.
+      - No header/photo on page 2+: _draw_background now checks
+        `doc_.page != 1` and returns immediately for any later page -
+        reportlab's own current-page-number tracker, the standard way an
+        onPage callback tells pages apart. main_frame_later's geometry
+        changed to reclaim BOTH the header's vertical space AND the
+        sidebar's horizontal space (full page width, starting at
+        PAGE_MARGIN, height = page_h - 2*PAGE_MARGIN) - continuation
+        pages are now plain white and full-width, which also gives more
+        room per page (helps the 2-page target independently of the
+        spacing tightening above).
+      - New color: ACCENT_HEX="#1B3B5F" (deep navy) + BAND_COLOR=
+        "#14293F", replacing the earlier maroon matched off the original
+        .docx - direct feedback asked for "other good professional
+        color". ACCENT_MAROON/BAND_MAROON renamed to ACCENT_COLOR/
+        BAND_COLOR throughout (no longer maroon-specific names); the one
+        hardcoded "#680000" markup string (project link color) now
+        reads from ACCENT_HEX so the theme can't drift out of sync again.
+      - 3 new tests (151 total), one of them a genuinely new REGRESSION
+        CLASS: test_sidebar_content_fits_a_single_page_at_realistic_
+        density renders just the sidebar at real-world item counts into
+        its own isolated frame and asserts it needs exactly 1 page -
+        catches the ACTUAL root cause (sidebar overflow) directly, not
+        just its downstream symptom, so a future change that re-loosens
+        spacing or adds a skill category fails loudly here instead of
+        reproducing this whole bug silently. Also added pdfplumber as a
+        proper requirements-dev.txt dependency (was pip-installed loose
+        while debugging) - "does it raise / does it start with %PDF"
+        assertions could never have caught the original bug; only actual
+        coordinate checking could, and does now.
+      - Verified end-to-end against the real resume + photo before
+        deploying: 2 pages, sidebar/main correctly separated by
+        coordinate check, photo only on page 1, no header/photo on page
+        2, navy color throughout.
+
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE

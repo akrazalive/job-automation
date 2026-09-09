@@ -3,22 +3,27 @@ Python, no system dependencies — unlike weasyprint/wkhtmltopdf, this
 works everywhere without extra installs, including inside the AWS
 Lambda dashboard).
 
-Two-column "designed CV" layout, styled after the operator's own
-original Word template (Full Stack Developer - Complete.docx,
-git-ignored PII) but tuned for print density rather than matching it
-byte-for-byte: a dark maroon header band (headshot photo + name/title,
-white text), a light sidebar (contact details + per-category skills
-with dot-meter proficiency, matching SkillItem.level) on the left, and
-Profile/Education/Employment/Projects in the wider main column on the
-right. Colors (#680000 accent, #580000 header band, #E0EDED sidebar)
-and the dot-meter style were read directly out of the original .docx's
-XML (word/document.xml run properties + shape fills), not guessed. The
-original's five pictogram icons (person/envelope/phone/house/LinkedIn)
-are NOT reused here — they came from a downloaded/purchased Word
-template whose icon-reuse license is unknown, so contact-detail badges
-use a plain colored square + 1-2 letters instead (the LinkedIn "in"
-badge in the original already uses exactly this style, just extended
-here to email/phone/address too).
+Two-column "designed CV" layout, structurally styled after the
+operator's own original Word template (Full Stack Developer -
+Complete.docx, git-ignored PII) but tuned for print density rather than
+matching it byte-for-byte, and re-themed in a deep navy (#1B3B5F/#14293F
+- see ACCENT_HEX/ACCENT_COLOR/BAND_COLOR) instead of the original's
+maroon per direct feedback asking for a different, more conventionally
+"professional" color: a dark header band (headshot photo + name/title,
+white text) on page 1 only, a light sidebar (contact details +
+per-category skills with dot-meter proficiency, matching SkillItem.level)
+on the left of page 1, and Profile/Education/Employment/Projects in the
+main column, which reclaims the full page width from page 2 onward once
+there's no more header/sidebar to share it with (see the
+"first"/"later" PageTemplate split below). The dot-meter style itself
+(plain colored "●" text runs, not an image) was read directly out of the
+original .docx's XML (word/document.xml run properties + shape fills),
+not guessed. The original's five pictogram icons (person/envelope/
+phone/house/LinkedIn) are NOT reused here — they came from a downloaded/
+purchased Word template whose icon-reuse license is unknown, so
+contact-detail badges use a plain colored square + 1-2 letters instead
+(the LinkedIn "in" badge in the original already uses exactly this
+style, just extended here to email/phone/address too).
 
 The photo (resume/photo.jpg locally, or the private S3 copy on AWS —
 see src/tailoring/engine.py:load_profile_photo) is drawn circular-clipped
@@ -83,16 +88,22 @@ from reportlab.platypus import (
 from src.common.resume_schema import MasterResume
 from src.common.skills import extract_skills
 
-# Palette read directly from the original .docx's XML - see module
-# docstring. Kept as the single source of truth for both the header band
-# and every accent/badge below, so a future re-theme only touches here.
-ACCENT_MAROON = colors.HexColor("#680000")   # section headers, dot meters, badges
-BAND_MAROON = colors.HexColor("#580000")     # header band background
-SIDEBAR_BG = colors.HexColor("#E0EDED")      # sidebar background tint
-DARK_TEXT = colors.HexColor("#0F1115")       # main-column body text
-BLACK_TEXT = colors.HexColor("#000000")      # education / sidebar plain text
-WHITE_TEXT = colors.HexColor("#FFFFFF")      # header band text
-MUTED_TEXT = colors.HexColor("#4b5563")      # dates/meta lines
+# Palette — a deep navy replaces the earlier maroon (matched off the
+# original .docx) per direct feedback asking for a different, more
+# conventionally "professional" color. Single source of truth for the
+# header band and every accent/badge/link below, so a future re-theme
+# only touches here. ACCENT_HEX is kept alongside ACCENT_COLOR because
+# reportlab's Paragraph mini-markup (<font color="...">) takes a hex
+# string, not a Color object — this keeps both in sync from one value
+# instead of a hardcoded string drifting out of sync with the theme.
+ACCENT_HEX = "#1B3B5F"                        # deep navy
+ACCENT_COLOR = colors.HexColor(ACCENT_HEX)    # section headers, dot meters, badges, links
+BAND_COLOR = colors.HexColor("#14293F")       # header band background (darker navy)
+SIDEBAR_BG = colors.HexColor("#EEF2F6")       # sidebar background tint (cool light gray-blue)
+DARK_TEXT = colors.HexColor("#0F1115")        # main-column body text
+BLACK_TEXT = colors.HexColor("#000000")       # education / sidebar plain text
+WHITE_TEXT = colors.HexColor("#FFFFFF")       # header band text
+MUTED_TEXT = colors.HexColor("#4b5563")       # dates/meta lines
 
 # Layout geometry. The sidebar and header band run edge-to-edge (x=0),
 # matching the original .docx's full-bleed color blocks; only the main
@@ -105,7 +116,7 @@ MUTED_TEXT = colors.HexColor("#4b5563")      # dates/meta lines
 # on one PageTemplate each paginate independently and correctly — this
 # is reportlab's documented mechanism for multi-page column layouts.
 PAGE_MARGIN = 0.5 * inch
-HEADER_HEIGHT = 0.95 * inch
+HEADER_HEIGHT = 0.82 * inch
 SIDEBAR_WIDTH = 2.15 * inch
 MAIN_WIDTH = LETTER[0] - SIDEBAR_WIDTH - PAGE_MARGIN
 PHOTO_DIAMETER = 0.72 * inch
@@ -274,17 +285,17 @@ def _styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()
     return {
         "sidebar_section": ParagraphStyle(
-            "sidebar_section", parent=base["Normal"], fontSize=10, textColor=ACCENT_MAROON,
-            fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=3,
+            "sidebar_section", parent=base["Normal"], fontSize=9.5, textColor=ACCENT_COLOR,
+            fontName="Helvetica-Bold", spaceBefore=6, spaceAfter=2,
         ),
         "sidebar_item": ParagraphStyle(
-            "sidebar_item", parent=base["Normal"], fontSize=8, textColor=BLACK_TEXT, leading=10.5,
+            "sidebar_item", parent=base["Normal"], fontSize=7.5, textColor=BLACK_TEXT, leading=9.5,
         ),
         "sidebar_dots": ParagraphStyle(
-            "sidebar_dots", parent=base["Normal"], fontSize=7.5, textColor=ACCENT_MAROON, alignment=2, leading=10.5,
+            "sidebar_dots", parent=base["Normal"], fontSize=7, textColor=ACCENT_COLOR, alignment=2, leading=9.5,
         ),
         "section": ParagraphStyle(
-            "section", parent=base["Heading2"], fontSize=12.5, textColor=ACCENT_MAROON,
+            "section", parent=base["Heading2"], fontSize=12.5, textColor=ACCENT_COLOR,
             fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=3, borderPadding=0,
         ),
         "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9, textColor=DARK_TEXT, leading=11.8),
@@ -315,7 +326,7 @@ def _badge(letters: str) -> Table:
     the same treatment uniformly to email/phone/address too."""
     t = Table([[letters]], colWidths=[0.2 * inch], rowHeights=[0.2 * inch])
     t.setStyle(TableStyle(_NO_PAD + [
-        ("BACKGROUND", (0, 0), (-1, -1), ACCENT_MAROON),
+        ("BACKGROUND", (0, 0), (-1, -1), ACCENT_COLOR),
         ("TEXTCOLOR", (0, 0), (-1, -1), WHITE_TEXT),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -332,7 +343,7 @@ def _contact_row(letters: str, text: str, style: ParagraphStyle) -> Table:
     row.setStyle(TableStyle(_NO_PAD + [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("RIGHTPADDING", (0, 0), (0, 0), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     return row
 
@@ -346,7 +357,7 @@ def _skill_row(name: str, level: int, matched: bool, styles: dict[str, Paragraph
     )
     row.setStyle(TableStyle(_NO_PAD + [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
     ]))
     return row
 
@@ -420,7 +431,7 @@ def _main_flowables(
             flow.append(Paragraph(proj.name, styles["entry_title"]))
             if proj.url:
                 flow.append(Paragraph(
-                    f'<link href="{proj.url}"><font color="#680000">{proj.url}</font></link>', styles["entry_meta"],
+                    f'<link href="{proj.url}"><font color="{ACCENT_HEX}">{proj.url}</font></link>', styles["entry_meta"],
                 ))
             flow.append(Paragraph(proj.description, styles["body"]))
             rendered_tech = [f"<b>{t}</b>" if _skill_is_relevant(t, wanted) else t for t in proj.tech]
@@ -459,36 +470,44 @@ def render_resume_pdf(
 
     page_w, page_h = LETTER
     frame_bottom = PAGE_MARGIN
-    frame_height = page_h - HEADER_HEIGHT - PAGE_MARGIN
+    # Page 1 reserves room at the top for the header band; page 2+ has no
+    # header/photo at all (per direct feedback: "no need of header on 2nd
+    # page, no need for photo on 2nd page"), so its frame reclaims that
+    # space AND the sidebar's width - continuation pages are plain white,
+    # full-width, giving more room per page (helps the 2-page target too).
+    frame_height_first = page_h - HEADER_HEIGHT - PAGE_MARGIN
+    frame_height_later = page_h - 2 * PAGE_MARGIN
 
     sidebar_frame = Frame(
-        0, frame_bottom, SIDEBAR_WIDTH, frame_height, id="sidebar",
+        0, frame_bottom, SIDEBAR_WIDTH, frame_height_first, id="sidebar",
         leftPadding=10, rightPadding=8, topPadding=10, bottomPadding=10, showBoundary=0,
     )
-    # Two separate Frame objects with IDENTICAL geometry, not one reused
-    # across both page templates - reportlab Frames carry internal fill
-    # state, and "later" pages need their own so overflow tracking for
-    # page 1's main column doesn't get confused with page 2+'s.
     main_frame_first = Frame(
-        SIDEBAR_WIDTH, frame_bottom, MAIN_WIDTH, frame_height, id="main",
+        SIDEBAR_WIDTH, frame_bottom, MAIN_WIDTH, frame_height_first, id="main",
         leftPadding=16, rightPadding=PAGE_MARGIN, topPadding=10, bottomPadding=10, showBoundary=0,
     )
+    # Own geometry (full page width, no sidebar offset, taller since no
+    # header) - not the same Frame object as main_frame_first reused,
+    # since reportlab Frames carry internal fill state.
     main_frame_later = Frame(
-        SIDEBAR_WIDTH, frame_bottom, MAIN_WIDTH, frame_height, id="main-later",
-        leftPadding=16, rightPadding=PAGE_MARGIN, topPadding=10, bottomPadding=10, showBoundary=0,
+        PAGE_MARGIN, frame_bottom, page_w - 2 * PAGE_MARGIN, frame_height_later, id="main-later",
+        leftPadding=0, rightPadding=0, topPadding=10, bottomPadding=10, showBoundary=0,
     )
 
     c = resume.contact
 
-    def _draw_background(canvas, _doc):
-        # Header band + sidebar tint are page decoration, not flowables -
-        # drawn directly so they can span edge-to-edge and repeat
-        # identically on every page regardless of where Frame content
-        # happens to break. See module docstring for the color source.
+    def _draw_background(canvas, doc_):
+        # Header band, photo, and sidebar tint are PAGE 1 ONLY page
+        # decoration - drawn directly (not as flowables) so they can span
+        # edge-to-edge; doc_.page is reportlab's own current-page-number
+        # tracker (1-indexed), the standard way an onPage callback tells
+        # pages apart. See module docstring for the color source.
+        if doc_.page != 1:
+            return
         canvas.saveState()
         canvas.setFillColor(SIDEBAR_BG)
-        canvas.rect(0, frame_bottom, SIDEBAR_WIDTH, frame_height, fill=1, stroke=0)
-        canvas.setFillColor(BAND_MAROON)
+        canvas.rect(0, frame_bottom, SIDEBAR_WIDTH, frame_height_first, fill=1, stroke=0)
+        canvas.setFillColor(BAND_COLOR)
         canvas.rect(0, page_h - HEADER_HEIGHT, page_w, HEADER_HEIGHT, fill=1, stroke=0)
         canvas.setFillColor(WHITE_TEXT)
 
@@ -518,13 +537,26 @@ def render_resume_pdf(
     # cycling, when the main frame overflows onto a new page, restarts
     # from frame[0] of the SAME template - which would dump overflowing
     # main content back into the (empty, light-colored) sidebar frame
-    # instead of continuing in the main column. Verified this exact
-    # failure mode: a 3-page render put "Fullstack Developer —
-    # Watkanikleasen.nl..." (main-column content) inside the sidebar's
-    # light-blue background on page 2. NextPageTemplate("later"), queued
-    # right after the sidebar's FrameBreak, switches every subsequent
-    # page to the single-frame template before main content has a chance
-    # to overflow, so it always continues in the main column.
+    # instead of continuing in the main column.
+    #
+    # Verified TWO real failure modes here, not one - the second only
+    # showed up once checked with pdfplumber's actual word coordinates,
+    # not by eye:
+    #   1. A 3-page render put "Fullstack Developer — Watkanikleasen.nl…"
+    #      inside the sidebar's light-colored background on page 2.
+    #   2. NextPageTemplate("later") placed right after the sidebar's
+    #      FrameBreak (i.e. mid-story) looked like it should only affect
+    #      the NEXT page turn, but empirically it disrupted FrameBreak's
+    #      own same-page frame-advance too: "PROFILE"/"EDUCATION"/the
+    #      start of "EMPLOYMENT" rendered at x=10pt - the SAME x as the
+    #      sidebar's "PERSONAL"/"BACKEND" headers - i.e. inside
+    #      sidebar_frame on page 2, even though sidebar_frame was meant
+    #      to be used only once, on page 1. Confirmed by isolating a
+    #      minimal repro: moving NextPageTemplate("later") to be the
+    #      VERY FIRST flowable in the whole story (before any sidebar
+    #      content, not after the FrameBreak) fixed it - queued that far
+    #      ahead, it only affects the actual next NEW page, with no
+    #      interference on frame-advances within page 1 itself.
     doc.addPageTemplates([
         PageTemplate(id="first", frames=[sidebar_frame, main_frame_first], onPage=_draw_background),
         PageTemplate(id="later", frames=[main_frame_later], onPage=_draw_background),
@@ -534,7 +566,7 @@ def render_resume_pdf(
     main = _main_flowables(
         resume, required_skills, tailored_summary, tailored_experience_bullets, max_projects, styles,
     )
-    story = sidebar + [FrameBreak(), NextPageTemplate("later")] + main
+    story = [NextPageTemplate("later")] + sidebar + [FrameBreak()] + main
 
     doc.build(story)
     return buf.getvalue()

@@ -383,3 +383,122 @@ def test_render_resume_pdf_without_photo_still_renders():
     resume = _sample_resume()
     pdf_bytes = render_resume_pdf(resume, photo_bytes=None)
     assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_resume_pdf_main_content_never_lands_in_sidebar_column():
+    # Regression test for a real, otherwise-invisible bug: main-column
+    # content (Profile/Education/Employment) was rendering at the SAME
+    # x-coordinate as the sidebar's own headers on page 2+ - reportlab's
+    # frame-cycling restarting from frame[0] when NextPageTemplate was
+    # placed mid-story (right after the sidebar's FrameBreak) rather than
+    # as the very first flowable. "pdf_bytes.startswith(b'%PDF')" alone
+    # could never catch this - it takes checking actual text coordinates
+    # (pdfplumber) to see it, which is exactly how this was found and
+    # confirmed fixed.
+    import pdfplumber
+
+    resume = _sample_resume(projects=_sample_projects() * 3)
+    resume.experience = resume.experience * 6
+    for entry in resume.experience:
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
+    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"], max_projects=20)
+
+    from io import BytesIO
+
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    assert len(pdf.pages) >= 2, "test needs content that actually overflows to page 2+"
+
+    page1_words = pdf.pages[0].extract_words()
+    sidebar_x = next(w["x0"] for w in page1_words if w["text"] == "BACKEND")
+
+    for page in pdf.pages[1:]:
+        words = page.extract_words()
+        for w in words:
+            if w["text"] in ("PROFILE", "EDUCATION", "EMPLOYMENT", "PROJECTS"):
+                assert w["x0"] != sidebar_x, (
+                    f"{w['text']!r} rendered at the sidebar's own x-position "
+                    f"({sidebar_x}) on a later page - it belongs in the main column"
+                )
+
+
+def test_render_resume_pdf_no_header_or_photo_on_later_pages():
+    # Direct feedback: "no need of header on 2nd page, no need for photo
+    # on 2nd page". Confirms _draw_background's page-1-only guard.
+    import pdfplumber
+    from io import BytesIO
+
+    resume = _sample_resume(projects=_sample_projects() * 3)
+    resume.contact.name = "Zzyxq Wobblesworth"  # distinctive - can't collide with other fixture text ("Test Co" etc.)
+    resume.experience = resume.experience * 6
+    for entry in resume.experience:
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
+    pdf_bytes = render_resume_pdf(resume, photo_bytes=_tiny_jpeg_bytes(), max_projects=20)
+
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    assert len(pdf.pages) >= 2, "test needs content that actually overflows to page 2+"
+    assert "Zzyxq" in pdf.pages[0].extract_text()  # sanity check: header IS on page 1
+
+    for page in pdf.pages[1:]:
+        words = [w["text"] for w in page.extract_words()]
+        assert "Zzyxq" not in words  # name/header must not repeat
+        assert "PERSONAL" not in words  # sidebar header shouldn't repeat either
+        assert len(page.images) == 0  # no photo drawn
+
+
+def test_sidebar_content_fits_a_single_page_at_realistic_density():
+    # Regression test for the ACTUAL root cause behind the "PROFILE
+    # renders in the sidebar" bug above: it wasn't really about
+    # NextPageTemplate ordering in isolation (that repro'd fine with a
+    # handful of short paragraphs) - it only appeared once the sidebar's
+    # own content was large enough to overflow ITS frame's height (the
+    # real resume's 4 skill categories + languages, ~40 rows, didn't fit
+    # in one page at the template's ORIGINAL spacing). When frame 0
+    # itself overflows, reportlab's handling of the queued FrameBreak
+    # gets ambiguous. Rather than re-testing that reportlab internal
+    # behavior directly, this test encodes the actual constraint that
+    # avoids it: sidebar content at a realistic size must fit in one
+    # page's sidebar frame, full stop. If a future change (more skill
+    # categories, looser spacing, a taller header) breaks that, this
+    # fails BEFORE the harder-to-diagnose symptom shows up again.
+    import pdfplumber
+    from io import BytesIO
+
+    from src.common.resume_schema import SkillItem
+    from src.tailoring import pdf_renderer as pr
+
+    resume = _sample_resume()
+    resume.skills = {
+        "backend": [SkillItem(name=f"Backend Skill {i}", level=5) for i in range(5)],
+        "databases": [SkillItem(name=f"Database {i}", level=5) for i in range(5)],
+        "frontend": [SkillItem(name=f"Frontend Skill {i}", level=5) for i in range(9)],
+        "build_tools": [SkillItem(name=f"Build Tool {i}", level=5) for i in range(12)],
+    }
+    resume.spoken_languages = [SkillItem(name=n, level=lvl) for n, lvl in [
+        ("English", 5), ("Urdu", 5), ("Pashto", 5), ("Hindi", 4), ("Arabic", 3),
+    ]]
+
+    styles = pr._styles()
+    sidebar = pr._sidebar_flowables(resume, None, styles)
+
+    from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+    from reportlab.lib.pagesizes import LETTER
+
+    page_w, page_h = LETTER
+    frame_height_first = page_h - pr.HEADER_HEIGHT - pr.PAGE_MARGIN
+    sidebar_frame = Frame(
+        0, pr.PAGE_MARGIN, pr.SIDEBAR_WIDTH, frame_height_first, id="sidebar",
+        leftPadding=10, rightPadding=8, topPadding=10, bottomPadding=10,
+    )
+    buf = BytesIO()
+    doc = BaseDocTemplate(
+        buf, pagesize=LETTER, topMargin=pr.PAGE_MARGIN, bottomMargin=pr.PAGE_MARGIN,
+        leftMargin=pr.PAGE_MARGIN, rightMargin=pr.PAGE_MARGIN,
+    )
+    doc.addPageTemplates([PageTemplate(id="only", frames=[sidebar_frame])])
+    doc.build(sidebar)
+
+    pdf = pdfplumber.open(BytesIO(buf.getvalue()))
+    assert len(pdf.pages) == 1, (
+        f"sidebar content needs {len(pdf.pages)} pages at realistic density - "
+        "it must fit in exactly 1, or the main-column frame-cycling bug returns"
+    )

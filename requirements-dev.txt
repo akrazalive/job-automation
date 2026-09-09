@@ -1,3 +1,8 @@
 -r requirements.txt
 pytest>=8.3
 httpx>=0.27
+# For asserting actual text x/y coordinates in rendered PDFs (see
+# test_pdf_renderer.py's page-layout regression test) - caught a real
+# bug (main-column content landing inside the sidebar frame on page 2+)
+# that "does it raise / does it start with %PDF" checks couldn't.
+pdfplumber>=0.11
