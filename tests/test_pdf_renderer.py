@@ -10,6 +10,8 @@ from src.common.resume_schema import (
 )
 from src.tailoring.pdf_renderer import (
     DEFAULT_MAX_PROJECTS,
+    _bold_matched_terms,
+    _reorder_bullets,
     _reorder_projects_for_job,
     _reorder_skills_for_job,
     _skill_is_relevant,
@@ -188,6 +190,73 @@ def test_project_entry_accepts_url():
     pdf_bytes = render_resume_pdf(resume)
     assert pdf_bytes.startswith(b"%PDF")
     assert resume.projects[0].url == "https://example.com"
+
+
+def test_bold_matched_terms_wraps_matching_term_word_boundary_safe():
+    text = "Built features using React, Node.js, and MySQL"
+    result = _bold_matched_terms(text, ["React", "MySQL"])
+    assert "<b>React</b>" in result
+    assert "<b>MySQL</b>" in result
+    assert "Node.js" in result and "<b>Node.js</b>" not in result  # not requested, not bolded
+
+
+def test_bold_matched_terms_does_not_false_positive_on_short_acronyms():
+    text = "Worked with Tailwind CSS extensively"
+    result = _bold_matched_terms(text, ["AI"])
+    assert "<b>" not in result  # "AI" must not match inside "Tailwind"
+
+
+def test_bold_matched_terms_does_not_double_wrap_overlapping_matches():
+    # A single combined regex pass, not one re.sub per term - otherwise a
+    # second pass could re-match text a prior pass already wrapped.
+    text = "Experience with Node.js and general Node tooling"
+    result = _bold_matched_terms(text, ["Node.js"])
+    assert result.count("<b>") == 1
+    assert "<b><b>" not in result
+
+
+def test_bold_matched_terms_preserves_text_exactly_when_nothing_matches():
+    text = "Did a thing with Rust and Go"
+    assert _bold_matched_terms(text, ["React", "Vue"]) == text
+
+
+def test_bold_matched_terms_handles_empty_required_skills():
+    text = "Did a thing"
+    assert _bold_matched_terms(text, None) == text
+    assert _bold_matched_terms(text, []) == text
+
+
+def test_reorder_bullets_moves_most_relevant_first():
+    bullets = [
+        "Participated in agile ceremonies and sprint planning",
+        "Built features using React, Node.js, and MySQL",
+    ]
+    reordered = _reorder_bullets(bullets, wanted={"react", "node.js"})
+    assert reordered[0] == "Built features using React, Node.js, and MySQL"
+    assert set(reordered) == set(bullets)  # nothing added or removed
+
+
+def test_reorder_bullets_with_no_required_skills_keeps_original_order():
+    bullets = ["First bullet.", "Second bullet."]
+    assert _reorder_bullets(bullets, wanted=set()) == bullets
+
+
+def test_reorder_bullets_never_drops_a_bullet():
+    bullets = ["Uses Python.", "Uses nothing relevant.", "Uses React."]
+    reordered = _reorder_bullets(bullets, wanted={"react"})
+    assert len(reordered) == len(bullets)
+    assert set(reordered) == set(bullets)
+
+
+def test_render_resume_pdf_tailors_experience_bullets_by_required_skills():
+    resume = _sample_resume()
+    resume.experience[0].bullets = [
+        "Participated in agile ceremonies.",
+        "Did a thing with PHP.",
+    ]
+    baseline = render_resume_pdf(resume, required_skills=[])
+    tailored = render_resume_pdf(resume, required_skills=["PHP"])
+    assert baseline != tailored  # bolding/reordering actually changes the output
 
 
 def test_render_resume_pdf_rejects_mismatched_bullet_entry_count():

@@ -9,16 +9,17 @@ See src/common/resume_schema.py's PROTECTED_* constants and
 TECHNICAL_PLAN.txt section 0 for why this boundary matters.
 
   1. Deterministic (always available): given a job's required_skills
-     (src/common/skills.py), each skill category's items (and the
-     Projects section) are REORDERED to put matching skills/projects
-     first, and matching skill/tech names are rendered in BOLD — nothing
-     added, removed, or reworded, purely order + emphasis. The bolding
-     exists because reordering alone can be too subtle to notice (a
-     skill that was already first in its category looks identical either
-     way) - bold is the always-visible proof that tailoring ran for this
-     job. See _skill_is_relevant()'s docstring for why matching a resume
-     skill name against required_skills isn't a plain string-equality
-     check.
+     (src/common/skills.py), each skill category's items, the Projects
+     section, and each Experience entry's own bullets are REORDERED to
+     put the most relevant ones first, and matching skill/tech names -
+     including inside Experience bullet TEXT, via _bold_matched_terms -
+     are rendered in BOLD. Nothing added, removed, or reworded anywhere;
+     purely order + emphasis on content that was already true. The
+     bolding exists because reordering alone can be too subtle to notice
+     (a skill/bullet that was already first stays first either way) -
+     bold is the always-visible proof that tailoring ran for this job.
+     See _skill_is_relevant()'s docstring for why matching a resume skill
+     name against required_skills isn't a plain string-equality check.
   2. LLM-assisted (when tailored_summary/tailored_experience_bullets are
      passed in — see src/tailoring/engine.py, which gets them from
      claude_client.py and only passes them through after verifying the
@@ -30,6 +31,7 @@ TECHNICAL_PLAN.txt section 0 for why this boundary matters.
 
 from __future__ import annotations
 
+import re
 from io import BytesIO
 from typing import Optional
 
@@ -119,6 +121,46 @@ def _reorder_projects_for_job(
     return sorted(resume.projects, key=overlap, reverse=True)
 
 
+def _reorder_bullets(bullets: list[str], wanted: set[str]) -> list[str]:
+    """One experience entry's bullets reordered so ones mentioning more of
+    the job's required_skills come first (ties keep original order —
+    stable sort). Order only, same guarantee as skill/project reordering:
+    every bullet stays, none are added, removed, or reworded — the actual
+    achievement text is exactly what's in master_resume.json. This is
+    what keeps PROTECTED_EXPERIENCE_FIELDS meaningful: company/title/
+    dates never move or change regardless of this, only which of the
+    already-true bullets under a given job appears first."""
+    if not wanted:
+        return list(bullets)
+
+    def score(bullet: str) -> int:
+        return len({k.lower() for k in extract_skills(bullet)} & wanted)
+
+    return sorted(bullets, key=score, reverse=True)
+
+
+def _bold_matched_terms(text: str, required_skills: Optional[list[str]]) -> str:
+    """Wraps any required_skills term found in `text` in <b> tags —
+    word-boundary guarded the same way skills.py's extract_skills() is,
+    so a short term like "AI" can't match inside an unrelated word. A
+    SINGLE combined regex (terms sorted longest-first so "Node.js" wins
+    over any shorter overlapping term, and matches are found in one pass)
+    rather than one re.sub() call per term — repeated substitution passes
+    would re-scan text a previous pass already wrapped in <b>...</b> and
+    double-wrap it (e.g. a term found inside an earlier match's own
+    tags). Preserves the bullet's own original wording/casing exactly —
+    this only adds emphasis around text that was already there, the same
+    "reorder/highlight, never reword" boundary as everywhere else in this
+    file. Used on Experience bullets so a job's required tools are
+    visibly highlighted in bullets that already truthfully mention them,
+    not just in the Skills/Projects sections."""
+    terms = sorted({s for s in (required_skills or []) if s}, key=len, reverse=True)
+    if not terms:
+        return text
+    pattern = r"(?<![A-Za-z0-9])(" + "|".join(re.escape(t) for t in terms) + r")(?![A-Za-z0-9])"
+    return re.sub(pattern, r"<b>\1</b>", text, flags=re.IGNORECASE)
+
+
 # A resume shows a curated handful of projects, not an exhaustive project
 # history — this caps how many of resume.projects actually get rendered
 # per PDF, taking the most relevant N after _reorder_projects_for_job
@@ -206,9 +248,11 @@ def render_resume_pdf(
         story.append(Paragraph(title_line, s["entry_title"]))
         story.append(Paragraph(" &nbsp;|&nbsp; ".join(meta_bits), s["entry_meta"]))
         bullets = tailored_experience_bullets[i] if tailored_experience_bullets is not None else entry.bullets
+        bullets = _reorder_bullets(bullets, wanted)
+        rendered_bullets = [_bold_matched_terms(b, required_skills) for b in bullets]
         story.append(
             ListFlowable(
-                [ListItem(Paragraph(b, s["bullet"])) for b in bullets],
+                [ListItem(Paragraph(b, s["bullet"])) for b in rendered_bullets],
                 bulletType="bullet", start="•", leftIndent=14, bulletFontSize=9,
             )
         )
