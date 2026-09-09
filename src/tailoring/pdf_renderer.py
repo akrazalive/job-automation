@@ -1,12 +1,28 @@
-"""Renders resume/master_resume.json into a clean, ATS-friendly PDF using
-reportlab (pure Python, no system dependencies — unlike weasyprint/wkhtmltopdf,
-this works everywhere without extra installs).
+"""Renders resume/master_resume.json into a PDF using reportlab (pure
+Python, no system dependencies — unlike weasyprint/wkhtmltopdf, this
+works everywhere without extra installs, including inside the AWS
+Lambda dashboard).
 
-Two tailoring modes, both bounded the same way: company names, titles,
-dates, and education are ALWAYS copied through byte-for-byte from
-master_resume.json — never passed as parameters that could override them.
-See src/common/resume_schema.py's PROTECTED_* constants and
-TECHNICAL_PLAN.txt section 0 for why this boundary matters.
+Two-column "designed CV" layout — matches the operator's own original
+Word template (Full Stack Developer - Complete.docx, git-ignored PII):
+a dark maroon header band (name + title, white text), a light sidebar
+(contact details + per-category skills with dot-meter proficiency,
+matching SkillItem.level) on the left, and Profile/Education/Employment/
+Projects in the wider main column on the right. Colors (#680000 accent,
+#580000 header band, #E0EDED sidebar) and the dot-meter style were read
+directly out of the original .docx's XML (word/document.xml run
+properties + shape fills), not guessed. The original's five pictogram
+icons (person/envelope/phone/house/LinkedIn) are NOT reused here — they
+came from a downloaded/purchased Word template whose icon-reuse license
+is unknown, so contact-detail badges use a plain colored square + 1-2
+letters instead (the LinkedIn "in" badge in the original already uses
+exactly this style, just extended here to email/phone/address too).
+
+Company names, titles, dates, and education are ALWAYS copied through
+byte-for-byte from master_resume.json — never passed as parameters that
+could override them. See src/common/resume_schema.py's PROTECTED_*
+constants and TECHNICAL_PLAN.txt section 0 for why this boundary
+matters.
 
   1. Deterministic (always available): given a job's required_skills
      (src/common/skills.py), each skill category's items, the Projects
@@ -40,24 +56,46 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
-    HRFlowable,
+    BaseDocTemplate,
+    Frame,
+    FrameBreak,
     ListFlowable,
     ListItem,
+    NextPageTemplate,
+    PageTemplate,
     Paragraph,
-    SimpleDocTemplate,
-    Spacer,
+    Table,
+    TableStyle,
 )
 
 from src.common.resume_schema import MasterResume
 from src.common.skills import extract_skills
 
-# A restrained dark-green accent for headers only — body text stays
-# black/dark-gray for ATS readability and print-friendliness. Ties the
-# resume visually to the dashboard's brand color without turning the
-# resume itself into a design piece.
-ACCENT_GREEN = colors.HexColor("#15803d")
-DARK_TEXT = colors.HexColor("#1a1a1a")
-MUTED_TEXT = colors.HexColor("#4b5563")
+# Palette read directly from the original .docx's XML - see module
+# docstring. Kept as the single source of truth for both the header band
+# and every accent/badge below, so a future re-theme only touches here.
+ACCENT_MAROON = colors.HexColor("#680000")   # section headers, dot meters, badges
+BAND_MAROON = colors.HexColor("#580000")     # header band background
+SIDEBAR_BG = colors.HexColor("#E0EDED")      # sidebar background tint
+DARK_TEXT = colors.HexColor("#0F1115")       # main-column body text
+BLACK_TEXT = colors.HexColor("#000000")      # education / sidebar plain text
+WHITE_TEXT = colors.HexColor("#FFFFFF")      # header band text
+MUTED_TEXT = colors.HexColor("#4b5563")      # dates/meta lines
+
+# Layout geometry. The sidebar and header band run edge-to-edge (x=0),
+# matching the original .docx's full-bleed color blocks; only the main
+# column respects a right-hand margin. Two independent reportlab Frames
+# (not a single Table) hold the sidebar/main content — a resume this
+# large (up to 6 experience entries + 6 projects) routinely spans 2+
+# pages, and a single-row 2-column Table can't split its own cell
+# content across a page boundary (verified: reportlab raises
+# LayoutError "too large on page 2" for exactly this shape). Two Frames
+# on one PageTemplate each paginate independently and correctly — this
+# is reportlab's documented mechanism for multi-page column layouts.
+PAGE_MARGIN = 0.5 * inch
+HEADER_HEIGHT = 0.95 * inch
+SIDEBAR_WIDTH = 2.15 * inch
+MAIN_WIDTH = LETTER[0] - SIDEBAR_WIDTH - PAGE_MARGIN
 
 
 def _skill_is_relevant(name: str, wanted: set[str]) -> bool:
@@ -87,16 +125,18 @@ def _skill_is_relevant(name: str, wanted: set[str]) -> bool:
 
 def _reorder_skills_for_job(
     resume: MasterResume, required_skills: Optional[list[str]]
-) -> dict[str, list[str]]:
-    """{category: [skill names]}, with skills matching the job's
+) -> dict[str, list]:
+    """{category: [SkillItem, ...]}, with skills matching the job's
     required_skills moved to the front of each category. Order only —
     nothing added or removed, so this can never claim a skill the
-    original resume didn't already list."""
+    original resume didn't already list. Returns SkillItem objects (not
+    just names) since the sidebar's dot-meter needs each skill's own
+    .level too."""
     wanted = {s.lower() for s in (required_skills or [])}
-    result: dict[str, list[str]] = {}
+    result: dict[str, list] = {}
     for category, items in resume.skills.items():
-        matched = [i.name for i in items if _skill_is_relevant(i.name, wanted)]
-        rest = [i.name for i in items if not _skill_is_relevant(i.name, wanted)]
+        matched = [i for i in items if _skill_is_relevant(i.name, wanted)]
+        rest = [i for i in items if not _skill_is_relevant(i.name, wanted)]
         result[category] = matched + rest
     return result
 
@@ -171,18 +211,180 @@ def _bold_matched_terms(text: str, required_skills: Optional[list[str]]) -> str:
 DEFAULT_MAX_PROJECTS = 6
 
 
+def _dot_meter(level: int) -> str:
+    """A skill's 1-5 proficiency (SkillItem.level, from the original
+    resume's dot meter) as a run of filled-dot characters. Matches the
+    original .docx exactly: it also just used a plain text run of "●"
+    characters colored maroon, not an image or drawn shape — verified in
+    its own XML (a run of e.g. "●●●" for a level-3 skill, no unfilled
+    trailing dots shown)."""
+    return "●" * max(0, min(level, 5))
+
+
 def _styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()
     return {
-        "name": ParagraphStyle("name", parent=base["Title"], fontSize=20, textColor=DARK_TEXT, spaceAfter=2, alignment=0),
-        "headline": ParagraphStyle("headline", parent=base["Normal"], fontSize=11, textColor=ACCENT_GREEN, spaceAfter=6),
-        "contact": ParagraphStyle("contact", parent=base["Normal"], fontSize=9, textColor=MUTED_TEXT, spaceAfter=10),
-        "section": ParagraphStyle("section", parent=base["Heading2"], fontSize=12, textColor=ACCENT_GREEN, spaceBefore=12, spaceAfter=4, borderPadding=0),
-        "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9.5, textColor=DARK_TEXT, leading=13),
-        "entry_title": ParagraphStyle("entry_title", parent=base["Normal"], fontSize=10.5, textColor=DARK_TEXT, spaceBefore=6, fontName="Helvetica-Bold"),
-        "entry_meta": ParagraphStyle("entry_meta", parent=base["Normal"], fontSize=9, textColor=MUTED_TEXT, spaceAfter=3),
-        "bullet": ParagraphStyle("bullet", parent=base["Normal"], fontSize=9.5, textColor=DARK_TEXT, leading=13),
+        "name": ParagraphStyle(
+            "name", parent=base["Title"], fontSize=22, leading=24, textColor=WHITE_TEXT,
+            alignment=1, fontName="Helvetica-Bold", spaceAfter=2,
+        ),
+        "headline": ParagraphStyle(
+            "headline", parent=base["Normal"], fontSize=12, textColor=WHITE_TEXT, alignment=1,
+        ),
+        "sidebar_section": ParagraphStyle(
+            "sidebar_section", parent=base["Normal"], fontSize=10.5, textColor=ACCENT_MAROON,
+            fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4,
+        ),
+        "sidebar_item": ParagraphStyle(
+            "sidebar_item", parent=base["Normal"], fontSize=8.3, textColor=BLACK_TEXT, leading=11,
+        ),
+        "sidebar_dots": ParagraphStyle(
+            "sidebar_dots", parent=base["Normal"], fontSize=8, textColor=ACCENT_MAROON, alignment=2, leading=11,
+        ),
+        "section": ParagraphStyle(
+            "section", parent=base["Heading2"], fontSize=13, textColor=ACCENT_MAROON,
+            fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4, borderPadding=0,
+        ),
+        "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9.3, textColor=DARK_TEXT, leading=12.5),
+        "entry_title": ParagraphStyle(
+            "entry_title", parent=base["Normal"], fontSize=9.8, textColor=DARK_TEXT,
+            spaceBefore=6, fontName="Helvetica-Bold",
+        ),
+        "entry_meta": ParagraphStyle("entry_meta", parent=base["Normal"], fontSize=8.3, textColor=MUTED_TEXT, spaceAfter=3),
+        "bullet": ParagraphStyle("bullet", parent=base["Normal"], fontSize=8.8, textColor=DARK_TEXT, leading=12),
+        "edu": ParagraphStyle("edu", parent=base["Normal"], fontSize=9.3, textColor=BLACK_TEXT, leading=12.5),
     }
+
+
+_NO_PAD = [
+    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ("TOPPADDING", (0, 0), (-1, -1), 0),
+    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+]
+
+
+def _badge(letters: str) -> Table:
+    """A small solid-maroon square with 1-2 white letters, used as a
+    lightweight stand-in for the original .docx's per-field pictogram
+    icons (see module docstring for why those aren't reused directly).
+    The LinkedIn field in the original ALREADY uses exactly this
+    letter-badge style ("in" on a colored square) - this just applies
+    the same treatment uniformly to email/phone/address too."""
+    t = Table([[letters]], colWidths=[0.2 * inch], rowHeights=[0.2 * inch])
+    t.setStyle(TableStyle(_NO_PAD + [
+        ("BACKGROUND", (0, 0), (-1, -1), ACCENT_MAROON),
+        ("TEXTCOLOR", (0, 0), (-1, -1), WHITE_TEXT),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 6.5),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+    ]))
+    return t
+
+
+def _contact_row(letters: str, text: str, style: ParagraphStyle) -> Table:
+    badge = _badge(letters)
+    para = Paragraph(text, style)
+    row = Table([[badge, para]], colWidths=[0.3 * inch, SIDEBAR_WIDTH - 0.55 * inch])
+    row.setStyle(TableStyle(_NO_PAD + [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("RIGHTPADDING", (0, 0), (0, 0), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return row
+
+
+def _skill_row(name: str, level: int, matched: bool, styles: dict[str, ParagraphStyle]) -> Table:
+    name_text = f"<b>{name}</b>" if matched else name
+    name_col_width = SIDEBAR_WIDTH - 0.9 * inch
+    row = Table(
+        [[Paragraph(name_text, styles["sidebar_item"]), Paragraph(_dot_meter(level), styles["sidebar_dots"])]],
+        colWidths=[name_col_width, 0.65 * inch],
+    )
+    row.setStyle(TableStyle(_NO_PAD + [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    return row
+
+
+def _sidebar_flowables(resume: MasterResume, required_skills: Optional[list[str]], styles: dict) -> list:
+    wanted = {s.lower() for s in (required_skills or [])}
+    c = resume.contact
+    flow: list = [Paragraph("PERSONAL DETAILS", styles["sidebar_section"])]
+    flow.append(_contact_row("@", c.email, styles["sidebar_item"]))
+    flow.append(_contact_row("T", c.phone, styles["sidebar_item"]))
+    flow.append(_contact_row("A", c.location, styles["sidebar_item"]))
+    if c.linkedin:
+        flow.append(_contact_row("in", c.linkedin, styles["sidebar_item"]))
+
+    reordered = _reorder_skills_for_job(resume, required_skills)
+    for category, items in reordered.items():
+        label = category.replace("_", " ").title()
+        flow.append(Paragraph(label.upper(), styles["sidebar_section"]))
+        for item in items:
+            flow.append(_skill_row(item.name, item.level, _skill_is_relevant(item.name, wanted), styles))
+
+    if resume.spoken_languages:
+        flow.append(Paragraph("LANGUAGES", styles["sidebar_section"]))
+        for lang in resume.spoken_languages:
+            flow.append(_skill_row(lang.name, lang.level, False, styles))
+
+    return flow
+
+
+def _main_flowables(
+    resume: MasterResume,
+    required_skills: Optional[list[str]],
+    tailored_summary: Optional[str],
+    tailored_experience_bullets: Optional[list[list[str]]],
+    max_projects: int,
+    styles: dict,
+) -> list:
+    wanted = {s.lower() for s in (required_skills or [])}
+    flow: list = []
+
+    flow.append(Paragraph("PROFILE", styles["section"]))
+    flow.append(Paragraph(tailored_summary or resume.summary, styles["body"]))
+
+    flow.append(Paragraph("EDUCATION", styles["section"]))
+    for edu in resume.education:
+        flow.append(Paragraph(edu.degree, styles["entry_title"]))
+        flow.append(Paragraph(f"{edu.institution} &nbsp;|&nbsp; {edu.date_text}", styles["entry_meta"]))
+
+    flow.append(Paragraph("EMPLOYMENT", styles["section"]))
+    for i, entry in enumerate(resume.experience):
+        title_line = f"{entry.title} — {entry.company}"
+        meta_bits = [entry.date_text]
+        if entry.location:
+            meta_bits.append(entry.location)
+        flow.append(Paragraph(title_line, styles["entry_title"]))
+        flow.append(Paragraph(" &nbsp;|&nbsp; ".join(meta_bits), styles["entry_meta"]))
+        bullets = tailored_experience_bullets[i] if tailored_experience_bullets is not None else entry.bullets
+        bullets = _reorder_bullets(bullets, wanted)
+        rendered_bullets = [_bold_matched_terms(b, required_skills) for b in bullets]
+        flow.append(
+            ListFlowable(
+                [ListItem(Paragraph(b, styles["bullet"])) for b in rendered_bullets],
+                bulletType="bullet", start="•", leftIndent=12, bulletFontSize=8,
+            )
+        )
+
+    if resume.projects:
+        flow.append(Paragraph("PROJECTS", styles["section"]))
+        selected = _reorder_projects_for_job(resume, required_skills)[:max_projects]
+        for proj in selected:
+            flow.append(Paragraph(proj.name, styles["entry_title"]))
+            if proj.url:
+                flow.append(Paragraph(
+                    f'<link href="{proj.url}"><font color="#680000">{proj.url}</font></link>', styles["entry_meta"],
+                ))
+            flow.append(Paragraph(proj.description, styles["body"]))
+            rendered_tech = [f"<b>{t}</b>" if _skill_is_relevant(t, wanted) else t for t in proj.tech]
+            flow.append(Paragraph(f"<i>Tech: {', '.join(rendered_tech)}</i>", styles["entry_meta"]))
+
+    return flow
 
 
 def render_resume_pdf(
@@ -205,79 +407,75 @@ def render_resume_pdf(
             )
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(
+    doc = BaseDocTemplate(
         buf, pagesize=LETTER,
-        topMargin=0.55 * inch, bottomMargin=0.55 * inch,
-        leftMargin=0.65 * inch, rightMargin=0.65 * inch,
+        topMargin=PAGE_MARGIN, bottomMargin=PAGE_MARGIN,
+        leftMargin=PAGE_MARGIN, rightMargin=PAGE_MARGIN,
     )
-    s = _styles()
-    story: list = []
+    styles = _styles()
+
+    page_w, page_h = LETTER
+    frame_bottom = PAGE_MARGIN
+    frame_height = page_h - HEADER_HEIGHT - PAGE_MARGIN
+
+    sidebar_frame = Frame(
+        0, frame_bottom, SIDEBAR_WIDTH, frame_height, id="sidebar",
+        leftPadding=10, rightPadding=8, topPadding=10, bottomPadding=10, showBoundary=0,
+    )
+    # Two separate Frame objects with IDENTICAL geometry, not one reused
+    # across both page templates - reportlab Frames carry internal fill
+    # state, and "later" pages need their own so overflow tracking for
+    # page 1's main column doesn't get confused with page 2+'s.
+    main_frame_first = Frame(
+        SIDEBAR_WIDTH, frame_bottom, MAIN_WIDTH, frame_height, id="main",
+        leftPadding=16, rightPadding=PAGE_MARGIN, topPadding=10, bottomPadding=10, showBoundary=0,
+    )
+    main_frame_later = Frame(
+        SIDEBAR_WIDTH, frame_bottom, MAIN_WIDTH, frame_height, id="main-later",
+        leftPadding=16, rightPadding=PAGE_MARGIN, topPadding=10, bottomPadding=10, showBoundary=0,
+    )
 
     c = resume.contact
-    story.append(Paragraph(c.name, s["name"]))
-    story.append(Paragraph(c.headline, s["headline"]))
-    contact_bits = [c.email, c.phone, c.location]
-    if c.linkedin:
-        contact_bits.append(c.linkedin)
-    story.append(Paragraph(" &nbsp;|&nbsp; ".join(contact_bits), s["contact"]))
-    story.append(HRFlowable(width="100%", thickness=0.75, color=ACCENT_GREEN, spaceAfter=8))
 
-    story.append(Paragraph("Summary", s["section"]))
-    story.append(Paragraph(tailored_summary or resume.summary, s["body"]))
+    def _draw_background(canvas, _doc):
+        # Header band + sidebar tint are page decoration, not flowables -
+        # drawn directly so they can span edge-to-edge and repeat
+        # identically on every page regardless of where Frame content
+        # happens to break. See module docstring for the color source.
+        canvas.saveState()
+        canvas.setFillColor(SIDEBAR_BG)
+        canvas.rect(0, frame_bottom, SIDEBAR_WIDTH, frame_height, fill=1, stroke=0)
+        canvas.setFillColor(BAND_MAROON)
+        canvas.rect(0, page_h - HEADER_HEIGHT, page_w, HEADER_HEIGHT, fill=1, stroke=0)
+        canvas.setFillColor(WHITE_TEXT)
+        canvas.setFont("Helvetica-Bold", 22)
+        canvas.drawCentredString(page_w / 2, page_h - HEADER_HEIGHT / 2 + 8, c.name)
+        canvas.setFont("Helvetica", 12)
+        canvas.drawCentredString(page_w / 2, page_h - HEADER_HEIGHT / 2 - 12, c.headline)
+        canvas.restoreState()
 
-    # Used below to BOLD (never add/remove/rename) the skills and project
-    # tech that actually matched this job - reordering alone can be too
-    # subtle to notice (e.g. a skill that was already first in its
-    # category stays first either way), so this is the direct, always-
-    # visible signal that tailoring actually ran for this specific job.
-    wanted = {sk.lower() for sk in (required_skills or [])}
+    # Page 1 uses BOTH frames (sidebar then main); page 2+ uses ONLY a
+    # main-column frame. This matters because reportlab's default frame-
+    # cycling, when the main frame overflows onto a new page, restarts
+    # from frame[0] of the SAME template - which would dump overflowing
+    # main content back into the (empty, light-colored) sidebar frame
+    # instead of continuing in the main column. Verified this exact
+    # failure mode: a 3-page render put "Fullstack Developer —
+    # Watkanikleasen.nl..." (main-column content) inside the sidebar's
+    # light-blue background on page 2. NextPageTemplate("later"), queued
+    # right after the sidebar's FrameBreak, switches every subsequent
+    # page to the single-frame template before main content has a chance
+    # to overflow, so it always continues in the main column.
+    doc.addPageTemplates([
+        PageTemplate(id="first", frames=[sidebar_frame, main_frame_first], onPage=_draw_background),
+        PageTemplate(id="later", frames=[main_frame_later], onPage=_draw_background),
+    ])
 
-    story.append(Paragraph("Skills", s["section"]))
-    reordered = _reorder_skills_for_job(resume, required_skills)
-    for category, names in reordered.items():
-        label = category.replace("_", " ").title()
-        rendered = [f"<b>{n}</b>" if _skill_is_relevant(n, wanted) else n for n in names]
-        story.append(Paragraph(f"<b>{label}:</b> {', '.join(rendered)}", s["body"]))
-
-    story.append(Paragraph("Experience", s["section"]))
-    for i, entry in enumerate(resume.experience):
-        title_line = f"{entry.title} — {entry.company}"
-        meta_bits = [entry.date_text]
-        if entry.location:
-            meta_bits.append(entry.location)
-        story.append(Paragraph(title_line, s["entry_title"]))
-        story.append(Paragraph(" &nbsp;|&nbsp; ".join(meta_bits), s["entry_meta"]))
-        bullets = tailored_experience_bullets[i] if tailored_experience_bullets is not None else entry.bullets
-        bullets = _reorder_bullets(bullets, wanted)
-        rendered_bullets = [_bold_matched_terms(b, required_skills) for b in bullets]
-        story.append(
-            ListFlowable(
-                [ListItem(Paragraph(b, s["bullet"])) for b in rendered_bullets],
-                bulletType="bullet", start="•", leftIndent=14, bulletFontSize=9,
-            )
-        )
-
-    story.append(Paragraph("Education", s["section"]))
-    for edu in resume.education:
-        story.append(Paragraph(edu.degree, s["entry_title"]))
-        story.append(Paragraph(f"{edu.institution} &nbsp;|&nbsp; {edu.date_text}", s["entry_meta"]))
-
-    if resume.projects:
-        story.append(Paragraph("Projects", s["section"]))
-        selected = _reorder_projects_for_job(resume, required_skills)[:max_projects]
-        for proj in selected:
-            story.append(Paragraph(proj.name, s["entry_title"]))
-            if proj.url:
-                story.append(Paragraph(f'<link href="{proj.url}"><font color="#15803d">{proj.url}</font></link>', s["entry_meta"]))
-            story.append(Paragraph(proj.description, s["body"]))
-            rendered_tech = [f"<b>{t}</b>" if _skill_is_relevant(t, wanted) else t for t in proj.tech]
-            story.append(Paragraph(f"<i>Tech: {', '.join(rendered_tech)}</i>", s["entry_meta"]))
-
-    if resume.spoken_languages:
-        story.append(Paragraph("Languages", s["section"]))
-        story.append(Paragraph(", ".join(l.name for l in resume.spoken_languages), s["body"]))
-
-    story.append(Spacer(1, 6))
+    sidebar = _sidebar_flowables(resume, required_skills, styles)
+    main = _main_flowables(
+        resume, required_skills, tailored_summary, tailored_experience_bullets, max_projects, styles,
+    )
+    story = sidebar + [FrameBreak(), NextPageTemplate("later")] + main
 
     doc.build(story)
     return buf.getvalue()

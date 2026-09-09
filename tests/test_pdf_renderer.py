@@ -11,6 +11,7 @@ from src.common.resume_schema import (
 from src.tailoring.pdf_renderer import (
     DEFAULT_MAX_PROJECTS,
     _bold_matched_terms,
+    _dot_meter,
     _reorder_bullets,
     _reorder_projects_for_job,
     _reorder_skills_for_job,
@@ -48,21 +49,21 @@ def _sample_resume(projects: list[ProjectEntry] | None = None) -> MasterResume:
 def test_reorder_skills_moves_matches_to_front_without_dropping_any():
     resume = _sample_resume()
     reordered = _reorder_skills_for_job(resume, required_skills=["PHP"])
-    assert reordered["backend"][0] == "PHP"
-    assert set(reordered["backend"]) == {"Node.js", "PHP"}  # nothing added or removed
-    assert set(reordered["frontend"]) == {"React", "Vue.js"}
+    assert reordered["backend"][0].name == "PHP"
+    assert {i.name for i in reordered["backend"]} == {"Node.js", "PHP"}  # nothing added or removed
+    assert {i.name for i in reordered["frontend"]} == {"React", "Vue.js"}
 
 
 def test_reorder_skills_with_no_required_skills_keeps_original_order():
     resume = _sample_resume()
     reordered = _reorder_skills_for_job(resume, required_skills=None)
-    assert reordered["backend"] == ["Node.js", "PHP"]
+    assert [i.name for i in reordered["backend"]] == ["Node.js", "PHP"]
 
 
 def test_reorder_never_invents_a_skill_not_in_original():
     resume = _sample_resume()
     reordered = _reorder_skills_for_job(resume, required_skills=["Rust", "Go"])
-    all_skills = {s for group in reordered.values() for s in group}
+    all_skills = {i.name for group in reordered.values() for i in group}
     assert "Rust" not in all_skills
     assert "Go" not in all_skills
 
@@ -96,7 +97,7 @@ def test_reorder_skills_moves_compound_labeled_skill_to_front():
         SkillItem(name="HTML/CSS", level=4), SkillItem(name="React", level=5),
     ]
     reordered = _reorder_skills_for_job(resume, required_skills=["CSS"])
-    assert reordered["frontend"][0] == "HTML/CSS"
+    assert reordered["frontend"][0].name == "HTML/CSS"
 
 
 def test_render_resume_pdf_produces_a_valid_pdf():
@@ -267,3 +268,40 @@ def test_render_resume_pdf_rejects_mismatched_bullet_entry_count():
             tailored_summary="x",
             tailored_experience_bullets=[["a"], ["b"]],  # 2 entries, resume has 1
         )
+
+
+def test_dot_meter_renders_correct_dot_count():
+    assert _dot_meter(3) == "●●●"
+    assert _dot_meter(5) == "●●●●●"
+    assert _dot_meter(1) == "●"
+
+
+def test_dot_meter_clamps_out_of_range_values():
+    assert _dot_meter(0) == ""
+    assert _dot_meter(-1) == ""
+    assert _dot_meter(9) == "●●●●●"  # capped at 5, never invents extra proficiency
+
+
+def test_render_resume_pdf_two_column_design_produces_valid_pdf():
+    resume = _sample_resume(projects=_sample_projects())
+    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"])
+    assert pdf_bytes.startswith(b"%PDF")
+    assert len(pdf_bytes) > 1000
+
+
+def test_render_resume_pdf_handles_content_spanning_multiple_pages():
+    # Regression test for a real layout bug: overflowing main-column
+    # content was landing inside the (empty) sidebar frame on page 2+
+    # instead of continuing in the main column, because reportlab's
+    # default frame-cycling restarts from frame[0] when the last frame
+    # in a PageTemplate overflows. Fixed via NextPageTemplate switching
+    # every page after the first to a main-column-only template. This
+    # test just needs a resume large enough to force a page break and
+    # confirm doc.build() doesn't raise (LayoutError, in particular) and
+    # still produces a well-formed PDF.
+    resume = _sample_resume(projects=_sample_projects() * 3)
+    resume.experience = resume.experience * 6
+    for entry in resume.experience:
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
+    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"], max_projects=20)
+    assert pdf_bytes.startswith(b"%PDF")
