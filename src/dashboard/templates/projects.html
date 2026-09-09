@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Project Bank — Job Automation{% endblock %}
+{% block head %}
+<style>
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+  .idea-hint {
+    font-size: .8rem; background: var(--accent-light); color: var(--accent-dark);
+    padding: 10px 14px; border-radius: 10px; margin-bottom: 20px;
+  }
+  .stack-group { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+  .stack-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px 18px; cursor: pointer; user-select: none;
+  }
+  .stack-header h2 { margin: 0; font-size: .95rem; }
+  .stack-header .count { font-size: .75rem; color: var(--muted); }
+  .stack-header .chevron { transition: transform .15s ease; color: var(--muted); }
+  .stack-group.open .chevron { transform: rotate(90deg); }
+  .stack-projects { display: none; padding: 0 18px 16px; }
+  .stack-group.open .stack-projects { display: block; }
+  .project-card { border-top: 1px solid var(--border); padding: 12px 0; }
+  .project-card:first-child { border-top: none; }
+  .project-card h3 { margin: 0; font-size: .88rem; }
+  .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
+  .btn.danger { background: var(--failed); border-color: var(--failed); color: #fff; }
+  .btn.danger:hover { opacity: .9; }
+  .project-meta { font-size: .72rem; color: var(--muted); margin-bottom: 6px; }
+  .project-card p { font-size: .82rem; margin: 4px 0; }
+  .project-card ul { margin: 4px 0 0; padding-left: 18px; font-size: .78rem; color: var(--muted); }
+  .add-form { margin-top: 28px; padding: 18px 20px; }
+  .add-form h2 { margin: 0 0 4px; font-size: 1rem; }
+  .add-form .hint { color: var(--muted); font-size: .8rem; margin-bottom: 14px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .span-2 { grid-column: 1 / -1; }
+  @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid input, .form-grid select, .form-grid textarea { width: 100%; }
+  .form-grid textarea { min-height: 70px; resize: vertical; font-family: inherit; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Project Bank</h1>
+<div class="sub">Browse project ideas by stack, and add your own.</div>
+
+<div class="idea-hint">
+  💡 These are ideas to build, not existing work. Build one for real, then add it to your
+  actual <code>resume/master_resume.json</code> yourself — never list a bank project as
+  something you've already done.
+</div>
+
+{% for group in stack_groups %}
+<div class="stack-group" id="stack-{{ group.stack }}">
+  <div class="stack-header" onclick="this.parentElement.classList.toggle('open')">
+    <h2>{{ group.stack_label }}</h2>
+    <span class="count">{{ group.projects | length }} projects <span class="chevron">▸</span></span>
+  </div>
+  <div class="stack-projects">
+    {% for p in group.projects %}
+    <div class="project-card">
+      <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+        <h3>{{ p.title }}</h3>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <a class="btn secondary btn-sm" href="/projects/{{ p.id }}/edit">Edit</a>
+          <form method="post" action="/api/project-bank/{{ p.id }}/delete"
+                onsubmit="return confirm('Delete &quot;{{ p.title }}&quot; permanently?');" style="display:inline;">
+            <button class="btn danger btn-sm" type="submit">Delete</button>
+          </form>
+        </div>
+      </div>
+      <div class="project-meta">{{ p.category }} &middot; {{ p.estimated_effort }} &middot; {{ p.tools | join(', ') }}</div>
+      <p>{{ p.description }}</p>
+      <ul>{% for f in p.features %}<li>{{ f }}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<p class="muted">Project bank is empty.</p>
+{% endfor %}
+
+<div class="card add-form">
+  <h2>Add a project idea</h2>
+  <div class="hint">
+    Adds to the same bank shown above (local file, or the live DynamoDB table when running on
+    AWS) — works from either place.
+  </div>
+  <form method="post" action="/api/project-bank">
+    <div class="form-grid">
+      <div>
+        <label>Title</label>
+        <input name="title" required placeholder="e.g. Custom Booking Widget">
+      </div>
+      <div>
+        <label>Stack key</label>
+        <input name="stack" required placeholder="e.g. wordpress, react, custom_stack">
+      </div>
+      <div>
+        <label>Stack label (display name)</label>
+        <input name="stack_label" required placeholder="e.g. WordPress">
+      </div>
+      <div>
+        <label>Category</label>
+        <input name="category" placeholder="e.g. cms, frontend, backend, ai_ml, design">
+      </div>
+      <div class="span-2">
+        <label>Tools (comma or newline separated)</label>
+        <input name="tools" required placeholder="e.g. WordPress, PHP, MySQL">
+      </div>
+      <div>
+        <label>Estimated effort</label>
+        <input name="estimated_effort" placeholder="e.g. 1-2 weekends">
+      </div>
+      <div class="span-2">
+        <label>Description</label>
+        <textarea name="description" required placeholder="One or two sentences describing the project."></textarea>
+      </div>
+      <div class="span-2">
+        <label>Features (one per line)</label>
+        <textarea name="features" required placeholder="One feature per line"></textarea>
+      </div>
+    </div>
+    <button class="btn" type="submit" style="margin-top:14px;">Add project</button>
+  </form>
+</div>
+{% endblock %}

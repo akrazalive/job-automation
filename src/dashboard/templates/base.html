@@ -12,6 +12,7 @@
     --applied: #16a34a; --failed: #dc2626; --blocked: #d97706;
     --skipped: #6b7280; --pending: #0891b2;
     --shadow: 0 1px 2px rgba(20, 40, 28, .06);
+    --sidebar-w: 232px; --sidebar-w-collapsed: 68px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -27,25 +28,56 @@
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   a { color: var(--accent-dark); }
-  nav.topnav {
+
+  .app-shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0; background: var(--panel);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden;
+    transition: width .15s ease; z-index: 10;
+  }
+  .sidebar.collapsed { width: var(--sidebar-w-collapsed); }
+
+  .sidebar-header {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap; padding: 14px 24px;
-    background: var(--panel); border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 10;
+    padding: 18px 14px; border-bottom: 1px solid var(--border); gap: 6px; min-height: 60px;
   }
-  nav.topnav .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1rem; color: var(--text); text-decoration: none; }
-  nav.topnav .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; }
-  nav.topnav .links { display: flex; gap: 4px; flex-wrap: wrap; }
-  nav.topnav .links a {
-    padding: 7px 12px; border-radius: 8px; text-decoration: none; font-size: .85rem;
-    color: var(--muted); font-weight: 600;
+  .sidebar-header .brand {
+    display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: .95rem;
+    color: var(--text); text-decoration: none; overflow: hidden; white-space: nowrap;
   }
-  nav.topnav .links a:hover { background: var(--accent-light); color: var(--accent-dark); }
-  nav.topnav .links a.active { background: var(--accent); color: var(--accent-contrast); }
-  main { max-width: 1200px; margin: 0 auto; padding: 20px 24px 48px; }
+  .sidebar-header .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .sidebar.collapsed .sidebar-header .brand .label { display: none; }
+  .sidebar-toggle {
+    background: none; border: none; cursor: pointer; color: var(--muted); padding: 7px;
+    border-radius: 7px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .sidebar-toggle:hover { background: var(--accent-light); color: var(--accent-dark); }
+
+  .sidebar-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .sidebar-nav a, .sidebar-footer a {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px;
+    text-decoration: none; color: var(--muted); font-weight: 600; font-size: .86rem;
+    white-space: nowrap; overflow: hidden;
+  }
+  .sidebar-nav a svg, .sidebar-footer a svg { flex-shrink: 0; }
+  .sidebar-nav a:hover, .sidebar-footer a:hover { background: var(--accent-light); color: var(--accent-dark); }
+  .sidebar-nav a.active { background: var(--accent); color: var(--accent-contrast); }
+  .sidebar.collapsed .sidebar-nav a .label,
+  .sidebar.collapsed .sidebar-footer a .label { display: none; }
+  .sidebar.collapsed .sidebar-nav a,
+  .sidebar.collapsed .sidebar-footer a { justify-content: center; }
+
+  .sidebar-footer { padding: 10px; border-top: 1px solid var(--border); }
+
+  .main-wrap { flex: 1; min-width: 0; }
+  .main-content { padding: 36px; max-width: 1280px; margin: 0 auto; }
+  .main-content > * + * { margin-top: 24px; }
+
   .card {
     background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; box-shadow: var(--shadow);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 20px 24px;
   }
   .btn {
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
@@ -73,24 +105,67 @@
     background: var(--accent-light); color: var(--accent-dark); margin: 1px 2px 1px 0; font-weight: 600;
   }
   .muted { color: var(--muted); }
-  @media (max-width: 640px) {
-    main { padding: 14px 12px 32px; }
-    nav.topnav { padding: 10px 14px; }
+
+  @media (max-width: 860px) {
+    .main-content { padding: 18px 16px 32px; }
   }
 </style>
 {% block head %}{% endblock %}
 </head>
 <body>
-<nav class="topnav">
-  <a class="brand" href="/"><span class="dot"></span> Job Automation</a>
-  <div class="links">
-    <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
-    <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
-    <a href="/logout">Logout</a>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a class="brand" href="/"><span class="dot"></span><span class="label">Job Automation</span></a>
+      <button class="sidebar-toggle" id="sidebar-toggle" title="Collapse menu" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/" class="{{ 'active' if active == 'dashboard' else '' }}" title="Dashboard">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span class="label">Dashboard</span>
+      </a>
+      <a href="/applications" class="{{ 'active' if active == 'applications' else '' }}" title="Applications">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M6 3h8l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+        <span class="label">Applications</span>
+      </a>
+      <a href="/projects" class="{{ 'active' if active == 'projects' else '' }}" title="Projects">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        <span class="label">Projects</span>
+      </a>
+      <a href="/scraping" class="{{ 'active' if active == 'scraping' else '' }}" title="Scraping">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="label">Scraping</span>
+      </a>
+      <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}" title="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
+        <span class="label">Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/logout" title="Logout">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="label">Logout</span>
+      </a>
+    </div>
+  </aside>
+  <div class="main-wrap">
+    <div class="main-content">
+    {% block content %}{% endblock %}
+    </div>
   </div>
-</nav>
-<main>
-{% block content %}{% endblock %}
-</main>
+</div>
+<script>
+(function() {
+  var sidebar = document.getElementById('sidebar');
+  var toggle = document.getElementById('sidebar-toggle');
+  if (localStorage.getItem('sidebar-collapsed') === '1') sidebar.classList.add('collapsed');
+  toggle.addEventListener('click', function() {
+    sidebar.classList.toggle('collapsed');
+    localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+  });
+})();
+</script>
 </body>
 </html>

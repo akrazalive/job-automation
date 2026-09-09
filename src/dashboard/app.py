@@ -152,21 +152,45 @@ DASHBOARD_PAGE_SIZE = 5  # UI also offers 5/10/15/20 via a "rows per page" selec
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
+    from src.common.project_bank import list_stacks
+
     store = get_store()
     summary = store.get_summary()
-    applications, next_cursor = store.list_applications(limit=DASHBOARD_PAGE_SIZE)
     categories = store.get_category_breakdown()
+    stack_groups = list_stacks()
+    project_bank_stats = {
+        "total": sum(len(g["projects"]) for g in stack_groups),
+        "stacks": [{"stack_label": g["stack_label"], "count": len(g["projects"])} for g in stack_groups],
+    }
     return templates.TemplateResponse(
         request,
         "index.html",
         {
+            "active": "dashboard",
             "summary": summary,
+            "categories": categories,
+            "project_bank_stats": project_bank_stats,
+            "local_actions_enabled": LOCAL_ACTIONS_ENABLED,
+        },
+    )
+
+
+@app.get("/applications", response_class=HTMLResponse)
+def applications_page(request: Request):
+    store = get_store()
+    applications, next_cursor = store.list_applications(limit=DASHBOARD_PAGE_SIZE)
+    categories = sorted(store.get_category_breakdown().keys())
+    return templates.TemplateResponse(
+        request,
+        "applications.html",
+        {
+            "active": "applications",
             "applications": applications,
             "next_cursor": next_cursor,
             "page_size": DASHBOARD_PAGE_SIZE,
-            "categories": categories,
             "sources": [s.value for s in JobSource],
             "statuses": [s.value for s in ApplicationStatus],
+            "categories": categories,
             "local_actions_enabled": LOCAL_ACTIONS_ENABLED,
         },
     )
@@ -187,6 +211,9 @@ def api_applications(
     status: Optional[str] = Query(default=None),
     source: Optional[str] = Query(default=None),
     company: Optional[str] = Query(default=None),
+    category: Optional[str] = Query(default=None),
+    title: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
     date_from: Optional[str] = Query(default=None),
     date_to: Optional[str] = Query(default=None),
     limit: int = Query(default=5, le=500),
@@ -194,6 +221,7 @@ def api_applications(
 ):
     applications, next_cursor = get_store().list_applications(
         status=status, source=source, company=company,
+        category=category, title=title, search=search,
         date_from=date_from, date_to=date_to, limit=limit, cursor=cursor,
     )
     return {
@@ -207,6 +235,19 @@ def api_resume_url(job_id: str):
     return {"job_id": job_id, "resume_url": get_store().get_resume_url(job_id)}
 
 
+@app.get("/api/project-suggestions")
+def project_suggestions(skills: str = Query(default=""), count: int = Query(default=3, le=10)):
+    """Suggests project ideas from project_bank.json/DynamoDB matching
+    the given skills (comma-separated) — an idea generator for YOU to
+    build, never inserted into a resume as claimed work. See
+    src/common/project_bank.py's module docstring for why that boundary
+    matters."""
+    from src.common.project_bank import suggest_projects
+
+    skill_list = [s.strip() for s in skills.split(",") if s.strip()]
+    return {"suggestions": suggest_projects(skill_list, count=count)}
+
+
 @app.post("/api/applications/{job_id}/mark-applied")
 def mark_applied(job_id: str):
     """Lets you manually record that you applied to a job yourself (via
@@ -218,17 +259,71 @@ def mark_applied(job_id: str):
     return {"job_id": job_id, "status": "applied"}
 
 
+@app.post("/api/applications/{job_id}/tailor")
+def tailor_application(job_id: str):
+    """On-demand "Tailor Resume": re-derives the job's required skills
+    (whatever the scraper already found + anything a quick best-effort
+    live fetch of the posting turns up — see job_fetch.py) and
+    regenerates that job's PDF from the operator's REAL resume content
+    only — skills reordered, real listed projects reordered by relevance.
+    Never inserts a Project Bank idea as if it were a completed project
+    (see src/common/project_bank.py's module docstring); use the
+    separate "💡 Ideas" button for those. Works on both backends: locally
+    off resume/master_resume.json, on AWS off the private S3 copy (see
+    src/tailoring/engine.py:_load_master_resume_from_s3)."""
+    from src.common.skills import extract_skills
+    from src.tailoring.engine import tailor_resume_for_job
+    from src.tailoring.job_fetch import fetch_job_text
+
+    store = get_store()
+    application = store.get_application(job_id)
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    live_text = fetch_job_text(application.url)
+    live_skills = extract_skills(live_text) if live_text else []
+    merged_skills = list(application.required_skills) + [
+        s for s in live_skills if s not in application.required_skills
+    ]
+
+    try:
+        result = tailor_resume_for_job(job_id, application.title, live_text, merged_skills)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    tailored_at = store.update_resume_tailoring(job_id, result["s3_key"], merged_skills)
+    return {
+        "job_id": job_id,
+        "tailored_at": tailored_at,
+        "skills_used": merged_skills,
+        "live_fetch_ok": live_text is not None,
+        "llm_tailored": result["llm_tailored"],
+    }
+
+
 @app.get("/api/applications/{job_id}/resume")
 def download_resume(job_id: str):
     """Single link that works for either storage backend: redirects to a
     presigned S3 URL when one exists (AWS backend), otherwise serves the
-    local PDF straight off disk (local backend / local dev)."""
+    local PDF straight off disk (local backend / local dev).
+
+    Cache-Control: no-store on the local-file branch, and the dashboard
+    template appends a `?v=<resume_tailored_at or updated_at>`
+    cache-buster to every link to this route — belt and suspenders
+    against a browser showing a PREVIOUSLY-tailored PDF it cached at this
+    same URL after "Tailor Resume" regenerates the file (this route
+    always serves whatever's on disk right now; nothing here caches
+    server-side, so any staleness reported was the browser's, not this
+    endpoint's)."""
     url = get_store().get_resume_url(job_id)
     if url:
-        return RedirectResponse(url)
+        return RedirectResponse(url, headers={"Cache-Control": "no-store"})
     local_path = RESUME_OUTPUT_DIR / f"{job_id}.pdf"
     if local_path.exists():
-        return FileResponse(local_path, media_type="application/pdf", filename=f"{job_id}.pdf")
+        return FileResponse(
+            local_path, media_type="application/pdf", filename=f"{job_id}.pdf",
+            headers={"Cache-Control": "no-store"},
+        )
     raise HTTPException(status_code=404, detail="Tailored resume not available for this job yet")
 
 
@@ -251,13 +346,26 @@ def _load_searches() -> list[dict]:
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request):
     apply_settings = _load_apply_settings() if LOCAL_ACTIONS_ENABLED else DEFAULT_APPLY_SETTINGS
-    searches = _load_searches() if LOCAL_ACTIONS_ENABLED else []
     return templates.TemplateResponse(
         request,
         "settings.html",
         {
+            "active": "settings",
             "local_actions_enabled": LOCAL_ACTIONS_ENABLED,
             "apply_settings": apply_settings,
+        },
+    )
+
+
+@app.get("/scraping", response_class=HTMLResponse)
+def scraping_page(request: Request):
+    searches = _load_searches() if LOCAL_ACTIONS_ENABLED else []
+    return templates.TemplateResponse(
+        request,
+        "scraping.html",
+        {
+            "active": "scraping",
+            "local_actions_enabled": LOCAL_ACTIONS_ENABLED,
             "searches": searches,
         },
     )
@@ -292,7 +400,101 @@ def add_search(query: str = Form(...), location: str = Form("Remote"), category:
         {"query": query, "location": location, "category": category or None}
     )
     SEARCH_CRITERIA_PATH.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
-    return RedirectResponse("/settings", status_code=303)
+    return RedirectResponse("/scraping", status_code=303)
+
+
+# --- Project bank (works on both backends — see save_project's docstring) --
+
+def _split_lines(value: str) -> list[str]:
+    """Form fields for tools/features accept comma- or newline-separated
+    free text; this normalizes either into a clean list."""
+    parts = value.replace(",", "\n").split("\n")
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _project_record_from_form(
+    title: str, stack: str, stack_label: str, category: str,
+    tools: str, description: str, features: str, estimated_effort: str,
+) -> dict:
+    return {
+        "stack": stack.strip().lower().replace(" ", "_"),
+        "stack_label": stack_label.strip(),
+        "category": category.strip() or "general",
+        "tools": _split_lines(tools),
+        "title": title.strip(),
+        "description": description.strip(),
+        "features": _split_lines(features),
+        "estimated_effort": estimated_effort.strip() or "unknown",
+    }
+
+
+@app.get("/projects", response_class=HTMLResponse)
+def projects_page(request: Request):
+    from src.common.project_bank import list_stacks
+
+    return templates.TemplateResponse(
+        request, "projects.html", {"active": "projects", "stack_groups": list_stacks()},
+    )
+
+
+@app.get("/projects/{project_id}/edit", response_class=HTMLResponse)
+def edit_project_form(request: Request, project_id: str):
+    from src.common.project_bank import get_project
+
+    project = get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return templates.TemplateResponse(
+        request, "project_edit.html",
+        {
+            "active": "projects",
+            "project": project,
+            "tools_text": ", ".join(project["tools"]),
+            "features_text": "\n".join(project["features"]),
+        },
+    )
+
+
+@app.post("/api/project-bank")
+def add_project(
+    title: str = Form(...), stack: str = Form(...), stack_label: str = Form(...),
+    category: str = Form(""), tools: str = Form(...), description: str = Form(...),
+    features: str = Form(...), estimated_effort: str = Form(""),
+):
+    """Manually adds one project to the bank — a plain data write, not
+    scraping/automation, so allowed on both backends unlike Settings."""
+    from src.common.project_bank import save_project
+
+    record = _project_record_from_form(title, stack, stack_label, category, tools, description, features, estimated_effort)
+    save_project(record)
+    return RedirectResponse("/projects", status_code=303)
+
+
+@app.post("/api/project-bank/{project_id}")
+def update_project(
+    project_id: str,
+    title: str = Form(...), stack: str = Form(...), stack_label: str = Form(...),
+    category: str = Form(""), tools: str = Form(...), description: str = Form(...),
+    features: str = Form(...), estimated_effort: str = Form(""),
+):
+    """Edits an existing project — save_project upserts by id, so passing
+    the existing id back through overwrites it in place rather than
+    creating a duplicate."""
+    from src.common.project_bank import save_project
+
+    record = _project_record_from_form(title, stack, stack_label, category, tools, description, features, estimated_effort)
+    record["id"] = project_id
+    save_project(record)
+    return RedirectResponse("/projects", status_code=303)
+
+
+@app.post("/api/project-bank/{project_id}/delete")
+def delete_project_route(project_id: str):
+    from src.common.project_bank import delete_project
+
+    if not delete_project(project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return RedirectResponse("/projects", status_code=303)
 
 
 # --- Actions (local runs only) --------------------------------------------

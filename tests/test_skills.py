@@ -38,3 +38,11 @@ def test_empty_text_returns_empty_list():
 
 def test_no_matches_returns_empty_list():
     assert extract_skills("We sell artisanal candles online.") == []
+
+
+def test_git_matches_standalone_but_not_inside_github():
+    assert "Git" in extract_skills("Strong Git skills required.")
+    found = extract_skills("Experience with GitHub Actions and GitHub Copilot.")
+    assert "Git" not in found  # must not false-positive inside "GitHub"
+    assert "GitHub Actions" in found
+    assert "GitHub Copilot" in found

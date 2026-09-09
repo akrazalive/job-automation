@@ -95,6 +95,16 @@ What works right now:
     job's required skills first, nothing reworded.
   Company names, titles, dates, and education are never touched in
   either mode — see "Enabling Claude-assisted tailoring" below.
+- **A free, no-API-cost project idea bank** ([project_bank.json](project_bank.json),
+  183 curated ideas across 17 tech stacks) — the dashboard's "💡 Ideas"
+  button suggests real, buildable projects matched to a job's detected
+  skills. This is an idea generator, **not** a resume auto-writer —
+  nothing gets inserted into a resume automatically; you build one for
+  real and add it to your master resume yourself. See
+  `src/common/project_bank.py`'s docstring for why that boundary is
+  deliberate (auto-inserting these as claimed work would be resume
+  fraud — see TECHNICAL_PLAN.txt's fifth-pass entry for the full
+  reasoning).
 - **The end-to-end pipeline** ([src/pipeline/ingest.py](src/pipeline/ingest.py))
   that ties scraping → filtering → skill tagging → resume tailoring →
   dashboard storage together in one run.
@@ -119,7 +129,7 @@ What works right now:
 - Your resume, digitized into a structured, schema-validated
   `resume/master_resume.json` (git-ignored — it's your real name, email,
   phone, and address).
-- 66 passing tests ([tests/](tests/)).
+- 75 passing tests ([tests/](tests/)).
 
 ### Run the full pipeline locally (scrape → filter → tailor → save)
 
@@ -159,6 +169,41 @@ If the key is missing, invalid, or the API call fails for any reason, it
 silently falls back to the deterministic skill-reorder — a broken API
 call never blocks the pipeline or produces a broken resume.
 
+### Re-tailoring one job's resume on demand ("Tailor Resume" button)
+
+The Applications page ([/applications](src/dashboard/templates/applications.html))
+has a 🎯 **Tailor Resume** button on every row. Clicking it:
+
+1. Best-effort re-fetches the job's own URL (plain HTTP GET, not
+   Playwright — see [src/tailoring/job_fetch.py](src/tailoring/job_fetch.py))
+   and scans it for any *additional* skills beyond what the scraper
+   already found. LinkedIn/Indeed often block or JS-wall this — that's
+   fine, it just falls back to the skills already stored on the
+   application, tailoring still runs.
+2. Regenerates that job's PDF: skills reordered, and your **real** listed
+   projects reordered by relevance — never inserts a Project Bank idea
+   (see [project_bank.json](project_bank.json)) as if it were a completed
+   project. Use the separate 💡 **Ideas** button for those; this project
+   deliberately keeps "ideas to build" and "your submitted resume"
+   walled off from each other (see [src/common/project_bank.py](src/common/project_bank.py)'s
+   module docstring).
+3. Shows a toast confirming the PDF updated, plus a persistent "✓
+   Tailored `<timestamp>`" note on that row (survives a reload/re-filter).
+
+This works from **both** the local dashboard and the AWS-hosted one — the
+Lambda renders the PDF itself (reportlab is pure Python, no system deps).
+To make that possible, a copy of `resume/master_resume.json` (your real
+name/email/phone/address) lives at `s3://<ResumeBucket>/private/master_resume.json`
+in the same private, SSE-encrypted, public-access-blocked bucket that
+already holds every tailored PDF. Re-run this any time you edit your
+resume, so the live copy stays in sync:
+
+```bash
+$env:AWS_REGION = "us-east-1"
+$env:S3_BUCKET_NAME = "job-automation-resumes-607581913131-prod"
+python scripts/upload_master_resume.py
+```
+
 ### Run the dashboard locally
 
 ```bash
@@ -187,6 +232,39 @@ here, since scraping is safe to run from your own IP but not from AWS
 (see "Where automation runs" below), and the AWS login page is reachable
 by anyone with the URL so it never pre-fills your password into the page
 source.
+
+### Run the dashboard against real AWS data
+
+By default (`STORAGE_BACKEND` unset or `local`) the dashboard above reads
+`data/local_applications.json`. To point that same local server at the
+live DynamoDB tables / S3 bucket instead — so you see the real jobs the
+deployed dashboard sees, without deploying — set `STORAGE_BACKEND=aws`
+plus every table/bucket name below before `uvicorn` starts:
+
+```bash
+set STORAGE_BACKEND=aws
+set AWS_REGION=us-east-1
+set DYNAMODB_JOBS_TABLE=job-automation-jobs-prod
+set DYNAMODB_APPLICATIONS_TABLE=job-automation-applications-prod
+set S3_BUCKET_NAME=job-automation-resumes-607581913131-prod
+set PROJECT_BANK_TABLE=job-automation-project-bank-prod
+uvicorn src.dashboard.app:app --reload
+```
+
+⚠️ **All four table/bucket vars are required together** — `STORAGE_BACKEND=aws`
+with only some of them set doesn't error, it silently reads an empty
+result from whichever one is missing (e.g. the Projects page rendering
+zero stacks while jobs/applications still work fine), since each
+data-access module checks its own env var independently. If a page looks
+sparse in AWS mode, this is the first thing to check.
+`src/common/project_bank.py` does default `PROJECT_BANK_TABLE` to the
+real deployed table name (`job-automation-project-bank-prod`) if it's
+unset, as a safety net — but the other three have no such default, so set
+all of them explicitly.
+
+This also requires AWS credentials the process can see (`aws configure`,
+or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars) with read access
+to those tables/bucket.
 
 ### Deploy the dashboard to AWS (free tier)
 
@@ -379,7 +457,7 @@ cd D:\PROJECTS\job-automation
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-pytest -q                        # 66 tests should pass
+pytest -q                        # 75 tests should pass
 ```
 
 Then see "Run the full pipeline locally" and "Run the dashboard locally"
@@ -401,11 +479,20 @@ of `$env:VAR = "value"`.
   Prev/Next), filterable table (status, source, company, date) showing
   each job's posted date, category, remote badge, and required-skill tags.
 - **Actions column** — an "Open ↗" button to the real posting, a "Resume
-  PDF" button to download the tailored resume for that job, and either a
-  "Mark Applied" button or a "✓ Applied" flag. There's no auto-apply bot
-  yet (see the callout above) — this is how you record that *you*
-  applied yourself, and it's what moves a job from "Pending" into
-  "Applied" in the stats/category report.
+  PDF" button, a **"💡 Ideas"** button, and either a "Mark Applied" button
+  or a "✓ Applied" flag. There's no auto-apply bot yet (see the callout
+  above) — "Mark Applied" is how you record that *you* applied yourself,
+  moving a job from "Pending" into "Applied" in the stats.
+- **💡 Ideas button** — shows 2-3 real, buildable project ideas matched to
+  that job's detected skills, pulled from [project_bank.json](project_bank.json)
+  (255 curated ideas, exactly 15 per stack across 17 tech stacks —
+  WordPress, WooCommerce, Laravel, React, Django, Python ML/AI, etc).
+  **This is an idea generator, not a resume auto-writer** — nothing here
+  gets inserted into a resume automatically. Build one for real, then add
+  it to `resume/master_resume.json` yourself so it's legitimately part of
+  your work history; only then can the tailoring engine pick it for matching
+  jobs. See `src/common/project_bank.py`'s docstring for why this
+  boundary is deliberate, not a missing feature.
 - **Resume downloads** — same PDF works from either storage backend: a
   presigned S3 URL on the AWS deploy, the local file straight off disk
   when running locally.
@@ -415,6 +502,12 @@ of `$env:VAR = "value"`.
   log. **Only active when running locally** — on the AWS deploy this
   page is read-only with an explanation, since scraping must run from
   your own IP (see "Where automation runs" above), not AWS.
+- **Project bank (`/projects`)** — browse all 255 project ideas grouped
+  by stack (collapsible), with full **add / edit / delete**. Works on
+  **both** local and AWS (it's a plain data write, not scraping) —
+  changes locally write to `project_bank.json`; changes on the deployed
+  dashboard write directly to the live DynamoDB table, so the next
+  suggestion query picks up your edits immediately either way.
 
 ## Checking the AWS database directly
 

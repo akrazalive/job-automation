@@ -103,3 +103,48 @@ def test_claude_client_available_with_api_key(monkeypatch):
     from src.tailoring import claude_client
 
     assert claude_client.is_available() is True
+
+
+def test_load_master_resume_raises_when_missing_locally_and_not_aws(monkeypatch, tmp_path):
+    from src.tailoring import engine
+
+    monkeypatch.delenv("STORAGE_BACKEND", raising=False)
+    missing_path = tmp_path / "does-not-exist.json"
+    try:
+        engine.load_master_resume(path=missing_path)
+        assert False, "expected FileNotFoundError"
+    except FileNotFoundError:
+        pass
+
+
+def test_load_master_resume_falls_back_to_s3_when_local_file_missing(monkeypatch, tmp_path):
+    from src.tailoring import engine
+
+    engine._s3_resume_cache = None  # reset the per-process cache between tests
+    monkeypatch.setenv("STORAGE_BACKEND", "aws")
+    monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
+
+    resume = _sample_resume()
+    body_bytes = resume.model_dump_json().encode("utf-8")
+
+    class FakeBody:
+        def read(self):
+            return body_bytes
+
+    class FakeS3Client:
+        def get_object(self, Bucket, Key):
+            captured["bucket_and_key"] = (Bucket, Key)
+            return {"Body": FakeBody()}
+
+    captured: dict = {}
+
+    import boto3
+
+    monkeypatch.setattr(boto3, "client", lambda service, region_name=None: FakeS3Client())
+
+    missing_path = tmp_path / "does-not-exist.json"
+    loaded = engine.load_master_resume(path=missing_path)
+
+    assert loaded.contact.name == resume.contact.name
+    assert captured["bucket_and_key"] == ("test-bucket", engine.MASTER_RESUME_S3_KEY)
+    engine._s3_resume_cache = None  # don't leak into other tests

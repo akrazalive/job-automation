@@ -29,6 +29,7 @@ resume/original/
 resume/output/
 resume/tailored/
 resume/master_resume.json
+resume/master_resume*.json
 cover_letters/
 "Full Stack Developer - Complete.docx"
 

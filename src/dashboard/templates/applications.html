@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block title %}Applications — Job Automation{% endblock %}
+{% block head %}
+<style>
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .filters .search-field { flex: 1 1 220px; min-width: 200px; }
+  .filters .search-field input { width: 100%; }
+  table#app-table { width: 100%; border-collapse: collapse; }
+  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); position: relative; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.wrap { white-space: normal; max-width: 260px; }
+  .remote-pill { font-size: .68rem; color: var(--accent-dark); font-weight: 700; }
+  .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
+  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 16px; justify-content: flex-end; flex-wrap: wrap; }
+  .pagination .page-info { font-size: .8rem; color: var(--muted); margin-right: auto; }
+  .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
+  .action-cell { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .btn-sm.applied-flag { background: var(--applied); border-color: var(--applied); color: #fff; cursor: default; }
+  .tailored-note { font-size: .7rem; color: var(--accent-dark); white-space: nowrap; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 60; max-width: 360px;
+    background: var(--accent-dark); color: #fff; padding: 12px 16px; border-radius: 10px;
+    font-size: .85rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--failed); }
+
+  .loading-overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: blur(1px);
+    border-radius: 12px;
+    opacity: 0; pointer-events: none; transition: opacity .15s ease;
+  }
+  .loading-overlay.visible { opacity: 1; pointer-events: all; }
+  .spinner {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin .7s linear infinite;
+  }
+  .loading-overlay .loading-text { font-size: .82rem; font-weight: 600; color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45);
+    display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;
+  }
+  .modal-backdrop.visible { display: flex; }
+  .modal-card {
+    background: var(--panel); border-radius: 14px; max-width: 640px; width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25); padding: 22px 24px;
+  }
+  .modal-card h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  .modal-hint {
+    font-size: .78rem; color: var(--muted); background: var(--accent-light); color: var(--accent-dark);
+    padding: 8px 10px; border-radius: 8px; margin: 10px 0 16px;
+  }
+  .idea-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .idea-card h3 { margin: 0 0 4px; font-size: .95rem; }
+  .idea-meta { font-size: .72rem; color: var(--muted); margin-bottom: 8px; }
+  .idea-card p { font-size: .84rem; margin: 6px 0; }
+  .idea-card ul { margin: 6px 0 0; padding-left: 18px; font-size: .8rem; }
+  .modal-close { float: right; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Applications</h1>
+<div class="sub">Every job the agent found and applied to, what failed, and why.</div>
+
+<div class="filters">
+  <div class="search-field">
+    <label>Search</label>
+    <input id="f-search" type="text" placeholder="Title, company, or skill…">
+  </div>
+  <div>
+    <label>Status</label>
+    <select id="f-status">
+      <option value="">All</option>
+      {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Source</label>
+    <select id="f-source">
+      <option value="">All</option>
+      {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Category</label>
+    <select id="f-category">
+      <option value="">All</option>
+      {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label>Job title</label><input id="f-title" type="text" placeholder="e.g. React"></div>
+  <div><label>Company</label><input id="f-company" type="text" placeholder="e.g. Acme"></div>
+  <div><label>From</label><input id="f-from" type="date"></div>
+  <div><label>To</label><input id="f-to" type="date"></div>
+  <div>
+    <label>Rows per page</label>
+    <select id="f-pagesize">
+      {% for n in [5, 10, 15, 20] %}
+      <option value="{{ n }}" {{ 'selected' if n == page_size }}>{{ n }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div><button class="btn" id="f-apply">Apply filters</button></div>
+</div>
+
+<div class="table-wrap">
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading results…</div>
+  </div>
+  <table id="app-table">
+    <thead>
+      <tr>
+        <th>Updated</th><th>Posted</th><th>Source</th><th>Company</th><th>Title</th><th>Category</th>
+        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="app-tbody">
+      {% for a in applications %}
+      <tr data-job-id="{{ a.job_id }}">
+        <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ a.posted_at.strftime("%Y-%m-%d") if a.posted_at else "—" }}</td>
+        <td>{{ a.source.value }}</td>
+        <td>{{ a.company }}</td>
+        <td class="wrap">{{ a.title }}</td>
+        <td>{{ a.category or "—" }}</td>
+        <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="wrap">{% for sk in a.required_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
+        <td class="status-cell"><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
+        <td class="wrap">{{ a.reason or "" }}</td>
+        <td class="action-cell">
+          <a class="btn secondary btn-sm" href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a>
+          <a class="btn secondary btn-sm resume-link" href="/api/applications/{{ a.job_id }}/resume?v={{ (a.resume_tailored_at or a.updated_at).timestamp() | int }}" target="_blank" rel="noopener">Resume PDF</a>
+          <button class="btn secondary btn-sm" data-skills="{{ a.required_skills | join(',') }}" onclick="showIdeas(this)">💡 Ideas</button>
+          <button class="btn secondary btn-sm tailor-btn" onclick="tailorResume('{{ a.job_id }}', this)">🎯 Tailor Resume</button>
+          <span class="tailored-note">{% if a.resume_tailored_at %}✓ Tailored {{ a.resume_tailored_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</span>
+          {% if a.status.value == "applied" %}
+          <span class="btn-sm applied-flag">✓ Applied</span>
+          {% else %}
+          <button class="btn btn-sm mark-applied-btn" onclick="markApplied('{{ a.job_id }}', this)">Mark Applied</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination">
+    <span class="page-info" id="page-info">Page 1</span>
+    <button class="btn secondary" id="page-prev" disabled>&larr; Prev</button>
+    <button class="btn secondary" id="page-next" {{ 'disabled' if not next_cursor }}>Next &rarr;</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="ideas-modal" onclick="if (event.target === this) closeIdeas()">
+  <div class="modal-card">
+    <button class="btn secondary btn-sm modal-close" onclick="closeIdeas()">Close</button>
+    <h2>Project ideas for this stack</h2>
+    <div class="modal-hint">
+      💡 These are ideas to build, not existing work — build one for real (even a small version)
+      and add it to your actual resume. Never present these as projects you've already done.
+    </div>
+    <div id="ideas-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let PAGE_SIZE = {{ page_size }};
+let cursorStack = [null];   // cursorStack[pageIndex] = cursor used to FETCH that page
+let currentPage = 0;
+let nextCursor = {{ (next_cursor | tojson) if next_cursor else 'null' }};
+
+function currentFilters() {
+  const params = new URLSearchParams();
+  const search = document.getElementById('f-search').value;
+  const status = document.getElementById('f-status').value;
+  const source = document.getElementById('f-source').value;
+  const category = document.getElementById('f-category').value;
+  const title = document.getElementById('f-title').value;
+  const company = document.getElementById('f-company').value;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+  if (source) params.set('source', source);
+  if (category) params.set('category', category);
+  if (title) params.set('title', title);
+  if (company) params.set('company', company);
+  if (from) params.set('date_from', from);
+  if (to) params.set('date_to', to);
+  params.set('limit', PAGE_SIZE);
+  return params;
+}
+
+function setLoading(isLoading) {
+  document.getElementById('loading-overlay').classList.toggle('visible', isLoading);
+  ['f-search', 'f-status', 'f-source', 'f-category', 'f-title', 'f-company', 'f-from', 'f-to', 'f-pagesize', 'f-apply', 'page-prev', 'page-next']
+    .forEach(id => { document.getElementById(id).disabled = isLoading; });
+  if (!isLoading) updatePaginationControls();  // restores correct prev/next disabled state
+}
+
+async function loadPage(cursor) {
+  setLoading(true);
+  try {
+    const params = currentFilters();
+    if (cursor) params.set('cursor', cursor);
+
+    const appsRes = await fetch('/api/applications?' + params.toString());
+    const apps = await appsRes.json();
+    renderTable(apps.items);
+    nextCursor = apps.next_cursor;
+  } finally {
+    setLoading(false);  // also restores correct prev/next disabled state
+  }
+}
+
+function updatePaginationControls() {
+  document.getElementById('page-info').textContent = `Page ${currentPage + 1}`;
+  document.getElementById('page-prev').disabled = currentPage === 0;
+  document.getElementById('page-next').disabled = !nextCursor;
+}
+
+async function resetAndLoad() {
+  cursorStack = [null];
+  currentPage = 0;
+  await loadPage(null);
+}
+
+document.getElementById('page-next').addEventListener('click', async () => {
+  if (!nextCursor) return;
+  cursorStack.push(nextCursor);
+  currentPage += 1;
+  await loadPage(cursorStack[currentPage]);
+});
+
+document.getElementById('page-prev').addEventListener('click', async () => {
+  if (currentPage === 0) return;
+  currentPage -= 1;
+  await loadPage(cursorStack[currentPage]);
+});
+
+document.getElementById('f-pagesize').addEventListener('change', (e) => {
+  PAGE_SIZE = parseInt(e.target.value, 10);
+  resetAndLoad();
+});
+
+async function markApplied(jobId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Marking...';
+  const res = await fetch(`/api/applications/${jobId}/mark-applied`, { method: 'POST' });
+  if (res.ok) {
+    await loadPage(cursorStack[currentPage]);  // refresh current page in place
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Mark Applied';
+    alert('Could not mark this job as applied — it may have been removed.');
+  }
+}
+
+let toastTimer = null;
+function showToast(message, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = 'toast visible' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('visible'); }, 6000);
+}
+
+async function tailorResume(jobId, btn) {
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Tailoring…';
+  try {
+    const res = await fetch(`/api/applications/${jobId}/tailor`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      const skillsNote = (data.skills_used || []).length ? ` — matched: ${data.skills_used.join(', ')}` : '';
+      showToast(`✓ PDF updated for this job${skillsNote}`, false);
+      // Patch just this row in place rather than reloading the whole
+      // table: tailoring bumps the job's updated_at, and the table is
+      // sorted by updated_at — a full reload can push the row you're
+      // looking at onto a DIFFERENT page (it jumps to the top), making
+      // it look like the click did nothing. Patching in place keeps the
+      // row exactly where your eyes already are.
+      const row = document.querySelector(`tr[data-job-id="${jobId}"]`);
+      if (row) {
+        const note = row.querySelector('.tailored-note');
+        if (note && data.tailored_at) {
+          note.textContent = `✓ Tailored ${data.tailored_at.replace('T', ' ').slice(0, 16)}`;
+        }
+        const resumeLink = row.querySelector('.resume-link');
+        if (resumeLink && data.tailored_at) {
+          // Cache-busting query param tied to the new version, so this
+          // link is guaranteed to fetch the just-regenerated PDF instead
+          // of a copy the browser may have cached from before tailoring.
+          resumeLink.href = `/api/applications/${jobId}/resume?v=${encodeURIComponent(data.tailored_at)}`;
+        }
+      }
+      btn.disabled = false;
+      btn.textContent = originalText;
+    } else {
+      showToast(data.detail || 'Could not tailor this resume.', true);
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  } catch (e) {
+    showToast('Network error while tailoring — try again.', true);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function showIdeas(btn) {
+  const skills = btn.dataset.skills || '';
+  const modal = document.getElementById('ideas-modal');
+  const list = document.getElementById('ideas-list');
+  list.innerHTML = '<p class="muted">Loading ideas…</p>';
+  modal.classList.add('visible');
+
+  if (!skills) {
+    list.innerHTML = '<p class="muted">No specific skills were detected for this job, so there\'s nothing to match against the project bank.</p>';
+    return;
+  }
+  const res = await fetch(`/api/project-suggestions?skills=${encodeURIComponent(skills)}&count=3`);
+  const data = await res.json();
+  const suggestions = data.suggestions || [];
+  if (!suggestions.length) {
+    list.innerHTML = '<p class="muted">No matching project ideas found for this stack yet.</p>';
+    return;
+  }
+  list.innerHTML = suggestions.map(p => `
+    <div class="idea-card">
+      <h3>${escapeHtml(p.title)}</h3>
+      <div class="idea-meta">${escapeHtml(p.stack_label)} &middot; ${escapeHtml(p.estimated_effort)} &middot; ${(p.tools || []).map(escapeHtml).join(', ')}</div>
+      <p>${escapeHtml(p.description)}</p>
+      <ul>${(p.features || []).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+}
+
+function closeIdeas() {
+  document.getElementById('ideas-modal').classList.remove('visible');
+}
+
+function actionCell(a) {
+  const appliedFlag = a.status === 'applied'
+    ? '<span class="btn-sm applied-flag">✓ Applied</span>'
+    : `<button class="btn btn-sm mark-applied-btn" onclick="markApplied('${a.job_id}', this)">Mark Applied</button>`;
+  const skills = (a.required_skills || []).join(',');
+  const tailoredNote = a.resume_tailored_at
+    ? `✓ Tailored ${(a.resume_tailored_at || '').replace('T', ' ').slice(0, 16)}`
+    : '';
+  // Cache-busting query param (same reasoning as tailorResume()'s in-place
+  // patch below) - ties the URL identity to whichever version was last
+  // tailored, so a browser can never show a PDF cached from a previous one.
+  const version = encodeURIComponent(a.resume_tailored_at || a.updated_at || '');
+  return `
+    <a class="btn secondary btn-sm" href="${a.url}" target="_blank" rel="noopener">Open ↗</a>
+    <a class="btn secondary btn-sm resume-link" href="/api/applications/${a.job_id}/resume?v=${version}" target="_blank" rel="noopener">Resume PDF</a>
+    <button class="btn secondary btn-sm" data-skills="${escapeHtml(skills)}" onclick="showIdeas(this)">💡 Ideas</button>
+    <button class="btn secondary btn-sm tailor-btn" onclick="tailorResume('${a.job_id}', this)">🎯 Tailor Resume</button>
+    <span class="tailored-note">${escapeHtml(tailoredNote)}</span>
+    ${appliedFlag}
+  `;
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('app-tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching applications.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(a => `
+    <tr data-job-id="${a.job_id}">
+      <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
+      <td>${a.posted_at ? a.posted_at.slice(0, 10) : '—'}</td>
+      <td>${a.source}</td>
+      <td>${escapeHtml(a.company)}</td>
+      <td class="wrap">${escapeHtml(a.title)}</td>
+      <td>${escapeHtml(a.category || '—')}</td>
+      <td>${a.is_remote ? '<span class="remote-pill">REMOTE</span>' : '<span class="muted">—</span>'}</td>
+      <td class="wrap">${(a.required_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</td>
+      <td class="status-cell"><span class="badge ${a.status}">${a.status}</span></td>
+      <td class="wrap">${escapeHtml(a.reason || '')}</td>
+      <td class="action-cell">${actionCell(a)}</td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('f-apply').addEventListener('click', resetAndLoad);
+// Enter in any text filter applies immediately, same as clicking "Apply
+// filters" — the dropdowns/date pickers don't need this (changing them
+// doesn't leave focus in a text field mid-thought the way typing does).
+['f-search', 'f-title', 'f-company'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') resetAndLoad();
+  });
+});
+updatePaginationControls();
+</script>
+{% endblock %}

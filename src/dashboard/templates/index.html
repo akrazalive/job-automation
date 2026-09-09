@@ -3,35 +3,23 @@
 {% block head %}
 <style>
   h1 { margin: 0 0 4px; font-size: 1.4rem; }
-  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
-  .summary { display: flex; gap: 12px; padding: 0 0 18px; flex-wrap: wrap; }
-  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; min-width: 110px; box-shadow: var(--shadow); }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+  .summary { display: flex; gap: 14px; flex-wrap: wrap; }
+  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; min-width: 110px; box-shadow: var(--shadow); }
   .stat-card .n { font-size: 1.6rem; font-weight: 700; }
   .stat-card .l { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
-  .reports { margin-bottom: 20px; }
+  .reports-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .reports-grid { grid-template-columns: 1fr; } }
   .reports table { width: 100%; border-collapse: collapse; font-size: .82rem; }
   .reports th, .reports td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
   .reports th { color: var(--muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; }
   .bar-wrap { background: var(--border); border-radius: 4px; height: 6px; width: 100%; overflow: hidden; }
   .bar-fill { background: var(--accent); height: 100%; }
-  .filters { display: flex; gap: 10px; padding: 4px 0 16px; flex-wrap: wrap; align-items: end; }
-  table#app-table { width: 100%; border-collapse: collapse; }
-  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
-  td.wrap { white-space: normal; max-width: 260px; }
-  .remote-pill { font-size: .68rem; color: var(--accent-dark); font-weight: 700; }
-  .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
-  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 4px; justify-content: flex-end; flex-wrap: wrap; }
-  .pagination .page-info { font-size: .8rem; color: var(--muted); margin-right: auto; }
-  .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
-  .action-cell { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn-sm.applied-flag { background: var(--applied); border-color: var(--applied); color: #fff; cursor: default; }
 </style>
 {% endblock %}
 {% block content %}
-<h1>Admin Dashboard</h1>
-<div class="sub">What the agent found and applied to, what failed, and why.</div>
+<h1>Dashboard</h1>
+<div class="sub">Overview of what the agent found and applied to. See <a href="/applications">Applications</a> for the full list.</div>
 
 <div class="summary" id="summary-cards">
   {% for key, label in [("total","Total"), ("pending","Pending"), ("applied","Applied"), ("failed","Failed"), ("blocked","Blocked"), ("skipped_duplicate","Skipped (dup)")] %}
@@ -39,223 +27,43 @@
   {% endfor %}
 </div>
 
-{% if categories %}
-<div class="card reports" style="padding: 16px 20px;">
-  <h2 style="margin:0 0 10px;font-size:1rem;">Jobs by category</h2>
-  <table>
-    <tr><th>Category</th><th>Found</th><th>Applied</th><th style="width:35%;">Share</th></tr>
-    {% set max_total = categories.values() | map(attribute='total') | max %}
-    {% for cat, counts in categories.items() | sort(attribute='1.total', reverse=True) %}
-    <tr>
-      <td>{{ cat }}</td>
-      <td>{{ counts.total }}</td>
-      <td>{{ counts.get('applied', 0) }}</td>
-      <td><div class="bar-wrap"><div class="bar-fill" style="width:{{ (counts.total / max_total * 100) | round(0, 'floor') }}%;"></div></div></td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
-{% endif %}
-
-<div class="filters">
-  <div>
-    <label>Status</label>
-    <select id="f-status">
-      <option value="">All</option>
-      {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
-    </select>
-  </div>
-  <div>
-    <label>Source</label>
-    <select id="f-source">
-      <option value="">All</option>
-      {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
-    </select>
-  </div>
-  <div><label>Company</label><input id="f-company" type="text" placeholder="e.g. Acme"></div>
-  <div><label>From</label><input id="f-from" type="date"></div>
-  <div><label>To</label><input id="f-to" type="date"></div>
-  <div>
-    <label>Rows per page</label>
-    <select id="f-pagesize">
-      {% for n in [5, 10, 15, 20] %}
-      <option value="{{ n }}" {{ 'selected' if n == page_size }}>{{ n }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div><button class="btn" id="f-apply">Apply filters</button></div>
-</div>
-
-<div class="table-wrap">
-  <table id="app-table">
-    <thead>
+<div class="reports-grid">
+  {% if categories %}
+  <div class="card reports">
+    <h2 style="margin:0 0 10px;font-size:1rem;">Jobs by category</h2>
+    <table>
+      <tr><th>Category</th><th>Found</th><th>Applied</th><th style="width:35%;">Share</th></tr>
+      {% set max_total = categories.values() | map(attribute='total') | max %}
+      {% for cat, counts in categories.items() | sort(attribute='1.total', reverse=True) %}
       <tr>
-        <th>Updated</th><th>Posted</th><th>Source</th><th>Company</th><th>Title</th><th>Category</th>
-        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Actions</th>
+        <td>{{ cat }}</td>
+        <td>{{ counts.total }}</td>
+        <td>{{ counts.get('applied', 0) }}</td>
+        <td><div class="bar-wrap"><div class="bar-fill" style="width:{{ (counts.total / max_total * 100) | round(0, 'floor') }}%;"></div></div></td>
       </tr>
-    </thead>
-    <tbody id="app-tbody">
-      {% for a in applications %}
-      <tr data-job-id="{{ a.job_id }}">
-        <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
-        <td>{{ a.posted_at.strftime("%Y-%m-%d") if a.posted_at else "—" }}</td>
-        <td>{{ a.source.value }}</td>
-        <td>{{ a.company }}</td>
-        <td class="wrap">{{ a.title }}</td>
-        <td>{{ a.category or "—" }}</td>
-        <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-        <td class="wrap">{% for sk in a.required_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
-        <td class="status-cell"><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
-        <td class="wrap">{{ a.reason or "" }}</td>
-        <td class="action-cell">
-          <a class="btn secondary btn-sm" href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a>
-          <a class="btn secondary btn-sm" href="/api/applications/{{ a.job_id }}/resume" target="_blank" rel="noopener">Resume PDF</a>
-          {% if a.status.value == "applied" %}
-          <span class="btn-sm applied-flag">✓ Applied</span>
-          {% else %}
-          <button class="btn btn-sm mark-applied-btn" onclick="markApplied('{{ a.job_id }}', this)">Mark Applied</button>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="11" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
       {% endfor %}
-    </tbody>
-  </table>
-  <div class="pagination">
-    <span class="page-info" id="page-info">Page 1</span>
-    <button class="btn secondary" id="page-prev" disabled>&larr; Prev</button>
-    <button class="btn secondary" id="page-next" {{ 'disabled' if not next_cursor }}>Next &rarr;</button>
+    </table>
   </div>
+  {% endif %}
+
+  {% if project_bank_stats and project_bank_stats.stacks %}
+  <div class="card reports">
+    <h2 style="margin:0 0 10px;font-size:1rem;">
+      Project bank by stack
+      <span class="muted" style="font-weight:400; font-size:.78rem;">({{ project_bank_stats.total }} total — <a href="/projects">browse</a>)</span>
+    </h2>
+    <table>
+      <tr><th>Stack</th><th>Projects</th><th style="width:40%;">Share</th></tr>
+      {% set max_stack = project_bank_stats.stacks | map(attribute='count') | max %}
+      {% for s in project_bank_stats.stacks | sort(attribute='count', reverse=True) %}
+      <tr>
+        <td>{{ s.stack_label }}</td>
+        <td>{{ s.count }}</td>
+        <td><div class="bar-wrap"><div class="bar-fill" style="width:{{ (s.count / max_stack * 100) | round(0, 'floor') }}%;"></div></div></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
 </div>
-
-<script>
-let PAGE_SIZE = {{ page_size }};
-let cursorStack = [null];   // cursorStack[pageIndex] = cursor used to FETCH that page
-let currentPage = 0;
-let nextCursor = {{ (next_cursor | tojson) if next_cursor else 'null' }};
-
-function currentFilters() {
-  const params = new URLSearchParams();
-  const status = document.getElementById('f-status').value;
-  const source = document.getElementById('f-source').value;
-  const company = document.getElementById('f-company').value;
-  const from = document.getElementById('f-from').value;
-  const to = document.getElementById('f-to').value;
-  if (status) params.set('status', status);
-  if (source) params.set('source', source);
-  if (company) params.set('company', company);
-  if (from) params.set('date_from', from);
-  if (to) params.set('date_to', to);
-  params.set('limit', PAGE_SIZE);
-  return params;
-}
-
-async function loadPage(cursor) {
-  const params = currentFilters();
-  if (cursor) params.set('cursor', cursor);
-
-  const [appsRes, summaryRes] = await Promise.all([
-    fetch('/api/applications?' + params.toString()),
-    fetch('/api/summary'),
-  ]);
-  const apps = await appsRes.json();
-  const summary = await summaryRes.json();
-  renderTable(apps.items);
-  renderSummary(summary);
-  nextCursor = apps.next_cursor;
-  updatePaginationControls();
-}
-
-function updatePaginationControls() {
-  document.getElementById('page-info').textContent = `Page ${currentPage + 1}`;
-  document.getElementById('page-prev').disabled = currentPage === 0;
-  document.getElementById('page-next').disabled = !nextCursor;
-}
-
-async function resetAndLoad() {
-  cursorStack = [null];
-  currentPage = 0;
-  await loadPage(null);
-}
-
-document.getElementById('page-next').addEventListener('click', async () => {
-  if (!nextCursor) return;
-  cursorStack.push(nextCursor);
-  currentPage += 1;
-  await loadPage(cursorStack[currentPage]);
-});
-
-document.getElementById('page-prev').addEventListener('click', async () => {
-  if (currentPage === 0) return;
-  currentPage -= 1;
-  await loadPage(cursorStack[currentPage]);
-});
-
-document.getElementById('f-pagesize').addEventListener('change', (e) => {
-  PAGE_SIZE = parseInt(e.target.value, 10);
-  resetAndLoad();
-});
-
-async function markApplied(jobId, btn) {
-  btn.disabled = true;
-  btn.textContent = 'Marking...';
-  const res = await fetch(`/api/applications/${jobId}/mark-applied`, { method: 'POST' });
-  if (res.ok) {
-    await loadPage(cursorStack[currentPage]);  // refresh current page + summary in place
-  } else {
-    btn.disabled = false;
-    btn.textContent = 'Mark Applied';
-    alert('Could not mark this job as applied — it may have been removed.');
-  }
-}
-
-function actionCell(a) {
-  const appliedFlag = a.status === 'applied'
-    ? '<span class="btn-sm applied-flag">✓ Applied</span>'
-    : `<button class="btn btn-sm mark-applied-btn" onclick="markApplied('${a.job_id}', this)">Mark Applied</button>`;
-  return `
-    <a class="btn secondary btn-sm" href="${a.url}" target="_blank" rel="noopener">Open ↗</a>
-    <a class="btn secondary btn-sm" href="/api/applications/${a.job_id}/resume" target="_blank" rel="noopener">Resume PDF</a>
-    ${appliedFlag}
-  `;
-}
-
-function renderTable(items) {
-  const tbody = document.getElementById('app-tbody');
-  if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching applications.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(a => `
-    <tr data-job-id="${a.job_id}">
-      <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
-      <td>${a.posted_at ? a.posted_at.slice(0, 10) : '—'}</td>
-      <td>${a.source}</td>
-      <td>${escapeHtml(a.company)}</td>
-      <td class="wrap">${escapeHtml(a.title)}</td>
-      <td>${escapeHtml(a.category || '—')}</td>
-      <td>${a.is_remote ? '<span class="remote-pill">REMOTE</span>' : '<span class="muted">—</span>'}</td>
-      <td class="wrap">${(a.required_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</td>
-      <td class="status-cell"><span class="badge ${a.status}">${a.status}</span></td>
-      <td class="wrap">${escapeHtml(a.reason || '')}</td>
-      <td class="action-cell">${actionCell(a)}</td>
-    </tr>
-  `).join('');
-}
-
-function renderSummary(summary) {
-  const labels = [["total","Total"],["pending","Pending"],["applied","Applied"],["failed","Failed"],["blocked","Blocked"],["skipped_duplicate","Skipped (dup)"]];
-  document.getElementById('summary-cards').innerHTML = labels.map(([key, label]) => `
-    <div class="stat-card"><div class="n">${summary[key] || 0}</div><div class="l">${label}</div></div>
-  `).join('');
-}
-
-function escapeHtml(s) {
-  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-document.getElementById('f-apply').addEventListener('click', resetAndLoad);
-updatePaginationControls();
-</script>
 {% endblock %}

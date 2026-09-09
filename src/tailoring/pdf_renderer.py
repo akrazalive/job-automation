@@ -9,8 +9,16 @@ See src/common/resume_schema.py's PROTECTED_* constants and
 TECHNICAL_PLAN.txt section 0 for why this boundary matters.
 
   1. Deterministic (always available): given a job's required_skills
-     (src/common/skills.py), each skill category's items are REORDERED to
-     put matching skills first — nothing added, removed, or reworded.
+     (src/common/skills.py), each skill category's items (and the
+     Projects section) are REORDERED to put matching skills/projects
+     first, and matching skill/tech names are rendered in BOLD — nothing
+     added, removed, or reworded, purely order + emphasis. The bolding
+     exists because reordering alone can be too subtle to notice (a
+     skill that was already first in its category looks identical either
+     way) - bold is the always-visible proof that tailoring ran for this
+     job. See _skill_is_relevant()'s docstring for why matching a resume
+     skill name against required_skills isn't a plain string-equality
+     check.
   2. LLM-assisted (when tailored_summary/tailored_experience_bullets are
      passed in — see src/tailoring/engine.py, which gets them from
      claude_client.py and only passes them through after verifying the
@@ -39,6 +47,7 @@ from reportlab.platypus import (
 )
 
 from src.common.resume_schema import MasterResume
+from src.common.skills import extract_skills
 
 # A restrained dark-green accent for headers only — body text stays
 # black/dark-gray for ATS readability and print-friendliness. Ties the
@@ -47,6 +56,31 @@ from src.common.resume_schema import MasterResume
 ACCENT_GREEN = colors.HexColor("#15803d")
 DARK_TEXT = colors.HexColor("#1a1a1a")
 MUTED_TEXT = colors.HexColor("#4b5563")
+
+
+def _skill_is_relevant(name: str, wanted: set[str]) -> bool:
+    """True if `name` (a resume skill or a project's tech entry) is
+    relevant to a job's required_skills (`wanted`, already lowercased).
+
+    Checks a direct match first, then falls back to scanning `name` for
+    any of the SAME known keywords skills.py's extract_skills() would
+    pull out of a job description (word-boundary guarded, so "AI" won't
+    match inside "Tailwind"). That fallback matters because resumes
+    routinely list a skill under a compound/decorated label —
+    "HTML/CSS", "GitHub Actions (CI/CD)", "Python/Django", "Laravel Mix"
+    — that will never be byte-equal to a single extracted keyword like
+    "html", "django", or "ci/cd", so a plain `name.lower() in wanted`
+    check silently never matches most of a real resume's skill list.
+    Verified against this project's own resume: without this fallback,
+    "HTML/CSS", "GitHub Actions (CI/CD)", "Laravel Mix", "Python/Django",
+    "SQL Server", and "OpenAI API" could NEVER be pulled to the front of
+    their category or bolded, regardless of the job - which is why a
+    tailored PDF could come out looking identical to the original for a
+    real job that plainly did need several of those skills."""
+    if name.lower() in wanted:
+        return True
+    embedded = {k.lower() for k in extract_skills(name)}
+    return bool(embedded & wanted)
 
 
 def _reorder_skills_for_job(
@@ -59,10 +93,40 @@ def _reorder_skills_for_job(
     wanted = {s.lower() for s in (required_skills or [])}
     result: dict[str, list[str]] = {}
     for category, items in resume.skills.items():
-        matched = [i.name for i in items if i.name.lower() in wanted]
-        rest = [i.name for i in items if i.name.lower() not in wanted]
+        matched = [i.name for i in items if _skill_is_relevant(i.name, wanted)]
+        rest = [i.name for i in items if not _skill_is_relevant(i.name, wanted)]
         result[category] = matched + rest
     return result
+
+
+def _reorder_projects_for_job(
+    resume: MasterResume, required_skills: Optional[list[str]]
+) -> list:
+    """resume.projects reordered so entries whose `tech` list overlaps the
+    job's required_skills come first (most overlap first; ties keep their
+    original relative order — Python's sort is stable). Order only — every
+    project the user actually lists stays in the output, nothing added or
+    removed, so this can never present a project they didn't really build.
+    See src/common/project_bank.py's module docstring for why the 255
+    curated Project Bank ideas must never be substituted in here instead."""
+    wanted = {s.lower() for s in (required_skills or [])}
+    if not wanted:
+        return list(resume.projects)
+
+    def overlap(project) -> int:
+        return sum(1 for t in project.tech if _skill_is_relevant(t, wanted))
+
+    return sorted(resume.projects, key=overlap, reverse=True)
+
+
+# A resume shows a curated handful of projects, not an exhaustive project
+# history — this caps how many of resume.projects actually get rendered
+# per PDF, taking the most relevant N after _reorder_projects_for_job
+# (or, with no required_skills, just the first N in original order).
+# Matters once resume.projects holds a large real portfolio (see
+# scripts/import_portfolio_projects.py) rather than a handful of entries
+# - without a cap, EVERY project would render on EVERY tailored PDF.
+DEFAULT_MAX_PROJECTS = 6
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -84,6 +148,7 @@ def render_resume_pdf(
     required_skills: Optional[list[str]] = None,
     tailored_summary: Optional[str] = None,
     tailored_experience_bullets: Optional[list[list[str]]] = None,
+    max_projects: int = DEFAULT_MAX_PROJECTS,
 ) -> bytes:
     """tailored_experience_bullets, if given, MUST be the same length as
     resume.experience, aligned 1:1 by index — the caller (engine.py) is
@@ -118,11 +183,19 @@ def render_resume_pdf(
     story.append(Paragraph("Summary", s["section"]))
     story.append(Paragraph(tailored_summary or resume.summary, s["body"]))
 
+    # Used below to BOLD (never add/remove/rename) the skills and project
+    # tech that actually matched this job - reordering alone can be too
+    # subtle to notice (e.g. a skill that was already first in its
+    # category stays first either way), so this is the direct, always-
+    # visible signal that tailoring actually ran for this specific job.
+    wanted = {sk.lower() for sk in (required_skills or [])}
+
     story.append(Paragraph("Skills", s["section"]))
     reordered = _reorder_skills_for_job(resume, required_skills)
     for category, names in reordered.items():
         label = category.replace("_", " ").title()
-        story.append(Paragraph(f"<b>{label}:</b> {', '.join(names)}", s["body"]))
+        rendered = [f"<b>{n}</b>" if _skill_is_relevant(n, wanted) else n for n in names]
+        story.append(Paragraph(f"<b>{label}:</b> {', '.join(rendered)}", s["body"]))
 
     story.append(Paragraph("Experience", s["section"]))
     for i, entry in enumerate(resume.experience):
@@ -147,10 +220,14 @@ def render_resume_pdf(
 
     if resume.projects:
         story.append(Paragraph("Projects", s["section"]))
-        for proj in resume.projects:
+        selected = _reorder_projects_for_job(resume, required_skills)[:max_projects]
+        for proj in selected:
             story.append(Paragraph(proj.name, s["entry_title"]))
+            if proj.url:
+                story.append(Paragraph(f'<link href="{proj.url}"><font color="#15803d">{proj.url}</font></link>', s["entry_meta"]))
             story.append(Paragraph(proj.description, s["body"]))
-            story.append(Paragraph(f"<i>Tech: {', '.join(proj.tech)}</i>", s["entry_meta"]))
+            rendered_tech = [f"<b>{t}</b>" if _skill_is_relevant(t, wanted) else t for t in proj.tech]
+            story.append(Paragraph(f"<i>Tech: {', '.join(rendered_tech)}</i>", s["entry_meta"]))
 
     if resume.spoken_languages:
         story.append(Paragraph("Languages", s["section"]))

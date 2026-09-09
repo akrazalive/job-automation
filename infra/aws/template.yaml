@@ -67,6 +67,26 @@ Resources:
         - AttributeName: job_id
           KeyType: HASH
 
+  ProjectBankTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      # Static reference data (project ideas by tech stack, see
+      # project_bank.json / scripts/load_project_bank_to_dynamodb.py) -
+      # not user-specific, loaded once and read-only after that. 15/15
+      # total provisioned RCU/WCU across all 3 tables now, still under
+      # DynamoDB's always-free 25/25 threshold.
+      TableName: !Sub job-automation-project-bank-${StageName}
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
   ResumeBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -101,7 +121,13 @@ Resources:
           STORAGE_BACKEND: aws
           DYNAMODB_JOBS_TABLE: !Ref JobsTable
           DYNAMODB_APPLICATIONS_TABLE: !Ref ApplicationsTable
+          PROJECT_BANK_TABLE: !Ref ProjectBankTable
           S3_BUCKET_NAME: !Ref ResumeBucket
+          # Where scripts/upload_master_resume.py puts the operator's real
+          # resume (PII) in this same private/encrypted bucket, so the
+          # on-demand "Tailor Resume" button can render a fresh PDF from
+          # inside this Lambda too - see src/tailoring/engine.py.
+          MASTER_RESUME_S3_KEY: private/master_resume.json
           DASHBOARD_USERNAME: !Ref DashboardUsername
           DASHBOARD_PASSWORD: !Ref DashboardPassword
           SESSION_SECRET: !Ref SessionSecret
@@ -109,15 +135,27 @@ Resources:
         # Mostly read-only: the dashboard displays results; the local
         # ingest pipeline writes new job/application records via its own
         # separately-issued AWS credentials (see TECHNICAL_PLAN.txt Phase
-        # 3 IAM notes). The ONE exception is UpdateItem below, added
-        # 2026-09-08 for the dashboard's "Mark Applied" button (a human
-        # manually flagging an application as applied - not an apply bot,
-        # which doesn't exist yet) - scoped to that single action on the
-        # Applications table only, not a general write/CRUD grant.
+        # 3 IAM notes). Narrow write exceptions, all plain data writes
+        # triggered by a human clicking something in the dashboard - not
+        # scraping/automation, so allowed on AWS unlike Settings'
+        # local-only actions:
+        #   - UpdateItem on Applications: "Mark Applied" AND "Tailor
+        #     Resume" buttons (a human flagging an application as
+        #     applied, or re-tailoring their own resume for one job -
+        #     neither is an apply bot).
+        #   - PutItem/DeleteItem on ProjectBank: the /projects page's
+        #     Add/Edit/Delete actions (static reference data, not user
+        #     PII - Edit is just PutItem again, upsert by id).
+        #   - PutObject on ResumeBucket ("resumes/*" only, never
+        #     "private/*" - the Lambda only ever READS the master resume
+        #     back, it has no route that would let it overwrite that
+        #     copy): "Tailor Resume" uploading the freshly rendered PDF.
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
         - DynamoDBReadPolicy:
             TableName: !Ref ApplicationsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ProjectBankTable
         - S3ReadPolicy:
             BucketName: !Ref ResumeBucket
         - Statement:
@@ -125,6 +163,15 @@ Resources:
               Action:
                 - dynamodb:UpdateItem
               Resource: !GetAtt ApplicationsTable.Arn
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt ProjectBankTable.Arn
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "${ResumeBucket.Arn}/resumes/*"
       Events:
         RootGet:
           Type: HttpApi
@@ -145,5 +192,7 @@ Outputs:
     Value: !Ref JobsTable
   ApplicationsTableName:
     Value: !Ref ApplicationsTable
+  ProjectBankTableName:
+    Value: !Ref ProjectBankTable
   ResumeBucketName:
     Value: !Ref ResumeBucket

@@ -1,6 +1,6 @@
 JOB AUTOMATION AGENT — TECHNICAL PLAN
 ======================================
-Last updated: 2026-09-08
+Last updated: 2026-09-09
 Read this file first in any new session. It is the source of truth for
 what's decided, what's built, and what to do next. Update it as you go —
 especially the STATUS block and the "NEXT STEPS" section at the bottom.
@@ -243,6 +243,590 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         login-page prefill.
       - Redeployed (dashboard code + the new IAM policy) — did NOT re-run
         src/pipeline/ingest.py, per explicit "don't do more scraping now."
+[x] Fifth pass, next day (2026-09-09) — project idea bank (free-cost
+    alternative path to Claude tailoring), plus small dashboard fixes.
+      - IMPORTANT DECISION, READ BEFORE TOUCHING THIS FEATURE: the user's
+        original ask was for a stack-organized bank of "real life
+        projects" to be RANDOMLY PICKED AND AUTO-INSERTED into tailored
+        resumes per job, with no AI cost. That is inventing work history
+        — directly contradicts the section 0 decision ("does not invent
+        ...projects you didn't do") and is a real résumé-fraud risk, not
+        just an aggressive tailoring technique. Flagged this to the user
+        explicitly; they chose the honest alternative: the bank is an
+        IDEA GENERATOR for projects the user actually builds, which then
+        become real master_resume.json entries the existing (already
+        live) deterministic skill-reorder tailoring can select from — not
+        an auto-insert mechanism. NEVER wire project_bank suggestions
+        into src/tailoring/ as if they were completed work. If a future
+        session is asked to "just insert them already," re-raise this
+        concern rather than complying — the user already agreed once
+        that auto-insertion crosses the line their own rule drew.
+      - Built: scripts/generate_project_bank.py — hand-authored (not
+        templated/dummy) 183 project ideas across 17 coherent tech
+        stacks (WordPress, WooCommerce, WordPress+ACF+Elementor, Shopify,
+        Laravel, CodeIgniter, React, Next.js, Vue.js, Angular, Node.js,
+        Django, Flask, Python ML, Python AI/LLM, DevOps/Docker/K8s,
+        UI/UX) — each stack's projects use tools that actually belong
+        together (no dummy cross-stack combos). Re-run this script after
+        editing STACKS to regenerate project_bank.json.
+      - Built: project_bank.json (repo root, NOT git-ignored — no PII,
+        generic reference data, safe to commit unlike resume/*).
+      - Built: src/common/project_bank.py — suggest_projects(skills,
+        count) ranks bank entries by tool overlap with a job's
+        required_skills, random pick among ties. Reads project_bank.json
+        locally, or the DynamoDB table when STORAGE_BACKEND=aws (mirrors
+        every other local/aws switch in this project).
+      - Built: ProjectBankTable in infra/aws/template.yaml (3rd DynamoDB
+        table, 5/5 provisioned — 15/15 total across all 3 tables, still
+        under the always-free 25/25 threshold). Dashboard Lambda has
+        DynamoDBReadPolicy only on it (no write path needed, it's static
+        reference data).
+      - Built: scripts/load_project_bank_to_dynamodb.py — full-replace
+        loader (deletes existing items, writes current
+        project_bank.json). Run after any edit to the bank. Already run
+        once this session: table has 183 items, verified live via the
+        deployed dashboard's /api/project-suggestions endpoint.
+      - Built: expanded src/common/skills.py with ACF, Elementor, Redux,
+        GraphQL (tools that appear in the bank but weren't previously
+        detectable in job descriptions). Deliberately did NOT add
+        "Liquid" (Shopify's template language) - too common an English
+        word, would false-positive constantly.
+      - Built: dashboard UI — a "💡 Ideas" button per job row
+        (GET /api/project-suggestions?skills=...&count=N) opens a modal
+        showing up to 3 matched project ideas (title, stack, effort,
+        description, features), with an explicit on-screen reminder that
+        these are ideas to build, not existing work — reinforces the
+        boundary in the UI itself, not just in code comments.
+      - Also fixed this pass: a loading overlay ("Loading results…" +
+        spinner) now shows on the table during any filter/pagination
+        fetch, with controls disabled while in flight (user-requested,
+        unrelated to the project bank).
+      - 9 new tests (75 total).
+      - Redeployed (new table + Lambda code); verified live end-to-end
+        including a real DynamoDB-backed suggestion query.
+      - NOT done: nothing actually reads project_bank suggestions back
+        INTO resume/master_resume.json even after a real build — that
+        step is manual (user builds the project, then manually adds it
+        to master_resume.json themselves). Automating "detect a newly
+        added real project and make it available to tailoring" isn't
+        needed since the tailoring engine already reads
+        master_resume.json fresh each run — no code gap here, just
+        worth knowing it's a manual step for the user, not a missing
+        feature.
+[x] Sixth pass, same day (2026-09-09) — project bank expanded to 15/stack,
+    dashboard browse + manual-add page. Built:
+      - User asked to confirm each stack has enough depth (~15) for a
+        good random-pick-5 feel. It didn't — counts were 8-15, uneven.
+        Expanded scripts/generate_project_bank.py's STACKS lists (72 new
+        hand-authored entries, same non-dummy standard as the original
+        183) so EVERY one of the 17 stacks now has exactly 15 — 255
+        total. Caught and fixed one real duplicate title across stacks
+        during validation ("Multi-Step Insurance Quote Wizard" existed
+        in both Laravel and Angular - renamed the Angular one). All 255
+        ids and titles verified unique.
+      - SAFETY GUARD added to generate_project_bank.py: refuses to
+        overwrite project_bank.json if it contains ids the script didn't
+        generate (i.e. entries added manually via the dashboard) unless
+        --force is passed. Without this, re-running the generator after
+        a user added custom projects would have silently wiped them.
+      - src/common/project_bank.py gained save_project() (upsert by id;
+        writes local JSON or DynamoDB PutItem depending on
+        STORAGE_BACKEND, same switch as everywhere else) and
+        list_stacks() (groups the bank for the browse page).
+      - New dashboard page /projects (templates/projects.html): browse
+        all stacks as collapsible groups, plus an "Add project" form
+        (POST /api/project-bank) — title, stack, stack_label, category,
+        tools, description, features, estimated_effort.
+      - DELIBERATE IAM CHANGE: added dynamodb:PutItem on ProjectBankTable
+        to the dashboard Lambda's role (previously read-only), same
+        reasoning as "Mark Applied"'s UpdateItem grant — this is a human
+        adding a data record via the UI, not scraping/automation, so
+        allowed on both backends unlike Settings' local-only actions.
+      - FIXED A LATENT BUG while building this: load_project_bank_to_dynamodb.py
+        used to be a destructive full-replace (delete every existing item,
+        write only from the local JSON). Once projects can be added
+        directly to the live table via the AWS-hosted dashboard, that
+        would have silently wiped any such addition on the next local
+        sync. Changed default to upsert-only (never deletes); kept the
+        old behavior behind an explicit --replace-all flag, documented
+        as deliberately destructive.
+      - 8 new tests (82 total). Verified live: /projects renders all 17
+        stacks on the deployed dashboard, an add-project POST reaches the
+        real DynamoDB table (IAM policy confirmed working), and the
+        table's item count matches project_bank.json's 255 after the
+        upsert sync.
+      - Local smoke-testing note for future sessions: hitting
+        POST /api/project-bank against a LOCAL server writes into the
+        real repo-root project_bank.json (no path override at the
+        dashboard-route level) — clean up any smoke-test entries
+        afterward (as this session did) rather than leaving them in the
+        curated file.
+[x] Seventh pass, same day (2026-09-09) — full CRUD for the project bank
+    (user asked: "how can I view modify delete them" + confirmed changes
+    should also update the table). Built:
+      - src/common/project_bank.py: get_project(id) and delete_project(id)
+        — same local/DynamoDB switch as save_project/load_project_bank.
+        Editing reuses save_project() (it already upserts by id).
+      - Dashboard: GET /projects/{id}/edit (prefilled form),
+        POST /api/project-bank/{id} (update), POST /api/project-bank/{id}/delete
+        (delete, confirm() dialog client-side). Edit/Delete buttons added
+        to every card on /projects.
+      - templates/project_edit.html — new page, mirrors the add form.
+      - DELIBERATE IAM CHANGE: added dynamodb:DeleteItem on ProjectBankTable
+        (PutItem was already granted for Add/Edit - Edit is just PutItem
+        again with the same id).
+      - 9 new tests (91 total). Verified live end-to-end against the real
+        deployed dashboard: added a test entry (255->256), edited it,
+        deleted it (256->255 again) — full round trip confirmed against
+        the actual DynamoDB table, not just local.
+      - Refactored src/dashboard/app.py: _split_lines() and
+        _project_record_from_form() extracted so Add and Edit share the
+        same form-parsing logic instead of duplicating it.
+[x] Eighth pass, same day (2026-09-09) — sidebar layout redesign + new
+    Scraping page. User reported the CRUD buttons "weren't showing" —
+    diagnosed as their own already-running local uvicorn process serving
+    stale code (confirmed by curling it directly - templates ARE
+    auto-reloaded by Jinja on change, but the earlier build had genuinely
+    predated the CRUD feature). Not a bug; told them to restart it.
+      - templates/base.html rewritten: left sidebar (232px expanded /
+        68px collapsed icon rail), inline SVG icons (no external icon
+        library - stays within the CDN allowlist-free local-file
+        approach already used everywhere else), collapse toggle
+        persisted via localStorage, main content in a padded
+        `.main-content` container instead of the old edge-to-edge
+        `<main>`. `active` context var is now actually wired from every
+        route (was silently unused dead code before this pass).
+      - New NAV ITEM + PAGE: "Scraping" (/scraping, templates/scraping.html)
+        — the "Manual scrape" trigger+log and "Search keywords"
+        list+add-form MOVED here from Settings (their own request: "have
+        menu item for scraping"). /settings/add-search's redirect target
+        changed from /settings to /scraping to match. Settings now holds
+        only apply-delay pacing, daily caps (read-only), and the scrape
+        schedule.
+      - Dashboard gained a second stats card, "Project bank by stack"
+        (total count + per-stack bar chart, same visual style as the
+        existing "Jobs by category" card, side by side in a 2-column
+        grid) — sourced from list_stacks() computed fresh per request.
+        Simplified the page header from "Admin Dashboard" / long tagline
+        to a plain "Dashboard" heading per the user's feedback that the
+        old one felt unpolished.
+      - 5 new tests (93 total): scraping page renders, settings no
+        longer contains "Manual scrape", sidebar active-state per route.
+      - Verified live end-to-end on the deployed dashboard: sidebar,
+        both dashboard stats cards, /scraping, and /projects CRUD (still
+        working after the layout change) all confirmed via curl against
+        the real URL.
+      - User said "when this is developed I will tell you about other" —
+        expect further layout/IA iteration next session; this is a
+        checkpoint, not a final design.
+
+[x] Ninth pass, same day (2026-09-09) — fixed "still don't see all
+    project tools and stacks" bug, split Dashboard/Applications into two
+    pages, more container spacing.
+      - ROOT CAUSE of the missing-projects bug: src/common/project_bank.py's
+        _load_from_dynamodb() silently returned [] when the
+        PROJECT_BANK_TABLE env var wasn't set. The user's own local-run
+        instructions (dashboard_login_credentials.txt, gitignored) set
+        STORAGE_BACKEND=aws to browse real jobs, but PROJECT_BANK_TABLE
+        was introduced after that file was written, so it was never in
+        there — confirmed by reading the file directly. Jobs/applications
+        worked fine (their table names were already set) while the
+        project bank silently came back empty — nothing errored, so it
+        looked like a rendering bug rather than a missing env var.
+        Fixed by adding DEFAULT_PROJECT_BANK_TABLE =
+        "job-automation-project-bank-prod" as a fallback in
+        _load_from_dynamodb/_save_to_dynamodb/_delete_from_dynamodb
+        (scripts/load_project_bank_to_dynamodb.py deliberately NOT given
+        this fallback — explicit target-table confirmation stays required
+        for that destructive maintenance script). Also added
+        PROJECT_BANK_TABLE to dashboard_login_credentials.txt's saved
+        local-run command, and added a whole missing README section, "Run
+        the dashboard against real AWS data" (the old one had apparently
+        been lost in an earlier edit — grepped for it and found zero
+        matches) documenting all four AWS-mode env vars together so this
+        exact silent-partial-config trap doesn't recur.
+      - Deployed the fix: prepare_lambda_src.py -> leak-check (clean) ->
+        sam build -> leak-check (clean) -> sam deploy. Verified live via
+        curl: /projects now renders 255 project-card divs across all 17
+        stacks (was near-zero before).
+      - Split Dashboard into two pages per user request ("move the stats
+        to dashboard page. create another page that show job
+        applications. which contain all"):
+          - templates/index.html: stats only now (summary cards +
+            "Jobs by category" + "Project bank by stack"). Jobs table,
+            filters, pagination, ideas modal, and their JS all REMOVED
+            from this file.
+          - NEW templates/applications.html + GET /applications route:
+            the full jobs table/filters/pagination/actions/ideas-modal,
+            moved verbatim from the old index.html (dropped the now-
+            pointless /api/summary fetch + renderSummary(), since this
+            page has no stat cards to refresh). New sidebar nav item
+            "Applications" between Dashboard and Projects.
+          - src/dashboard/app.py: the `dashboard()` route no longer
+            queries store.list_applications() at all; a new
+            applications_page() route does that instead.
+      - More container spacing per user request ("add margin for all end
+        for many container so that I have spaces on four sides"):
+        base.html's .main-content padding changed from asymmetric
+        `28px 32px 48px` to uniform `36px`, added
+        `.main-content > * + * { margin-top: 24px }` so stacked sections
+        get consistent vertical rhythm without every template having to
+        set its own margin-bottom, and gave the shared `.card` class a
+        default `20px 24px` padding (pages that already set their own
+        card padding via inline style or a more specific class override
+        this, unaffected).
+      - 1 new test (94 total): GET /applications renders the table;
+        updated the dashboard-page test to assert the table is GONE from
+        "/", and added /applications to the sidebar active-state test.
+      - User said "when this is developed I will tell you about other" —
+        same as last pass, further iteration expected.
+
+[x] Tenth pass, same day (2026-09-09) — on-demand "Tailor Resume" button
+    per application, working on BOTH the local and the AWS-hosted
+    dashboard.
+      - User's request could be read two ways, both flagged before
+        building (AskUserQuestion, both answered by the user):
+          1) Should the picked "projects" come from the 255-idea Project
+             Bank (most unbuilt) inserted into the actual submitted PDF
+             as if completed, or stay limited to the user's REAL resume
+             content (skills + real listed projects reordered by
+             relevance), with Project Bank ideas surfaced only as a
+             separate "go build this" suggestion? User chose REAL CONTENT
+             ONLY — matches the locked-in "never invent projects" rule
+             (TECHNICAL_PLAN.txt section 0) and the earlier resume-fraud
+             pivot (fifth pass) that this exact question already settled
+             once; asked again here because the literal new request
+             ("randomly picks projects... update the resume") echoed the
+             Project Bank's own suggest_projects() docstring almost
+             word-for-word, so this wasn't a hypothetical risk.
+          2) Making this work on the LIVE AWS dashboard (not just local)
+             requires the Lambda to have a copy of master_resume.json
+             (real name/email/phone/address) to render from — it's
+             git-ignored and never touches the repo, let alone the Lambda
+             package. User chose to upload it to the same private,
+             SSE-encrypted, public-access-blocked S3 bucket that already
+             holds tailored PDFs (infra/aws/template.yaml's ResumeBucket)
+             over keeping tailoring local-only.
+      - src/common/job_schema.py: Application gained resume_tailored_at
+        (datetime) + resume_tailored_skills (list[str]) — separate from
+        the scrape-time required_skills, which is left untouched (it
+        stays "what the scraper found"; the new field is "what the last
+        tailoring pass actually used," a superset when a live fetch found
+        more).
+      - src/storage/base.py (+local_store.py +dynamo_store.py): two new
+        ApplicationStore methods, get_application(job_id) (read one by
+        id — didn't exist before; list_applications has no id filter) and
+        update_resume_tailoring(job_id, resume_s3_key, tailored_skills)
+        (same UpdateItem IAM permission mark_applied already had covers
+        this on AWS — not attribute-restricted).
+      - NEW src/tailoring/job_fetch.py: best-effort plain HTTP GET (stdlib
+        urllib, not Playwright — must run from a Lambda dashboard request
+        too, no browser there) + BeautifulSoup text extraction of the
+        job's own URL, feeding src/common/skills.py's existing
+        extract_skills() for a possible top-up beyond what the scraper
+        already found. Deliberately degrades to "no extra signal" (never
+        an error) on any failure — LinkedIn/Indeed routinely block or
+        JS-wall plain GETs, confirmed live: SimplyHired job re-fetch
+        returned live_fetch_ok:false against the real deployed dashboard,
+        fell back to the stored required_skills cleanly, tailoring still
+        succeeded.
+      - src/tailoring/pdf_renderer.py: added _reorder_projects_for_job
+        (same pattern as the existing _reorder_skills_for_job — matches
+        resume.projects[].tech against required_skills, most-overlap
+        first, stable-sorted, NOTHING added/removed) and wired it into
+        render_resume_pdf's Projects section. This is the ONLY thing
+        "tailored" about projects now — no Project Bank content anywhere
+        near this function.
+      - src/tailoring/engine.py: load_master_resume() now falls back to
+        S3 (_load_master_resume_from_s3, new, per-warm-container-cached)
+        when the local file is missing AND STORAGE_BACKEND=aws — i.e.
+        only on the Lambda, never affects a real local run. Also fixed a
+        latent Lambda-breaking bug while doing this: tailor_resume_for_job
+        unconditionally wrote to a relative resume/output/ path, which is
+        READ-ONLY inside a running Lambda (only /tmp is writable) — added
+        _local_output_dir() to redirect to /tmp/resume_output there; this
+        write is disposable on AWS either way since download_resume()
+        already prefers the S3 copy when one exists.
+      - NEW scripts/upload_master_resume.py: one-time (and after any
+        resume edit) push of resume/master_resume.json to
+        s3://<ResumeBucket>/private/master_resume.json, validated against
+        the real MasterResume schema before upload. Ran it this pass —
+        confirmed live.
+      - infra/aws/prepare_lambda_src.py: added "tailoring" to
+        SRC_PACKAGES (was deliberately excluded before — see its old
+        comment, now stale) and reportlab + beautifulsoup4 to
+        LAMBDA_REQUIREMENTS (anthropic NOT needed — claude_client.py's
+        `import anthropic` is already lazy/try-except, so it's a no-op if
+        absent). Confirmed `sam build` resolves reportlab fine on Lambda's
+        Python 3.13/x86_64 (prebuilt wheel, no C compiler needed).
+      - infra/aws/template.yaml: DashboardFunction gained
+        MASTER_RESUME_S3_KEY=private/master_resume.json and a narrowly
+        scoped s3:PutObject Allow statement on ONLY
+        "${ResumeBucket.Arn}/resumes/*" (NOT the whole bucket via a
+        blanket S3WritePolicy, and NOT "private/*" — the Lambda can
+        upload freshly tailored PDFs but has no route or permission that
+        would ever let it overwrite the private master-resume copy).
+      - src/dashboard/app.py: new POST /api/applications/{job_id}/tailor
+        — fetches the Application, best-effort live-refreshes its
+        skills, calls tailor_resume_for_job, records the result via
+        update_resume_tailoring, returns {skills_used, live_fetch_ok,
+        llm_tailored}. Allowed on BOTH backends (like mark_applied /
+        project-bank CRUD) — a human clicking a button for one job, not
+        scraping/automation, so not gated behind LOCAL_ACTIONS_ENABLED.
+      - templates/applications.html: new "🎯 Tailor Resume" button per
+        row (both the server-rendered rows and the JS actionCell() used
+        after filtering/paging), a "✓ Tailored <timestamp>" note once one
+        exists, and a bottom-right toast notification on click
+        success/failure — this is the "notification in my dashboard that
+        pdf is updated" the user asked for; it's ephemeral (the click
+        feedback) PLUS persistent (the timestamp survives a reload/
+        re-filter, unlike a toast alone would).
+      - 12 new tests (106 total): project reordering (moves-to-front,
+        no-required-skills no-op, never invents), get_application +
+        update_resume_tailoring on LocalJsonStore, the new dashboard
+        route (mocking job_fetch + tailor_resume_for_job — no real
+        network/PDF work in the test suite), 404 for an unknown job, and
+        load_master_resume's S3 fallback (mocked boto3 client).
+      - Verified end-to-end for REAL on both backends, not just tests:
+        locally, POST .../tailor against the sample seed data produced an
+        actual valid PDF (`file` confirmed "PDF document, version 1.4, 2
+        page(s)") in resume/output/. Deployed (prepare_lambda_src.py ->
+        leak-check clean -> sam build -> leak-check clean -> sam deploy),
+        then against the LIVE dashboard: tailored a real SimplyHired job,
+        got back a presigned S3 URL, downloaded it, `file` confirmed a
+        real valid PDF again — this is the first time src/tailoring/ has
+        ever run inside the actual Lambda, not just locally.
+
+[x] Eleventh pass, same day (2026-09-09) — fixed "I don't see the PDF
+    updated at all" + Applications page search/category/title filters.
+      - DIAGNOSIS for "PDF not updated": the tailoring pipeline itself was
+        never broken (Tenth pass's live end-to-end check proved that) -
+        the bug was in the UI's post-tailor refresh. tailorResume()
+        called loadPage(cursorStack[currentPage]), a FULL table reload -
+        but update_resume_tailoring also bumps updated_at, and the table
+        sorts by updated_at descending, so the just-tailored row jumps to
+        the TOP of the (unfiltered) list. Reloading the SAME page/cursor
+        after that shows whatever now happens to occupy that page, which
+        is usually a completely different set of rows - the row the user
+        was looking at (and its new "✓ Tailored" note) had moved
+        somewhere else entirely. Combined with the Resume PDF link
+        reusing the exact same URL every time (no cache-busting), even
+        finding the row again and clicking through could show a
+        browser-cached copy of the PREVIOUS PDF. Neither of these needed
+        a broken backend to produce exactly the symptom reported.
+      - FIX, three parts, all defense-in-depth rather than betting on one
+        root cause:
+          1. tailorResume() no longer reloads the table at all - it
+             patches the CLICKED ROW's .tailored-note text and
+             .resume-link href directly via the DOM, using a new
+             `tailored_at` field the /tailor endpoint now returns (it
+             already computed this timestamp internally via
+             update_resume_tailoring, just never returned it - that
+             method's signature changed from `-> bool` to `-> Optional[str]`,
+             returning the ISO timestamp on success / None if the job_id
+             vanished, in both LocalJsonStore and DynamoStore; base.py's
+             docstring updated to match). No pagination drift possible
+             since the table is never re-queried.
+          2. Every Resume PDF link (server-rendered rows AND the JS
+             actionCell() used after filtering/paging) now carries a
+             `?v=<resume_tailored_at-or-updated_at>` query string, so a
+             re-tailored job gets a genuinely different URL - a browser
+             cache keyed by URL can never serve stale bytes under a new
+             version's link, independent of any Cache-Control header.
+          3. GET /api/applications/{job_id}/resume now also sends
+             `Cache-Control: no-store` on both branches (local FileResponse
+             and the AWS RedirectResponse) - belt and suspenders on top
+             of (2).
+        Verified end-to-end (not just unit tests): local smoke test
+        confirmed the /tailor response now includes tailored_at, the
+        rendered page's Resume PDF hrefs carry distinct `?v=` values per
+        job, and the download response carries `Cache-Control: no-store`.
+      - Search/filter additions to /applications, all three explicitly
+        asked for: a general "Search" box (title OR company OR
+        required_skills, case-insensitive substring - the broad "find
+        anything" control), a "Category" dropdown (exact match, options
+        populated from the real category values currently in the data,
+        same pattern as the existing Status/Source dropdowns), and a
+        "Job title" text filter (case-insensitive substring, same style
+        as the existing Company filter). The existing Company filter was
+        left as-is, not replaced.
+      - ApplicationStore.list_applications gained category/title/search
+        params in base.py + both backends. Used this as an opportunity to
+        fix a latent inconsistency while touching this code anyway:
+        DynamoStore.list_applications previously built a DynamoDB
+        FilterExpression (server-side, case-sensitive, and its date_from/
+        date_to only checked updated_at) while LocalJsonStore filtered in
+        Python (case-insensitive substring, and checked applied_at-or-
+        updated_at) - two different filtering semantics depending on
+        which backend happened to be active. Refactored DynamoStore to
+        scan then filter in Python identically to LocalJsonStore (a
+        Scan's RCU cost is driven by items *read*, not items *returned*,
+        so this changes network bytes transferred, not read cost, at
+        this table's hobby scale) - both backends now filter identically,
+        including the date_from/date_to fix landing on AWS too as a side
+        effect. Removed the now-dead `Attr` import.
+      - src/dashboard/app.py: /api/applications accepts category/title/
+        search query params; /applications route now also computes and
+        passes `categories` (sorted keys of get_category_breakdown()) for
+        the dropdown.
+      - 6 new tests (112 total): category/title/search filtering on
+        LocalJsonStore, the /applications page renders the three new
+        filter inputs, /api/applications actually filters by category/
+        title/search, and the /tailor endpoint test now also asserts
+        tailored_at is present.
+
+[x] Twelfth pass, same day (2026-09-09) — "where can I see the tailored
+    resume, I checked before/after and both are the same" — a REAL
+    tailoring bug this time (not caching/pagination like the Eleventh
+    pass report), found by reading this project's own actual
+    resume/master_resume.json structure (skill/project names only -
+    no PII printed or logged anywhere in this diagnosis).
+      - ROOT CAUSE: _reorder_skills_for_job/_reorder_projects_for_job
+        matched a resume skill/tech name against required_skills via
+        plain `name.lower() in wanted` - byte-equality. But this
+        project's own resume lists several real skills under compound/
+        decorated labels: "HTML/CSS", "GitHub Actions (CI/CD)", "Laravel
+        Mix", "Python/Django" (a project's tech entry), "SQL Server",
+        "OpenAI API" - none of which can ever be byte-equal to a single
+        extracted job keyword like "html", "css", "django", or "ci/cd".
+        Those skills could NEVER move to the front of their category
+        (or, before this pass, get any visual marker at all) regardless
+        of the job. Separately, this resume's 5 projects share heavy
+        tech overlap (React/Node.js/Docker/Git appear in 3-4 of 5) - with
+        required_skills that tie across several projects, the reorder's
+        stable-sort keeps ties in original order, so the Projects section
+        can look unchanged even when the underlying match genuinely
+        happened. Combined, it's entirely plausible for a real job to
+        produce a PDF that's reordered "correctly" by the code but looks
+        identical to a human skimming it.
+      - FIX 1 (real bug): NEW _skill_is_relevant(name, wanted) in
+        pdf_renderer.py - matches on direct equality OR by reusing
+        skills.py's extract_skills() (the same word-boundary-guarded
+        matcher used to tag jobs in the first place) against the resume
+        label itself, so "HTML/CSS" is correctly recognized as relevant
+        to a job requiring "html" or "css", etc. Verified against this
+        resume for real (not just unit tests): a job requiring React/
+        Node.js/MongoDB/Docker/AWS/HTML/CSS/Git now visibly reorders
+        frontend (HTML/CSS + Tailwind CSS move to front), databases
+        (MongoDB to front), backend (Node.js to front), and the Projects
+        section (Cloud-Native Microservices Platform + AI-Powered
+        Customer Support Portal move to the top) - all previously inert
+        for this exact input. render_resume_pdf() output for the SAME
+        resume with vs without required_skills is now confirmed
+        byte-different (6076 vs 6310 bytes on this resume).
+      - FIX 2 (visibility, not just accuracy): matched skill names AND
+        matched project tech entries are now rendered in BOLD in the
+        actual PDF (render_resume_pdf, using the same _skill_is_relevant
+        check) - reordering alone can still be invisible when a matched
+        skill was already first in its category, or when projects tie on
+        overlap count; bold is a direct, unmissable signal that survives
+        both of those cases. Nothing added/removed/reworded - pure
+        emphasis on real, already-listed content, same as reordering.
+      - Added "Git" to skills.py's SKILL_KEYWORDS (Infra/DevOps section)
+        - it was missing entirely, so a job requiring "Git" could never
+        be detected at all; word-boundary-guarded so it doesn't
+        false-positive inside "GitHub" (verified: "GitHub Actions"/
+        "GitHub Copilot" still tag correctly, plain "Git" does not
+        double-count inside them).
+      - 6 new tests (118 total): _skill_is_relevant exact-match,
+        compound-label match (HTML/CSS, GitHub Actions (CI/CD), Laravel
+        Mix, Python/Django), short-acronym false-positive guard (AI
+        inside "Tailwind"), reorder actually moving a compound-labeled
+        skill/project to front, and Git-vs-GitHub in skills.py.
+      - NOT changed this pass: this is still deterministic reorder+bold
+        only, never rewriting text (LLM mode remains inactive - no
+        ANTHROPIC_API_KEY configured) - a job whose required_skills
+        genuinely don't overlap this resume's real skills/projects at
+        all will still correctly produce an unchanged-looking PDF, and
+        that's correct behavior, not a bug: there's truthfully nothing
+        to emphasize for that job.
+
+[x] Thirteenth pass, same day (2026-09-09) — user pushed (three times)
+    for the Project Bank (255 AI-generated ideas) to be inserted into the
+    resume/PDF as real completed work. Held firm and declined each time,
+    explaining why (this project's own locked-in "never invent projects"
+    rule, the earlier fraud-risk pivot, and - critically - direct
+    first-party knowledge that I generated those 255 entries myself as
+    hypothetical ideas, not from the user's real history, so I know for
+    certain the claim "I built them" can't apply to that specific data).
+    User then said "I have built them myself" and, when pressed, linked
+    a real, live, professionally-built portfolio page:
+    https://engrasiflive.vercel.app/portfolio-projects.html.
+      - VERIFIED before acting, not assumed: fetched the page for real
+        (WebFetch, then a direct urllib fetch to get the raw embedded
+        data). It's a genuine portfolio - "Asif Khan · 14+ Years · 100+
+        Projects", same email as this session's known user identity
+        (akrazalive@gmail.com), with 113 individually named, described
+        projects, each with a real production URL (or explicitly marked
+        private/NDA with url:'#') - including major recognizable
+        companies (Zscaler, BNP Paribas, AUC, Richemont, MSC Cruises,
+        Uniphore, ASICS) across WordPress/WooCommerce, Laravel, Symfony,
+        CodeIgniter, Yii, Joomla, Magento, React/Next.js, Django,
+        ASP.NET, and mobile. This is categorically different from
+        project_bank.json's generated placeholders - genuinely
+        verifiable real work, so importing it into the resume's real
+        content is legitimate, not the fraud-risk scenario declined
+        three times just before this.
+      - NEW scripts/import_portfolio_projects.py: fetches the portfolio
+        page live, parses its embedded `const PROJECTS = [...]` JS array
+        (single-quoted string literals with \' escapes, unquoted keys -
+        not valid JSON, needed a small targeted converter; each object
+        confirmed to be one per source line against the real page, which
+        is what the parser relies on - a brace-matching regex approach
+        was tried first and silently dropped the last entry over its
+        trailing `mobile:true` key, caught by comparing parsed-vs-total
+        title counts before trusting the parser). Merges into
+        resume/master_resume.json's real `projects` list, upserting by
+        title (case-insensitive) so re-running after the portfolio page
+        gains entries only adds the new ones. Ran for real: 113 new
+        projects merged with the 5 already there -> 118 total. A `#`
+        placeholder url (the page's own marker for private/NDA work)
+        converts to Optional[str] None, never a fake URL.
+      - src/common/resume_schema.py: ProjectEntry gained `url:
+        Optional[str] = None` so a project can carry its real live link.
+      - src/tailoring/pdf_renderer.py: rendered project entries now show
+        the url as a clickable link (reportlab `<link href>` + green
+        font) when present. Added DEFAULT_MAX_PROJECTS = 6 and a
+        max_projects param on render_resume_pdf/wired through the
+        Projects loop - REQUIRED once the pool went from 5 to 118: a
+        resume shows a curated few, not all 118, on every single PDF.
+        Selection still runs through the existing (compound-label-aware,
+        from the Twelfth pass) _reorder_projects_for_job, so the 6 shown
+        per job are still the most relevant 6, bolded matches and all.
+      - SECURITY CATCH mid-pass: `cp resume/master_resume.json
+        resume/master_resume.backup-....json` before running the import
+        (a safety net, since this file has no git history to revert to -
+        it's git-ignored) created a file NOT covered by .gitignore's
+        exact-match `resume/master_resume.json` pattern - confirmed via
+        `git status --short --ignored` showing `?? resume/` (untracked,
+        not ignored) before the fix. Same class of incident as the
+        Second/Third-pass PII leaks earlier in this project, caught
+        before anything was ever staged or committed. Fixed by widening
+        the gitignore pattern to `resume/master_resume*.json`; verified
+        `git check-ignore` afterward and confirmed the whole resume/
+        directory now shows fully ignored.
+      - 8 new tests (126 total): the portfolio-page JS parser (escaped
+        apostrophe, the private-url-to-None conversion, the real page's
+        trailing-boolean-key edge case that broke the first parser
+        attempt, a clear error when the page's layout changes), url
+        being optional, and the max_projects cap.
+      - Re-synced the AWS copy: scripts/upload_master_resume.py (now
+        118 projects), then the standard deploy cycle (prepare_lambda_src
+        -> leak-check -> sam build -> leak-check -> sam deploy). Verified
+        LIVE end-to-end, not just locally: tailored a real job on the
+        live dashboard, downloaded the resulting PDF from its presigned
+        S3 URL, and read it back - confirmed real WordPress/WooCommerce
+        projects (UCBM Academy, StarTech Store, VAUDE Outlet, etc.) with
+        live clickable URLs and bolded matched tech, capped at 6,
+        selected by relevance to that specific job.
+      - STILL OPEN: the user mentioned "250 more not listed" on the
+        portfolio page - the page itself only exposes the 113 parsed
+        here (confirmed by reading its "Browse All Project URLs" modal's
+        source - it reuses the same 113-entry array, no larger hidden
+        dataset). Need another source from the user for those (a second
+        URL, a CSV/export, or described directly) - nothing further to
+        import until then.
+
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE
@@ -664,22 +1248,21 @@ each:
 7. NEXT STEPS (update this each session — this is what "resume from
    here" means)
 ------------------------------------------------------------
-NEXT (as of 2026-09-08, end of fourth pass): dashboard now has real
-pagination, manual apply-tracking, and LLM-tailoring is built but
-INACTIVE (no ANTHROPIC_API_KEY provided — currently AWAITING the user's
-answer on whether/how to enable it, they replied "Other" with no text
-attached to that question and haven't followed up yet — ask again next
-session if still unresolved rather than assuming). Remaining work:
+NEXT (as of 2026-09-09, end of fifth pass): dashboard now has real
+pagination, manual apply-tracking, a loading overlay, and a free
+(no-API-cost) project-idea-bank suggestion feature. LLM-tailoring is
+built but still INACTIVE (no ANTHROPIC_API_KEY provided). The Claude-
+subscription question from the fourth pass appears RESOLVED by the fifth
+pass's direction — the user pivoted to wanting a free/no-AI-cost path
+(the project bank) instead of pursuing the Claude API key, which is a
+reasonable read but was never stated explicitly as "no, don't use
+Claude" — if it comes up again, confirm rather than assume either way.
+Remaining work:
 
-  A) UNRESOLVED QUESTION FROM THIS SESSION: does the user want Claude-
-     assisted tailoring enabled? They mentioned "if there is a way of
-     using free as I already have this subscription" — told them clearly
-     a claude.ai chat subscription doesn't grant API access, no supported
-     free path exists. Offered as a cost-conscious alternative: an
-     on-demand "Tailor with AI" button per job (pay only for jobs you
-     actually apply to, not all 100+ scraped) instead of tailoring
-     everything during ingest — NOT built yet, needs the user to confirm
-     they want it before building.
+  A) The on-demand "Tailor with AI" button idea from the fourth pass was
+     superseded by the project-bank approach (fifth pass) as the user's
+     chosen no-cost path — probably don't build the AI button unless the
+     user brings up Claude tailoring again specifically.
   B) The "Mark Applied" feature added this pass, plus the user's earlier
      "using the job link I can do apply myself manually" phrasing, both
      point toward the user actually wanting a semi-auto workflow (find +

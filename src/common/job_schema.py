@@ -66,3 +66,13 @@ class Application(BaseModel):
     posted_at: Optional[datetime] = None  # when the job was posted, if the source exposed it
     is_remote: bool = False
     category: Optional[str] = None  # which config/search_criteria.yaml entry found this job
+
+    # Set by an on-demand "Tailor Resume" click (src/dashboard/app.py's
+    # /api/applications/{job_id}/tailor) rather than the initial scrape -
+    # lets the dashboard show "PDF updated <when>" for a job the operator
+    # re-tailored themselves. required_skills above is left untouched by
+    # this (it stays "what the scraper found at scrape time"); this field
+    # is "what the last tailoring pass actually used", which may be a
+    # superset if a fresh fetch of the posting turned up more.
+    resume_tailored_at: Optional[datetime] = None
+    resume_tailored_skills: list[str] = Field(default_factory=list)

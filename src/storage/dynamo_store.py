@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import boto3
-from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
 
 from src.common.job_schema import Application, ApplicationStatus, Job
@@ -36,16 +35,27 @@ class DynamoStore(ApplicationStore):
         status: Optional[str] = None,
         source: Optional[str] = None,
         company: Optional[str] = None,
+        category: Optional[str] = None,
+        title: Optional[str] = None,
+        search: Optional[str] = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         limit: int = 100,
         cursor: Optional[str] = None,
     ) -> tuple[list[Application], Optional[str]]:
-        # NOTE: fetches the whole (filtered) table into memory every call,
-        # which is fine at hobby scale (a few hundred/thousand
-        # applications). If volume grows enough that this gets slow/
-        # costly, add a GSI on status (and/or updated_at) and switch to a
-        # genuinely paginated Query — tracked in TECHNICAL_PLAN.txt Phase 7.
+        # NOTE: fetches the whole table into memory every call, then
+        # filters in Python (same logic as LocalJsonStore, deliberately
+        # kept identical rather than half in a DynamoDB FilterExpression
+        # and half in Python — a Scan's RCU cost is driven by items
+        # *read*, not items *returned*, so pushing filters into
+        # FilterExpression saves network bytes but not read cost; at
+        # hobby scale (a few hundred/thousand applications) that's not
+        # worth the duplicated, harder-to-keep-in-sync filtering logic,
+        # and Python-side filtering gets free case-insensitive substring
+        # matching that DynamoDB's own `contains` doesn't do natively.
+        # If volume grows enough that this gets slow/costly, add a GSI on
+        # status (and/or updated_at) and switch to a genuinely paginated
+        # Query — tracked in TECHNICAL_PLAN.txt Phase 7.
         #
         # Cursor is an OFFSET into the filtered+sorted list (same scheme
         # as LocalJsonStore), not DynamoDB's own LastEvaluatedKey —
@@ -54,29 +64,13 @@ class DynamoStore(ApplicationStore):
         # hit, so using it as "is there a next page" silently broke
         # pagination for any table under ~1MB (verified 2026-09-08: 84
         # items, 25-per-page UI, "Next" stayed disabled the whole time).
-        filters = []
-        if status:
-            filters.append(Attr("status").eq(status))
-        if source:
-            filters.append(Attr("source").eq(source))
-        if company:
-            filters.append(Attr("company").contains(company))
-        if date_from:
-            filters.append(Attr("updated_at").gte(date_from))
-        if date_to:
-            filters.append(Attr("updated_at").lte(date_to))
-        filter_expression = None
-        if filters:
-            filter_expression = filters[0]
-            for f in filters[1:]:
-                filter_expression = filter_expression & f
 
         # Loop DynamoDB's OWN internal pagination (its 1MB-per-response
         # cap) until exhausted, so results are never silently incomplete
         # once the table does grow past that — separate from our offset
-        # cursor above, which paginates what the UI displays.
+        # cursor below, which paginates what the UI displays.
         items: list[dict] = []
-        scan_kwargs: dict = {"FilterExpression": filter_expression} if filter_expression else {}
+        scan_kwargs: dict = {}
         while True:
             response = self.applications_table.scan(**scan_kwargs)
             items.extend(response.get("Items", []))
@@ -84,6 +78,29 @@ class DynamoStore(ApplicationStore):
             if not last_key:
                 break
             scan_kwargs["ExclusiveStartKey"] = last_key
+
+        if status:
+            items = [i for i in items if i.get("status") == status]
+        if source:
+            items = [i for i in items if i.get("source") == source]
+        if company:
+            items = [i for i in items if company.lower() in (i.get("company") or "").lower()]
+        if category:
+            items = [i for i in items if (i.get("category") or "").lower() == category.lower()]
+        if title:
+            items = [i for i in items if title.lower() in (i.get("title") or "").lower()]
+        if search:
+            needle = search.lower()
+            items = [
+                i for i in items
+                if needle in (i.get("title") or "").lower()
+                or needle in (i.get("company") or "").lower()
+                or any(needle in s.lower() for s in i.get("required_skills", []))
+            ]
+        if date_from:
+            items = [i for i in items if (i.get("applied_at") or i.get("updated_at", "")) >= date_from]
+        if date_to:
+            items = [i for i in items if (i.get("applied_at") or i.get("updated_at", "")) <= date_to]
 
         items.sort(key=lambda r: r.get("updated_at", ""), reverse=True)
 
@@ -160,4 +177,33 @@ class DynamoStore(ApplicationStore):
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 return False
+            raise
+
+    def get_application(self, job_id: str) -> Optional[Application]:
+        response = self.applications_table.get_item(Key={"job_id": job_id})
+        item = response.get("Item")
+        return Application(**item) if item else None
+
+    def update_resume_tailoring(
+        self, job_id: str, resume_s3_key: Optional[str], tailored_skills: list[str]
+    ) -> Optional[str]:
+        # Same UpdateItem permission as mark_applied covers this (see its
+        # comment above) - not attribute-restricted in IAM.
+        now = datetime.now(timezone.utc).isoformat()
+        update_expr = "SET resume_tailored_at = :now, resume_tailored_skills = :skills, updated_at = :now"
+        expr_values: dict = {":now": now, ":skills": tailored_skills}
+        if resume_s3_key:
+            update_expr += ", resume_s3_key = :key"
+            expr_values[":key"] = resume_s3_key
+        try:
+            self.applications_table.update_item(
+                Key={"job_id": job_id},
+                UpdateExpression=update_expr,
+                ExpressionAttributeValues=expr_values,
+                ConditionExpression="attribute_exists(job_id)",
+            )
+            return now
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return None
             raise

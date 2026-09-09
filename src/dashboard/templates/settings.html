@@ -17,35 +17,21 @@
     background: var(--accent-light); color: var(--accent-dark); border: 1px solid var(--accent);
   }
   .banner.disabled { background: transparent; border-color: var(--border); color: var(--muted); }
-  #scrape-log {
-    background: #0d1410; color: #b9f5c9; font-family: ui-monospace, monospace; font-size: .75rem;
-    padding: 12px; border-radius: 8px; height: 220px; overflow-y: auto; white-space: pre-wrap;
-    display: none;
-  }
 </style>
 {% endblock %}
 {% block content %}
-<h1 style="margin-bottom:4px;">Settings</h1>
-<p class="muted" style="margin-top:0;">Scrape pacing, apply-delay defaults, and search keywords.</p>
+<h1 style="margin-bottom:4px; font-size:1.4rem;">Settings</h1>
+<p class="muted" style="margin-top:0;">Apply-delay pacing and the scrape schedule. Search keywords and the scrape trigger live under Scraping.</p>
 
 {% if local_actions_enabled %}
-  <div class="banner">Running locally — scraping and settings edits are enabled.</div>
+  <div class="banner">Running locally — settings edits are enabled.</div>
 {% else %}
   <div class="banner disabled">
-    You're viewing the AWS-hosted dashboard. Scraping and setting changes only run on your own
-    machine (avoids applying from a datacenter IP — see TECHNICAL_PLAN.txt section 6). Run
-    <code>python -m src.pipeline.ingest</code> locally, or open this same dashboard at
+    You're viewing the AWS-hosted dashboard. Setting changes only apply locally (this page reads/
+    writes local config files). Open this same dashboard at
     <code>http://127.0.0.1:8000/settings</code> to edit these.
   </div>
 {% endif %}
-
-<div class="card section">
-  <h2>Manual scrape</h2>
-  <div class="hint">Runs every search in the list below once, right now, with the anti-ban delays already built into the scraper.</div>
-  <button class="btn" id="scrape-btn" {{ 'disabled' if not local_actions_enabled }}>Scrape now</button>
-  <span id="scrape-state" class="muted" style="margin-left:10px;"></span>
-  <div id="scrape-log"></div>
-</div>
 
 <div class="grid">
   <div class="card section">
@@ -93,58 +79,4 @@
     </form>
   </div>
 </div>
-
-<div class="card section">
-  <h2>Search keywords</h2>
-  <div class="hint">Each row is one independent search, run every scrape cycle.</div>
-  <table class="plain">
-    <tr><th>Query</th><th>Location</th><th>Category</th></tr>
-    {% for s in searches %}
-    <tr><td>{{ s.query }}</td><td>{{ s.location }}</td><td>{{ s.category or "—" }}</td></tr>
-    {% endfor %}
-  </table>
-  <form method="post" action="/settings/add-search" style="margin-top:14px;">
-    <div class="row">
-      <div><label>Query</label><input name="query" placeholder="e.g. Ruby on Rails Developer" required {{ 'disabled' if not local_actions_enabled }}></div>
-      <div><label>Location</label><input name="location" value="Remote" {{ 'disabled' if not local_actions_enabled }}></div>
-      <div><label>Category</label><input name="category" placeholder="e.g. backend" {{ 'disabled' if not local_actions_enabled }}></div>
-    </div>
-    <button class="btn secondary" type="submit" {{ 'disabled' if not local_actions_enabled }}>Add search</button>
-  </form>
-</div>
-
-<script>
-const scrapeBtn = document.getElementById('scrape-btn');
-const scrapeState = document.getElementById('scrape-state');
-const scrapeLog = document.getElementById('scrape-log');
-let polling = null;
-
-async function pollStatus() {
-  const res = await fetch('/actions/scrape-status');
-  const data = await res.json();
-  if (data.disabled) return;
-  scrapeLog.style.display = 'block';
-  scrapeLog.textContent = (data.log || []).join('\n');
-  scrapeLog.scrollTop = scrapeLog.scrollHeight;
-  if (data.running) {
-    scrapeState.textContent = `Running... (${data.completed_searches || 0}/${data.total_searches || '?'} searches, ${data.total_new || 0} new jobs)`;
-    scrapeBtn.disabled = true;
-  } else {
-    scrapeState.textContent = data.total_new !== undefined ? `Last run: ${data.total_new} new jobs found.` : '';
-    scrapeBtn.disabled = false;
-    if (polling) { clearInterval(polling); polling = null; }
-  }
-}
-
-if (scrapeBtn && !scrapeBtn.disabled) {
-  scrapeBtn.addEventListener('click', async () => {
-    scrapeBtn.disabled = true;
-    scrapeState.textContent = 'Starting...';
-    await fetch('/actions/scrape', { method: 'POST' });
-    polling = setInterval(pollStatus, 2000);
-    pollStatus();
-  });
-  pollStatus();
-}
-</script>
 {% endblock %}

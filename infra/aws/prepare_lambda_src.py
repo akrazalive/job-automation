@@ -29,20 +29,28 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 STAGING_DIR = Path(__file__).resolve().parent / ".lambda_src"
 
 # Exactly what the dashboard Lambda needs to run. Deliberately NOT
-# including src/scrapers (playwright/bs4, local-only per
-# TECHNICAL_PLAN.txt section 6) or src/tailoring (Phase 2, not built
-# yet) — keep this list as narrow as the Lambda's actual imports.
-SRC_PACKAGES = ["common", "storage", "dashboard"]
+# including src/scrapers (playwright, local-only per TECHNICAL_PLAN.txt
+# section 6 — real anti-bot browser automation has no place running from
+# a datacenter IP). src/tailoring IS included: the dashboard's on-demand
+# "Tailor Resume" button (POST /api/applications/{job_id}/tailor) calls
+# into it directly, rendering a fresh PDF inside the Lambda itself
+# (reportlab is pure Python — no system deps needed, works fine here) —
+# see src/tailoring/engine.py's S3 fallback for master_resume.json, since
+# the real git-ignored local file obviously isn't staged into this
+# package either.
+SRC_PACKAGES = ["common", "storage", "dashboard", "tailoring"]
 
 # A slimmer requirements.txt than the repo's main one: the Lambda never
-# needs playwright/beautifulsoup4/reportlab (scraper/tailoring-only deps,
-# and those packages aren't even staged - see SRC_PACKAGES above) or
-# uvicorn (Mangum replaces uvicorn's serving role under Lambda). pyyaml,
-# python-multipart, and itsdangerous ARE needed here even though the
-# settings-editing *routes* are local-only (403 on Lambda) — app.py
-# imports yaml/itsdangerous at module load time, and the login form
-# needs python-multipart, so these must be present for the Lambda to
-# import successfully at all.
+# needs playwright (scraper-only, and src/scrapers isn't even staged —
+# see SRC_PACKAGES above) or uvicorn (Mangum replaces uvicorn's serving
+# role under Lambda). reportlab + beautifulsoup4 ARE needed here (unlike
+# the earlier version of this list) for on-demand PDF tailoring —
+# beautifulsoup4 uses only the stdlib "html.parser" backend
+# (src/tailoring/job_fetch.py), no lxml needed. pyyaml, python-multipart,
+# and itsdangerous ARE needed even though the settings-editing *routes*
+# are local-only (403 on Lambda) — app.py imports yaml/itsdangerous at
+# module load time, and the login form needs python-multipart, so these
+# must be present for the Lambda to import successfully at all.
 LAMBDA_REQUIREMENTS = """\
 fastapi>=0.115
 mangum>=0.19
@@ -52,6 +60,8 @@ jinja2>=3.1
 pyyaml>=6.0
 python-multipart>=0.0.12
 itsdangerous>=2.2
+reportlab>=4.2
+beautifulsoup4>=4.12
 """
 
 

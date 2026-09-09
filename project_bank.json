@@ -1,0 +1,5076 @@
+[
+  {
+    "id": "wordpress-01",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom Real Estate Listings Theme",
+    "description": "A WordPress theme built from scratch for a real estate agency, with custom post types for property listings and custom taxonomies for location/price-range filtering.",
+    "features": [
+      "Custom post type + meta boxes for property details (price, bedrooms, sqft)",
+      "Taxonomy-based filtering and search (location, price range, property type)",
+      "Google Maps integration for listing locations",
+      "Responsive gallery with lightbox for property photos",
+      "Contact form with lead capture"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-02",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multi-Author Recipe Blog Platform",
+    "description": "A custom post type for recipes with structured schema.org markup for SEO rich snippets, print-friendly recipe cards, and a rating/review system.",
+    "features": [
+      "Recipe custom post type with structured ingredients/steps fields",
+      "Schema.org Recipe markup for Google rich snippets",
+      "Print-friendly recipe card template",
+      "Star rating and review submission"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-03",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Event Management & Ticketing Plugin",
+    "description": "A custom plugin for creating and managing events with capacity limits, RSVP forms, and a calendar view shortcode.",
+    "features": [
+      "Event custom post type with date/capacity fields",
+      "RSVP form with waitlist when at capacity",
+      "Calendar view shortcode ([events_calendar])",
+      "Admin attendee export to CSV"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-04",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Job Board Plugin with Employer Dashboard",
+    "description": "Custom post types for job listings plus employer accounts (via WP roles), application submission with resume upload, and an admin moderation queue.",
+    "features": [
+      "Job listing CPT with structured fields (salary, location, type)",
+      "Employer role with a restricted wp-admin dashboard",
+      "Application form with resume upload to Media Library",
+      "Moderation queue before listings go live"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-05",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Membership Site with Gated Content",
+    "description": "A plugin restricting post/page access by membership tier, integrated with a payment gateway for subscription billing.",
+    "features": [
+      "Content-gating by membership tier (meta box per post)",
+      "Stripe subscription checkout integration",
+      "Member dashboard showing active plan and renewal date",
+      "Automatic access revocation on cancelled subscription"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-06",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multilingual Corporate Site",
+    "description": "A company site with translated content management, custom Gutenberg blocks for marketing sections, and a headless-ready REST API layer.",
+    "features": [
+      "Multi-language content structure (WPML-style)",
+      "Custom Gutenberg blocks for hero/feature sections",
+      "REST API endpoints exposing translated content",
+      "Language switcher with URL-based locale routing"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-07",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Business Directory Listing Site",
+    "description": "A directory with geolocation search, category filters, and a claim-listing workflow for business owners.",
+    "features": [
+      "Business listing CPT with geolocation fields",
+      "Map-based search with radius filter",
+      "Category/tag filtering",
+      "Claim-listing verification workflow"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-08",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom Gutenberg Block Library Plugin",
+    "description": "A set of reusable Gutenberg blocks (testimonials, pricing tables, team grid) built with React for a marketing agency's client sites.",
+    "features": [
+      "5+ custom Gutenberg blocks built with @wordpress/blocks (React)",
+      "Block variations and InspectorControls for editor customization",
+      "Shared block style presets across client sites"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-09",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "WordPress Headless CMS Backend",
+    "description": "WordPress used purely as a headless CMS serving content via REST/GraphQL (WPGraphQL) to a separate frontend app.",
+    "features": [
+      "Custom REST API endpoints for structured content",
+      "WPGraphQL schema exposing custom post types",
+      "JWT authentication for the API",
+      "Webhook on publish to trigger frontend rebuild"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-10",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom Admin Dashboard Widget Suite",
+    "description": "A plugin adding custom analytics widgets to wp-admin (traffic stats, form submissions, sales snapshot) pulling from external APIs.",
+    "features": [
+      "Custom wp-admin dashboard widgets",
+      "Google Analytics API integration for traffic stats",
+      "WooCommerce sales snapshot widget",
+      "Configurable refresh interval per widget"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-11",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Form Builder Plugin with Conditional Logic",
+    "description": "A lightweight drag-and-drop form builder with conditional field logic and email notification routing.",
+    "features": [
+      "Drag-and-drop form field builder (admin UI)",
+      "Conditional show/hide logic between fields",
+      "Configurable email notification routing by field value",
+      "Submission storage with CSV export"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-12",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Portfolio Theme for a Design Agency",
+    "description": "A theme with a case-study custom post type, masonry gallery layout, and a client testimonial carousel.",
+    "features": [
+      "Case study CPT with before/after gallery fields",
+      "Masonry portfolio grid layout",
+      "Testimonial carousel component",
+      "Elementor-compatible theme builder support"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-13",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom WordPress Plugin Boilerplate & CLI Scaffolding Tool",
+    "description": "A developer tool that scaffolds new WordPress plugins from a CLI, generating boilerplate for custom post types, REST endpoints, and admin settings pages.",
+    "features": [
+      "CLI scaffolding tool (Node.js or PHP)",
+      "Generated plugin boilerplate with CPT/REST/settings templates",
+      "Configurable via a prompts-based CLI flow",
+      "Auto-generated readme.txt for WordPress.org submission"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-14",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "WordPress Site Health & Security Audit Plugin",
+    "description": "A plugin that scans a WordPress install for common security misconfigurations and outdated plugins, producing an actionable report.",
+    "features": [
+      "Automated scan for outdated plugins/themes",
+      "File-permission and wp-config security checks",
+      "Actionable report with severity ratings",
+      "Scheduled re-scan with email summary"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "wordpress-15",
+    "stack": "wordpress",
+    "stack_label": "WordPress",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Podcast Hosting & RSS Feed Plugin",
+    "description": "A plugin turning WordPress into a podcast host: episode custom post type, audio file management, and valid podcast RSS feed generation.",
+    "features": [
+      "Episode custom post type with audio upload",
+      "iTunes/Spotify-compatible RSS feed generation",
+      "Episode analytics (play counts)",
+      "Embeddable audio player shortcode"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "woocommerce-01",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Subscription Box E-Commerce Store",
+    "description": "Recurring billing for customizable subscription boxes, with a customer portal to skip/pause deliveries.",
+    "features": [
+      "Recurring billing via WooCommerce Subscriptions",
+      "Configurable box contents per subscription tier",
+      "Customer portal: skip/pause/resume delivery",
+      "Admin view of upcoming shipment batches"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-02",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multi-Vendor Marketplace",
+    "description": "WooCommerce configured as a marketplace with vendor registration, per-vendor storefronts, and commission-based payout tracking.",
+    "features": [
+      "Vendor registration and onboarding flow",
+      "Per-vendor storefront pages",
+      "Commission calculation on each sale",
+      "Vendor payout tracking dashboard"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-03",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom Product Configurator Plugin",
+    "description": "For a furniture store: customers choose material/color/size options with a live price recalculation and visual preview.",
+    "features": [
+      "Option-based product configurator UI",
+      "Live price recalculation on option change",
+      "Visual preview swap by selected material/color",
+      "Configured selections passed through to cart/order"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-04",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Wholesale/B2B Pricing Extension",
+    "description": "Tiered pricing by customer role, minimum order quantities, and a quote-request flow instead of direct checkout.",
+    "features": [
+      "Role-based tiered pricing rules",
+      "Minimum order quantity enforcement",
+      "Quote-request flow replacing checkout for wholesale role",
+      "Admin quote approval and conversion to order"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-05",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Local Pickup & Delivery Scheduling Plugin",
+    "description": "Lets customers pick a delivery date/time slot at checkout, with admin capacity management per slot.",
+    "features": [
+      "Date/time slot picker at checkout",
+      "Per-slot capacity limits enforced server-side",
+      "Admin calendar view of scheduled deliveries",
+      "Automatic slot blackout on holidays"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-06",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Loyalty Points & Rewards System",
+    "description": "Awards points per purchase, redeemable as discounts, with a points-history dashboard for customers.",
+    "features": [
+      "Points awarded on order completion",
+      "Points redemption as a cart discount",
+      "Customer-facing points history page",
+      "Configurable earn/redeem rates"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-07",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Print-on-Demand Store Integration",
+    "description": "Integrates a print-on-demand fulfillment API for custom apparel, auto-syncing product variants and order fulfillment.",
+    "features": [
+      "Product variant sync from fulfillment API",
+      "Automatic order forwarding to fulfillment partner",
+      "Fulfillment status webhook back into order notes",
+      "Mockup image generation on product creation"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-08",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Digital Downloads Store with License Keys",
+    "description": "Sells software/plugins with automatic license key generation, download limits, and renewal reminders.",
+    "features": [
+      "Automatic license key generation on purchase",
+      "Download link expiry/limit enforcement",
+      "License activation/deactivation API endpoint",
+      "Renewal reminder emails before expiry"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-09",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Restaurant Online Ordering System",
+    "description": "WooCommerce customized for food ordering: menu with modifiers/add-ons, order-ahead scheduling, and a kitchen-friendly order view.",
+    "features": [
+      "Menu items with modifier/add-on option groups",
+      "Order-ahead time slot scheduling",
+      "Kitchen-display-style order list (auto-refreshing)",
+      "Order status updates visible to the customer"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-10",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Abandoned Cart Recovery Plugin",
+    "description": "Tracks abandoned checkouts and sends automated follow-up emails with a discount incentive.",
+    "features": [
+      "Abandoned checkout detection and storage",
+      "Scheduled follow-up email sequence",
+      "Discount code auto-generation for recovery emails",
+      "Admin analytics: recovery rate over time"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-11",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Custom Checkout Field & Order Workflow Plugin",
+    "description": "For a B2B client: adds PO-number fields, a custom approval workflow before fulfillment, and net-30 invoicing terms.",
+    "features": [
+      "Custom checkout fields (PO number, cost center)",
+      "Order approval workflow before fulfillment begins",
+      "Net-30 invoice generation instead of instant payment",
+      "Admin approval queue with email notifications"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-12",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "WooCommerce to ERP Inventory Sync Middleware",
+    "description": "A PHP service syncing WooCommerce orders/inventory with an external inventory system via REST API.",
+    "features": [
+      "Scheduled two-way inventory sync job",
+      "Order push to external ERP on completion",
+      "Conflict resolution when stock counts disagree",
+      "Sync failure alerting"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-13",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Gift Card & Store Credit System",
+    "description": "A plugin adding purchasable gift cards with unique codes, balance tracking, and redemption at checkout.",
+    "features": [
+      "Gift card product type with code generation",
+      "Balance tracking per code",
+      "Partial redemption at checkout",
+      "Admin gift card issuance and balance lookup"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-14",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Product Bundle & Kitting Plugin",
+    "description": "Lets merchants sell pre-configured bundles of existing products as a single SKU, with automatic component stock deduction.",
+    "features": [
+      "Bundle product type composed of existing SKUs",
+      "Automatic component stock deduction on bundle sale",
+      "Bundle-specific pricing (discount vs. sum of parts)",
+      "Admin view of bundle component availability"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "woocommerce-15",
+    "stack": "woocommerce",
+    "stack_label": "WooCommerce",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "WooCommerce",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Returns & RMA Management System",
+    "description": "A customer-facing returns portal plus an admin RMA (return merchandise authorization) workflow with status tracking.",
+    "features": [
+      "Customer return request submission",
+      "RMA status workflow (requested/approved/received/refunded)",
+      "Automated return-label email",
+      "Admin dashboard of open returns"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "acf_elementor-01",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Flexible Landing Page Builder for Marketing Team",
+    "description": "ACF Flexible Content fields powering reusable Elementor-compatible section templates, letting non-technical marketers assemble pages.",
+    "features": [
+      "ACF Flexible Content field group defining reusable sections",
+      "Elementor widgets rendering each section type",
+      "Marketer-friendly admin UI (no code needed to add a page)"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-02",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Real Estate Site with ACF-Powered Property Fields",
+    "description": "Structured property data via ACF, displayed through custom Elementor widgets for consistent styling.",
+    "features": [
+      "ACF field group for property details (price, sqft, amenities)",
+      "Custom Elementor widget rendering property cards",
+      "Filterable property archive page"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-03",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Team/Staff Directory with ACF Repeater Fields",
+    "description": "A staff directory using ACF repeaters for bios/social links/department tagging, rendered with an Elementor-designed grid.",
+    "features": [
+      "ACF Repeater field for multiple social links per staff member",
+      "Department taxonomy for filtering",
+      "Elementor grid layout for the directory page"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-04",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Custom Elementor Widgets Plugin",
+    "description": "A set of custom Elementor widgets (pricing table, countdown timer, testimonial slider) for a client site needing more than stock widgets.",
+    "features": [
+      "3+ custom Elementor widgets registered via the Widgets API",
+      "Elementor-native style controls (color, spacing, typography)",
+      "Widget preview in the Elementor editor"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-05",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Multi-Location Business Site with ACF Options Pages",
+    "description": "ACF Options pages managing global site settings shared across location-specific pages built in Elementor.",
+    "features": [
+      "ACF Options page for global contact info/hours",
+      "Per-location ACF field group",
+      "Location finder page with Elementor-designed cards"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-06",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Portfolio Site with ACF Gallery + Elementor Theme Builder",
+    "description": "A photographer's portfolio using ACF gallery fields per project, with Elementor Theme Builder controlling the single-project template.",
+    "features": [
+      "ACF Gallery field for per-project photo sets",
+      "Elementor Theme Builder single-post template",
+      "Lightbox gallery viewer"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-07",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Restaurant Menu Management with ACF",
+    "description": "A dynamic menu where staff update dishes/prices via ACF, automatically reflected on an Elementor-designed menu page with category tabs.",
+    "features": [
+      "ACF Repeater for menu categories and dishes",
+      "Elementor tabbed menu display",
+      "Price/availability toggle without touching code"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-08",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Custom ACF Blocks for a Gutenberg + Elementor Hybrid Site",
+    "description": "ACF Blocks (native Gutenberg blocks powered by ACF) used alongside Elementor sections for a site needing both flexibility and structure.",
+    "features": [
+      "2+ custom ACF Blocks registered for Gutenberg",
+      "Editor-side preview matching frontend rendering",
+      "Blocks used inside an otherwise Elementor-built page"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-09",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Job Listings with ACF Fields + Elementor Filtering",
+    "description": "Structured job data via ACF, with an Elementor-designed filterable listing page by department/location.",
+    "features": [
+      "ACF field group for job postings",
+      "Elementor filterable archive (department, location)",
+      "Application form linked from each listing"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-10",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Case Study / Portfolio Filtering System",
+    "description": "ACF fields for case study metadata (industry, service type, results) with an Elementor-designed filterable grid.",
+    "features": [
+      "ACF field group for case study metadata",
+      "Elementor filterable grid by industry/service",
+      "Related case studies block on single template"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-11",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Pricing Table Builder with ACF Flexible Content",
+    "description": "Lets admins build and reorder custom pricing tables via ACF Flexible Content, rendered through a dedicated Elementor widget.",
+    "features": [
+      "ACF Flexible Content for pricing tiers",
+      "Custom Elementor pricing table widget",
+      "Highlight/featured tier toggle",
+      "Currency/billing-period switcher"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-12",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "FAQ & Knowledge Base with ACF Repeaters",
+    "description": "A searchable FAQ/knowledge base using ACF repeater fields for Q&A pairs, with an Elementor-designed accordion display.",
+    "features": [
+      "ACF Repeater for question/answer pairs per category",
+      "Elementor accordion display",
+      "Client-side search/filter across FAQs",
+      "Category-based organization"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-13",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Before/After Comparison Slider Component",
+    "description": "A custom Elementor widget with ACF-managed image pairs for before/after comparisons (renovation, fitness, design work).",
+    "features": [
+      "ACF field pair for before/after images",
+      "Custom Elementor comparison-slider widget",
+      "Draggable slider interaction",
+      "Reusable across multiple use cases via widget settings"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-14",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Multi-Step Contact/Quote Form with ACF Options",
+    "description": "A multi-step lead-capture form where field configuration is managed via ACF Options pages, rendered through Elementor Forms.",
+    "features": [
+      "ACF Options page defining form steps/fields",
+      "Elementor Forms multi-step configuration",
+      "Conditional step logic",
+      "Lead data export to CSV/CRM webhook"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "acf_elementor-15",
+    "stack": "acf_elementor",
+    "stack_label": "WordPress + ACF + Elementor",
+    "category": "cms",
+    "tools": [
+      "WordPress",
+      "PHP",
+      "MySQL",
+      "ACF",
+      "Elementor"
+    ],
+    "title": "Client Testimonial & Case Study CPT with Elementor Loop Grid",
+    "description": "ACF-powered testimonials/case studies displayed via Elementor's Loop Grid widget for a fully designer-controlled layout.",
+    "features": [
+      "ACF field group for testimonials with rating",
+      "Elementor Loop Grid template for display",
+      "Filter by service/product",
+      "Featured testimonial highlight on homepage"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-01",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Custom Shopify Theme for a Fashion Brand",
+    "description": "A fully custom Liquid theme with a lookbook-style homepage, size-guide modal, and Instagram feed integration.",
+    "features": [
+      "Custom Liquid theme built from scratch (not a modified template)",
+      "Lookbook-style homepage sections",
+      "Size-guide modal component",
+      "Instagram feed integration via API"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-02",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid",
+      "Node.js"
+    ],
+    "title": "Shopify App: Product Bundle Builder",
+    "description": "A Shopify app letting merchants create discounted product bundles with a storefront widget for customers to build their own.",
+    "features": [
+      "Shopify app (Node.js + Shopify Admin API) for bundle configuration",
+      "Storefront widget for customers to assemble a bundle",
+      "Automatic discount applied at checkout for bundles"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-03",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Subscription App Integration",
+    "description": "Integrating a subscription billing app with a custom Liquid storefront experience for recurring-purchase products.",
+    "features": [
+      "Subscription selling points added to product pages",
+      "Customer subscription management portal",
+      "Custom Liquid sections for subscription upsells"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-04",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Multi-Currency & Localization Setup",
+    "description": "Configuring a store for international sales with currency conversion, localized content, and region-based shipping rules.",
+    "features": [
+      "Multi-currency checkout configuration",
+      "Localized content sections per region",
+      "Region-based shipping rule setup"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-05",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Custom Checkout Extension",
+    "description": "Using Shopify's checkout extensibility (UI extensions/Functions) to add custom upsell offers at checkout.",
+    "features": [
+      "Checkout UI extension showing related-product upsells",
+      "Shopify Function for custom discount logic",
+      "A/B test of upsell placement"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-06",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid",
+      "Node.js"
+    ],
+    "title": "Shopify Inventory Sync App",
+    "description": "A small Node.js app syncing inventory levels between Shopify and a POS system via webhooks and the Admin API.",
+    "features": [
+      "Webhook listener for Shopify inventory updates",
+      "Two-way sync with an external POS system",
+      "Conflict handling when both systems change stock"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-07",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid",
+      "Next.js",
+      "React"
+    ],
+    "title": "Headless Shopify Storefront with Next.js",
+    "description": "Using Shopify's Storefront API to power a custom Next.js frontend, decoupled from the default Liquid theme.",
+    "features": [
+      "Next.js frontend consuming the Storefront GraphQL API",
+      "Custom cart and checkout redirect flow",
+      "ISR for product pages"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-08",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Loyalty & Referral Program App",
+    "description": "A custom app tracking customer referrals and awarding store credit, with a merchant-facing analytics dashboard.",
+    "features": [
+      "Referral link generation per customer",
+      "Store credit award on successful referral",
+      "Merchant dashboard showing program performance"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-09",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Made-to-Order Product Customization Wizard",
+    "description": "A product page with a multi-step customization wizard (engraving text, material choice) storing selections as line-item properties.",
+    "features": [
+      "Multi-step customization UI on the product page",
+      "Line-item properties carrying selections through checkout",
+      "Order view showing customization details for fulfillment"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-10",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Plus B2B Wholesale Portal",
+    "description": "A gated wholesale storefront section with company-specific pricing and bulk order CSV upload.",
+    "features": [
+      "Gated wholesale section (company account required)",
+      "Company-specific price lists",
+      "Bulk order via CSV upload"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-11",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Pre-Order & Back-in-Stock App",
+    "description": "A custom app letting customers pre-order out-of-stock items or sign up for back-in-stock notifications.",
+    "features": [
+      "Pre-order button replacing 'sold out' state",
+      "Back-in-stock email signup and notification trigger",
+      "Admin view of pre-order demand per product",
+      "Automatic pre-order-to-order conversion on restock"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-12",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Gift Registry / Wishlist App",
+    "description": "Lets customers create shareable gift registries or wishlists, with a public view for friends/family to purchase from.",
+    "features": [
+      "Customer wishlist/registry creation",
+      "Shareable public registry link",
+      "Purchased-item tracking to avoid duplicate gifts",
+      "Email notification on registry purchase"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-13",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Store Analytics Add-On",
+    "description": "A custom analytics dashboard app surfacing metrics not covered by default Shopify analytics (e.g. cohort retention, bundle attach rate).",
+    "features": [
+      "Custom metric calculation from order data",
+      "Cohort retention visualization",
+      "Bundle/cross-sell attach-rate reporting",
+      "Exportable reports"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-14",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Custom Discount Rules Engine",
+    "description": "A Shopify Function-based app implementing complex discount logic (buy X get Y, tiered spend thresholds) beyond native discount capabilities.",
+    "features": [
+      "Shopify Functions for custom discount logic",
+      "Buy-X-get-Y and tiered-spend rule types",
+      "Admin rule configuration UI",
+      "Discount application testing sandbox"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "shopify-15",
+    "stack": "shopify",
+    "stack_label": "Shopify",
+    "category": "cms",
+    "tools": [
+      "Shopify",
+      "JavaScript",
+      "Liquid"
+    ],
+    "title": "Shopify Store Migration Tool",
+    "description": "A tool that migrates products, customers, and order history from another platform (e.g. WooCommerce) into Shopify via the Admin API.",
+    "features": [
+      "Bulk product import via Admin API",
+      "Customer and order history migration",
+      "Data mapping/transformation layer",
+      "Migration progress and error reporting"
+    ],
+    "estimated_effort": "1-2 weekends"
+  },
+  {
+    "id": "laravel-01",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multi-Tenant SaaS Billing Platform",
+    "description": "A Laravel app with tenant isolation, Stripe subscription billing, and role-based access control for a B2B SaaS product.",
+    "features": [
+      "Tenant isolation (single-DB or per-tenant schema)",
+      "Stripe subscription billing (Laravel Cashier)",
+      "Role-based access control (Spatie permissions)",
+      "Tenant admin dashboard"
+    ],
+    "estimated_effort": "2-3 weeks"
+  },
+  {
+    "id": "laravel-02",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Project Management Tool (Kanban)",
+    "description": "A Laravel + Livewire/Vue app with drag-and-drop kanban boards, task assignments, and real-time updates.",
+    "features": [
+      "Drag-and-drop kanban board (Livewire or Vue)",
+      "Task assignment and due dates",
+      "Real-time updates via Laravel Echo/WebSockets",
+      "Activity log per task"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-03",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Appointment Booking System",
+    "description": "For service businesses: calendar-based booking, staff availability management, and automated reminder emails.",
+    "features": [
+      "Calendar-based booking UI",
+      "Staff availability rules and conflict prevention",
+      "Automated reminder emails (queued jobs)",
+      "Admin view of daily/weekly schedule"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-04",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Learning Management System (LMS)",
+    "description": "A course platform with video lessons, quizzes, progress tracking, and certificate generation on completion.",
+    "features": [
+      "Course/lesson structure with video hosting",
+      "Quiz engine with scoring",
+      "Per-student progress tracking",
+      "PDF certificate generation on course completion"
+    ],
+    "estimated_effort": "2-3 weeks"
+  },
+  {
+    "id": "laravel-05",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multi-Restaurant Food Delivery Backend",
+    "description": "A Laravel API powering a food delivery app: restaurant/menu management, order routing, and real-time order-status updates.",
+    "features": [
+      "Restaurant and menu management API",
+      "Order routing to the correct restaurant",
+      "Real-time order status updates (broadcasting)",
+      "Delivery driver assignment logic"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-06",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Property Management System",
+    "description": "For landlords: tenant records, lease tracking, maintenance request tickets, and automated rent-due reminders.",
+    "features": [
+      "Tenant and lease record management",
+      "Maintenance request ticketing with status tracking",
+      "Automated rent-due reminder emails",
+      "Document storage per lease"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-07",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Invoice & Expense Tracking App",
+    "description": "For freelancers/small businesses: client management, recurring invoice generation, PDF export, and expense reports.",
+    "features": [
+      "Client and project management",
+      "Recurring invoice generation (scheduled job)",
+      "PDF invoice export",
+      "Expense categorization and monthly reports"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-08",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Job Board API with Sanctum Auth",
+    "description": "A REST API backend for a job board using Sanctum token auth and a Nova-style admin panel.",
+    "features": [
+      "Sanctum token authentication",
+      "Job posting and application endpoints",
+      "Admin panel for moderating listings",
+      "Search/filter API endpoints"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-09",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Real-Time Chat Support Widget",
+    "description": "A Laravel + Pusher/WebSockets backend powering an embeddable live chat widget, with an agent dashboard.",
+    "features": [
+      "Embeddable chat widget (JS snippet)",
+      "Real-time messaging via Pusher/WebSockets",
+      "Agent dashboard for managing conversations",
+      "Chat history persistence"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-10",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Inventory & Order Management System",
+    "description": "For a small e-commerce warehouse: stock level tracking, low-stock alerts, and purchase-order generation.",
+    "features": [
+      "Stock level tracking per SKU",
+      "Low-stock alert notifications",
+      "Purchase order generation for suppliers",
+      "Stock movement audit log"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-11",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Event Ticketing Platform with QR Check-In",
+    "description": "Sells tickets, generates QR codes, and provides a check-in scanner interface for event staff.",
+    "features": [
+      "Ticket purchase and QR code generation",
+      "Check-in scanner web interface (camera-based)",
+      "Duplicate/invalid ticket detection",
+      "Real-time attendance count for organizers"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-12",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Content Moderation Dashboard",
+    "description": "An admin tool for reviewing flagged user-generated content with an approve/reject/ban workflow.",
+    "features": [
+      "Flagged content queue",
+      "Approve/reject/ban workflow with audit trail",
+      "Moderator role permissions",
+      "Bulk actions on queued items"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-13",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Multi-Step Insurance Quote Wizard",
+    "description": "Collects insurance quote data through a multi-step form with conditional branching and PDF quote generation.",
+    "features": [
+      "Multi-step form with conditional branching",
+      "Quote calculation logic",
+      "PDF quote generation and email delivery",
+      "Saved-progress resume link"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-14",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "API Gateway/Aggregator Service",
+    "description": "Aggregates data from multiple third-party APIs into a unified internal API for other apps to consume.",
+    "features": [
+      "Unified internal API aggregating 3+ external sources",
+      "Response caching to reduce upstream calls",
+      "Rate limit handling per upstream API",
+      "Error fallback when an upstream API is down"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "laravel-15",
+    "stack": "laravel",
+    "stack_label": "Laravel",
+    "category": "php",
+    "tools": [
+      "Laravel",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Recruitment Agency CRM",
+    "description": "Tracks candidates, job openings, and client companies, with pipeline stages and email templates.",
+    "features": [
+      "Candidate and client company records",
+      "Pipeline stages (applied -> interview -> offer)",
+      "Email template system for common communications",
+      "Reporting on pipeline conversion rates"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-01",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "School Management System",
+    "description": "Handles student records, class scheduling, attendance tracking, and grade reporting for a small school.",
+    "features": [
+      "Student record management",
+      "Class scheduling and timetable view",
+      "Daily attendance tracking",
+      "Grade entry and report card generation"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-02",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Hospital Patient Records System",
+    "description": "Manages patient intake, appointment scheduling, and basic medical history records with role-based staff access.",
+    "features": [
+      "Patient intake and record management",
+      "Appointment scheduling calendar",
+      "Role-based access (doctor/nurse/admin)",
+      "Medical history timeline per patient"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-03",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Point-of-Sale (POS) System for Retail",
+    "description": "A POS app with barcode scanning support, receipt printing, and daily sales reporting.",
+    "features": [
+      "Barcode scanning at checkout",
+      "Receipt printing integration",
+      "Daily/weekly sales reports",
+      "Cash drawer reconciliation"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-04",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Library Management System",
+    "description": "Tracks book inventory, member checkouts/returns, and overdue-fine calculation.",
+    "features": [
+      "Book catalog and inventory tracking",
+      "Checkout/return workflow",
+      "Overdue fine calculation",
+      "Member borrowing history"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-05",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Simple CRM for Small Business",
+    "description": "Manages leads/contacts, deal pipeline stages, and follow-up task reminders.",
+    "features": [
+      "Contact and lead management",
+      "Deal pipeline with stages",
+      "Follow-up task reminders",
+      "Basic reporting on deal conversion"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-06",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Vehicle Rental Booking System",
+    "description": "For a car rental company: vehicle availability calendar, booking management, and rental agreement PDF generation.",
+    "features": [
+      "Vehicle availability calendar",
+      "Booking creation with conflict checking",
+      "Rental agreement PDF generation",
+      "Return/damage inspection checklist"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-07",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Online Voting/Polling System",
+    "description": "For organizational elections with voter authentication, ballot management, and real-time result tallying.",
+    "features": [
+      "Voter authentication (one vote per member)",
+      "Ballot/candidate management",
+      "Real-time result tallying",
+      "Audit log of votes cast (anonymized)"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-08",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Hotel Room Booking System",
+    "description": "Manages room inventory, booking calendar, and guest check-in/check-out records.",
+    "features": [
+      "Room inventory and availability calendar",
+      "Booking creation and modification",
+      "Check-in/check-out record keeping",
+      "Occupancy reporting"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-09",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Freelance Marketplace MVP",
+    "description": "Connects freelancers and clients with job postings, proposal submissions, and a basic messaging system.",
+    "features": [
+      "Job posting and browsing",
+      "Proposal submission workflow",
+      "Basic client-freelancer messaging",
+      "Simple rating system after job completion"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-10",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Warehouse Management System",
+    "description": "Tracks multi-location inventory, stock transfers between warehouses, and reorder point alerts.",
+    "features": [
+      "Multi-warehouse stock tracking",
+      "Inter-warehouse transfer workflow",
+      "Reorder point alerts",
+      "Stock movement history/audit log"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-11",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Payroll Management System",
+    "description": "Calculates employee pay including overtime/deductions, generates payslips, and tracks payment history.",
+    "features": [
+      "Employee pay rate and hours management",
+      "Overtime/deduction calculation",
+      "PDF payslip generation",
+      "Payment history and reporting"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-12",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Fleet/Vehicle Maintenance Tracker",
+    "description": "Tracks a company vehicle fleet's maintenance schedule, mileage logs, and service history with reminders.",
+    "features": [
+      "Vehicle registry with maintenance schedule",
+      "Mileage logging per vehicle",
+      "Service history records",
+      "Upcoming-maintenance reminder alerts"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-13",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Customer Support Ticketing System",
+    "description": "A helpdesk-style ticketing system with priority levels, agent assignment, and SLA tracking.",
+    "features": [
+      "Ticket submission and categorization",
+      "Agent assignment and priority levels",
+      "SLA deadline tracking",
+      "Customer-facing ticket status page"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-14",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Membership Association Management System",
+    "description": "For clubs/associations: member records, dues tracking, renewal reminders, and event RSVP management.",
+    "features": [
+      "Member record and dues tracking",
+      "Renewal reminder emails",
+      "Event creation and RSVP management",
+      "Member directory with search"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "codeigniter-15",
+    "stack": "codeigniter",
+    "stack_label": "CodeIgniter",
+    "category": "php",
+    "tools": [
+      "CodeIgniter",
+      "PHP",
+      "MySQL"
+    ],
+    "title": "Simple Accounting/Bookkeeping System",
+    "description": "Tracks income/expenses, generates basic financial reports (P&L), and manages invoices for a small business.",
+    "features": [
+      "Income/expense entry and categorization",
+      "Profit & loss report generation",
+      "Invoice creation and tracking",
+      "Simple bank reconciliation view"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "react-01",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Real-Time Collaborative Whiteboard",
+    "description": "A React app with WebSocket-based real-time drawing sync, built for remote team brainstorming sessions.",
+    "features": [
+      "Canvas-based drawing tools",
+      "WebSocket sync of drawing events across clients",
+      "Multiple boards/rooms support",
+      "Undo/redo per user"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-02",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript",
+      "Redux"
+    ],
+    "title": "E-Commerce Storefront with Headless CMS",
+    "description": "A React storefront pulling product data from a headless CMS, with cart state managed via Redux/Context.",
+    "features": [
+      "Product listing from a headless CMS API",
+      "Cart state management (Redux or Context)",
+      "Filter/sort by category and price",
+      "Checkout flow to a payment provider"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-03",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Personal Finance Dashboard",
+    "description": "Visualizes spending/budget data with interactive charts, category breakdowns, and CSV import.",
+    "features": [
+      "Interactive spending charts (Recharts/D3)",
+      "Category breakdown view",
+      "CSV bank-statement import and categorization",
+      "Monthly budget vs. actual comparison"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-04",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Recipe Discovery App with Filtering",
+    "description": "Lets users search/filter recipes by ingredients/dietary restrictions, with a saved-favorites feature.",
+    "features": [
+      "Ingredient and dietary-restriction filtering",
+      "Recipe detail view",
+      "Saved favorites (local storage or account-based)",
+      "Search with debounced input"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-05",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Job Application Tracker (Kanban)",
+    "description": "A drag-and-drop kanban board for tracking job applications through stages, with notes per application.",
+    "features": [
+      "Drag-and-drop kanban board",
+      "Application stage tracking (applied/interview/offer)",
+      "Notes and reminders per application",
+      "Local persistence (or backend-synced)"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-06",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Real Estate Listings Search with Map View",
+    "description": "Combines a filterable property list with an interactive map showing listing pins.",
+    "features": [
+      "Filterable property list",
+      "Interactive map with listing pins (Mapbox/Leaflet)",
+      "List-to-map hover sync",
+      "Saved search criteria"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-07",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Habit Tracker with Streak Visualization",
+    "description": "Daily habit tracking with a GitHub-contributions-style streak calendar and progress charts.",
+    "features": [
+      "Daily habit check-in UI",
+      "Streak calendar visualization",
+      "Progress charts over time",
+      "Reminder notifications"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-08",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Component Library / Design System",
+    "description": "A reusable React component library with Storybook documentation for use across multiple projects.",
+    "features": [
+      "10+ reusable components (buttons, forms, modals)",
+      "Storybook documentation with usage examples",
+      "Themeable via design tokens",
+      "Published as an npm package"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-09",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Multi-Step Onboarding Wizard Template",
+    "description": "A polished onboarding flow (progress indicator, form validation, animated transitions) reusable as a SaaS template.",
+    "features": [
+      "Multi-step wizard with progress indicator",
+      "Form validation per step",
+      "Animated step transitions (Framer Motion)",
+      "Resumable progress"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-10",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Social Media Analytics Dashboard",
+    "description": "Visualizes engagement metrics pulled from a social platform's API, with date-range filtering and exportable reports.",
+    "features": [
+      "Engagement metrics visualization",
+      "Date-range filtering",
+      "Exportable PDF/CSV reports",
+      "Comparison view across time periods"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-11",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Accessible Form Builder",
+    "description": "A drag-and-drop form builder with a strong focus on WCAG accessibility.",
+    "features": [
+      "Drag-and-drop form field builder",
+      "Full keyboard navigation support",
+      "ARIA labels and screen-reader testing",
+      "Accessible error messaging"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-12",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Movie/TV Discovery App",
+    "description": "Uses a public movie database API for search, watchlists, and rating, with infinite-scroll results.",
+    "features": [
+      "Search with infinite scroll",
+      "Watchlist management",
+      "Rating and review UI",
+      "Detail pages with cast/crew info"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-13",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Real-Time Polling/Voting App",
+    "description": "For live audience polling during presentations, with results updating in real time via WebSockets.",
+    "features": [
+      "Poll creation UI",
+      "Real-time result updates (WebSockets)",
+      "Live bar-chart result visualization",
+      "QR code for audience join"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-14",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Progressive Web App News Reader",
+    "description": "A PWA with offline article caching, push notifications for breaking news, and installable home-screen support.",
+    "features": [
+      "Offline article caching (service worker)",
+      "Push notifications for breaking news",
+      "Installable PWA manifest",
+      "Reading-list save-for-later"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "react-15",
+    "stack": "react",
+    "stack_label": "React",
+    "category": "frontend",
+    "tools": [
+      "React",
+      "JavaScript",
+      "TypeScript"
+    ],
+    "title": "Interactive Data Visualization Storytelling Site",
+    "description": "Presents a dataset through scroll-triggered animated charts for a data-journalism style project.",
+    "features": [
+      "Scroll-triggered chart animations (D3 + Framer Motion)",
+      "Narrative text alongside visualizations",
+      "Responsive chart resizing",
+      "Data source citation and methodology section"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-01",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "SEO-Optimized Blog/Publishing Platform",
+    "description": "Static generation for blog posts, MDX content support, and automatic sitemap/RSS generation.",
+    "features": [
+      "Static generation (SSG) for blog posts",
+      "MDX content authoring",
+      "Automatic sitemap.xml and RSS feed",
+      "SEO metadata per post"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-02",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "SaaS Marketing Site with Server-Side A/B Testing",
+    "description": "Uses server-side rendering to serve different landing page variants for conversion testing.",
+    "features": [
+      "Server-side variant assignment",
+      "Conversion event tracking per variant",
+      "Simple results dashboard",
+      "Cookie-based sticky assignment"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-03",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "E-Commerce Site with Stripe Checkout",
+    "description": "A server-rendered storefront with Stripe Checkout integration and ISR for product pages.",
+    "features": [
+      "Stripe Checkout integration",
+      "Incremental Static Regeneration for product pages",
+      "Cart persistence across sessions",
+      "Order confirmation via webhook"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-04",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Job Board with SSR Listings",
+    "description": "SSR for SEO-friendly listing pages and API routes handling application submissions.",
+    "features": [
+      "Server-side rendered job listing pages",
+      "API routes for application submission",
+      "Search/filter with server-side query params",
+      "Employer posting flow"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-05",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Multi-Tenant SaaS Dashboard",
+    "description": "Subdomain-based tenant routing, authentication, and a per-tenant analytics dashboard.",
+    "features": [
+      "Subdomain-based tenant routing (middleware)",
+      "Authentication (NextAuth)",
+      "Per-tenant analytics dashboard",
+      "Tenant settings management"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-06",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Real Estate Portal with ISR Property Pages",
+    "description": "Uses Incremental Static Regeneration to keep property listing pages fast and fresh without full rebuilds.",
+    "features": [
+      "ISR-powered property detail pages",
+      "On-demand revalidation on listing update",
+      "Search page with server-side filtering",
+      "Image optimization for property photos"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-07",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Documentation Site Generator",
+    "description": "A docs site with MDX, versioned docs, and full-text search.",
+    "features": [
+      "MDX-based documentation pages",
+      "Versioned docs (v1/v2 switcher)",
+      "Full-text search (client or Algolia-style)",
+      "Auto-generated navigation from file structure"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-08",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Headless E-Commerce Frontend",
+    "description": "A frontend consuming a headless commerce API, with cart persistence and server actions for checkout.",
+    "features": [
+      "Headless commerce API integration",
+      "Server actions for checkout flow",
+      "Cart persistence",
+      "Product page ISR"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-09",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "AI-Free Content Summarizer Web App",
+    "description": "A simple text-processing app using rule-based/extractive summarization (no paid API) letting users paste articles and get key points.",
+    "features": [
+      "Extractive summarization (no external AI API)",
+      "API route processing pasted article text",
+      "Highlighted key-sentence output",
+      "Copy-to-clipboard summary"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-10",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Portfolio Site with Server Actions",
+    "description": "A personal portfolio with the App Router, server actions for a contact form, and optimized image loading.",
+    "features": [
+      "App Router-based structure",
+      "Server action for contact form submission",
+      "Optimized image loading (next/image)",
+      "Project case-study pages"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-11",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Internal Admin Panel with Role-Based Routing",
+    "description": "Middleware-based route protection by user role, server-rendered data tables, and audit logging.",
+    "features": [
+      "Middleware route protection by role",
+      "Server-rendered paginated data tables",
+      "Audit log of admin actions",
+      "CSV export of table data"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-12",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Booking Platform with Real-Time Availability",
+    "description": "Server-rendered real-time slot availability and optimistic UI updates on booking.",
+    "features": [
+      "Server-rendered availability calendar",
+      "Optimistic UI update on booking submit",
+      "Conflict handling if slot taken concurrently",
+      "Booking confirmation email"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-13",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Newsletter Platform with Subscriber Management",
+    "description": "A Next.js app for composing and sending newsletters, with subscriber list management and open/click tracking.",
+    "features": [
+      "Newsletter composition (MDX or rich text)",
+      "Subscriber list management and segmentation",
+      "Send via email API with tracking pixels",
+      "Open/click analytics dashboard"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-14",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Multi-Vendor Marketplace Frontend",
+    "description": "A Next.js frontend for a multi-vendor marketplace with per-vendor storefronts, server-rendered for SEO.",
+    "features": [
+      "Server-rendered vendor storefront pages",
+      "Marketplace-wide search across vendors",
+      "Vendor onboarding flow",
+      "Server actions for order placement"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nextjs-15",
+    "stack": "nextjs",
+    "stack_label": "Next.js",
+    "category": "frontend",
+    "tools": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Node.js"
+    ],
+    "title": "Live Event Streaming Landing Page with Chat",
+    "description": "A Next.js app for a live-streamed event: embedded video player, real-time chat, and a countdown-to-live landing page.",
+    "features": [
+      "Embedded live video player",
+      "Real-time chat (WebSocket)",
+      "Countdown-to-live landing page state",
+      "Post-event VOD replay page"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-01",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Task Management App with Pinia",
+    "description": "A Vue 3 + Pinia task manager with drag-and-drop lists, due-date reminders, and local persistence.",
+    "features": [
+      "Drag-and-drop task lists",
+      "Pinia store for state management",
+      "Due-date reminders",
+      "Local storage persistence"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-02",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue-Powered Admin Dashboard Template",
+    "description": "A reusable admin dashboard (sidebar nav, data tables, charts) for internal tooling use.",
+    "features": [
+      "Sidebar navigation layout",
+      "Sortable/filterable data tables",
+      "Chart components (Chart.js)",
+      "Vue Router-based page structure"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-03",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "E-Commerce Product Catalog",
+    "description": "A storefront with faceted filtering, cart state via Pinia, and lazy-loaded product images.",
+    "features": [
+      "Faceted filtering (price, category, rating)",
+      "Pinia-managed cart state",
+      "Lazy-loaded product images",
+      "Sort by price/popularity"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-04",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Real-Time Collaborative Note-Taking App",
+    "description": "WebSocket sync for shared notes, built for small team collaboration.",
+    "features": [
+      "Real-time note sync via WebSockets",
+      "Multiple shared notebooks",
+      "Presence indicator (who's viewing)",
+      "Markdown formatting support"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-05",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Event Countdown & RSVP Landing Page Builder",
+    "description": "Lets users create simple event pages with countdown timers and RSVP form collection.",
+    "features": [
+      "Countdown timer component",
+      "RSVP form with response storage",
+      "Shareable event page URL",
+      "Guest list export"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-06",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript",
+      "Django"
+    ],
+    "title": "Vue + Django REST Framework Full-Stack App",
+    "description": "A Vue frontend consuming a Django REST API backend for a small business inventory tracker.",
+    "features": [
+      "Vue frontend consuming a DRF API",
+      "Inventory CRUD with search/filter",
+      "Low-stock highlighting",
+      "Token-based authentication"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-07",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Interactive Quiz/Survey Builder",
+    "description": "Building multi-question quizzes with branching logic and a results summary page.",
+    "features": [
+      "Multi-question quiz builder UI",
+      "Conditional branching between questions",
+      "Results summary and scoring",
+      "Shareable quiz link"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-08",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Personal Budget Tracker with Chart.js",
+    "description": "Visualizes monthly spending by category, supporting manual entry and CSV import.",
+    "features": [
+      "Monthly spending visualization by category",
+      "Manual transaction entry",
+      "CSV import of bank transactions",
+      "Budget-vs-actual alerts"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-09",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue Component Library with Vite",
+    "description": "A small reusable Vue 3 component library, built and bundled with Vite, for use across client projects.",
+    "features": [
+      "5+ reusable components",
+      "Vite-based build/bundle setup",
+      "Usage documentation",
+      "Published as an npm package"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-10",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Restaurant Reservation Widget",
+    "description": "An embeddable widget for restaurant table reservations, with time-slot selection and confirmation email.",
+    "features": [
+      "Embeddable widget (iframe or web component)",
+      "Time-slot selection with availability check",
+      "Confirmation email trigger",
+      "Admin view of upcoming reservations"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-11",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue Kanban-Style Bug Tracker",
+    "description": "A lightweight bug tracker with kanban columns for status, severity tagging, and a per-project view.",
+    "features": [
+      "Kanban board for bug status",
+      "Severity/priority tagging",
+      "Per-project filtering",
+      "Comment thread per bug"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-12",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue Multi-Step Checkout Flow",
+    "description": "A polished multi-step checkout UI (shipping, payment, review) as a reusable Vue component set for e-commerce sites.",
+    "features": [
+      "Multi-step checkout with progress indicator",
+      "Address/shipping form validation",
+      "Order review step before payment",
+      "Reusable as a component library"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-13",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue Time Tracking App for Freelancers",
+    "description": "Tracks time spent per client/project with a start/stop timer, generating summary reports for invoicing.",
+    "features": [
+      "Start/stop timer per project",
+      "Client/project categorization",
+      "Weekly/monthly summary reports",
+      "Exportable timesheet for invoicing"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-14",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue Real Estate Agent CRM Widget",
+    "description": "An embeddable Vue widget for real estate agents to manage leads and property interest from their own website.",
+    "features": [
+      "Lead capture form embedded on agent site",
+      "Lead-to-property interest tracking",
+      "Simple pipeline view (new/contacted/showing/closed)",
+      "Email notification on new lead"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "vue-15",
+    "stack": "vue",
+    "stack_label": "Vue.js",
+    "category": "frontend",
+    "tools": [
+      "Vue.js",
+      "JavaScript"
+    ],
+    "title": "Vue + Supabase Realtime Collaboration Board",
+    "description": "A Trello-style board using Vue and Supabase Realtime for live multi-user updates without a custom backend.",
+    "features": [
+      "Supabase Realtime subscription for live updates",
+      "Drag-and-drop board (Vue)",
+      "Multi-user presence indicator",
+      "Row-level security for board access"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "angular-01",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Enterprise Admin Dashboard with Angular Material",
+    "description": "A large-scale admin panel using Angular Material, reactive forms, and role-based route guards.",
+    "features": [
+      "Angular Material component-based UI",
+      "Reactive forms with validation",
+      "Role-based route guards",
+      "Lazy-loaded feature modules"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-02",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript",
+      ".NET"
+    ],
+    "title": "Angular + .NET Core Full-Stack Inventory System",
+    "description": "An Angular frontend consuming a .NET Core Web API backend for warehouse inventory management.",
+    "features": [
+      "Angular frontend consuming a .NET Web API",
+      "Inventory CRUD with search/filter",
+      "Low-stock alerts",
+      "Role-based access"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-03",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular PWA for Field Service Technicians",
+    "description": "An offline-capable PWA for field technicians to log job completions, with sync-on-reconnect.",
+    "features": [
+      "Offline-capable job logging (service worker)",
+      "Sync-on-reconnect queue",
+      "Photo attachment for job completion",
+      "Installable PWA manifest"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-04",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript",
+      ".NET"
+    ],
+    "title": "Real-Time Dashboard with SignalR",
+    "description": "An Angular dashboard showing live metrics pushed from a .NET backend via SignalR.",
+    "features": [
+      "Live metric updates via SignalR",
+      "Real-time chart updates",
+      "Connection status indicator",
+      "Historical metric drill-down"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-05",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Multi-Step Loan Application Wizard (Angular)",
+    "description": "A complex multi-step form using Angular Reactive Forms with cross-field validation and dynamic form arrays.",
+    "features": [
+      "Multi-step reactive form",
+      "Cross-field validation rules",
+      "Dynamic FormArray for repeatable sections",
+      "Application status calculation on submit"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-06",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Component Library with Storybook",
+    "description": "A shared UI component library for an organization's internal Angular apps, documented in Storybook.",
+    "features": [
+      "5+ shared components",
+      "Storybook documentation",
+      "Theming support",
+      "Versioned as an internal npm package"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-07",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular E-Learning Platform Frontend",
+    "description": "The frontend for an online course platform: video player with progress tracking, quiz components, and certificates.",
+    "features": [
+      "Video player with progress tracking",
+      "Quiz components with scoring",
+      "Certificate download page",
+      "Course catalog with search/filter"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-08",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Micro-Frontend Architecture Demo",
+    "description": "A proof-of-concept splitting an Angular app into independently deployable micro-frontends using Module Federation.",
+    "features": [
+      "Module Federation setup across 2+ micro-frontends",
+      "Shared component library across modules",
+      "Independent deployment pipeline per module",
+      "Shell app orchestrating module loading"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-09",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Expense Approval Workflow App",
+    "description": "An internal tool for submitting and approving expense reports with a multi-level approval chain.",
+    "features": [
+      "Expense submission with receipt upload",
+      "Multi-level approval workflow",
+      "Approval status notifications",
+      "Reporting on approved/pending/rejected totals"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-10",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Inventory Barcode Scanning App",
+    "description": "A PWA-style Angular app using the device camera to scan barcodes for warehouse stock-take operations.",
+    "features": [
+      "Camera-based barcode scanning",
+      "Stock-take session tracking",
+      "Discrepancy report vs. expected counts",
+      "Offline-capable with sync on reconnect"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-11",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Real Estate CRM Dashboard",
+    "description": "An internal CRM for real estate agents: lead pipeline, property listing management, and appointment scheduling.",
+    "features": [
+      "Lead pipeline with drag-and-drop stages",
+      "Property listing CRUD",
+      "Appointment calendar",
+      "Reporting on conversion rates"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-12",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Multi-Language Admin Portal",
+    "description": "An admin portal supporting multiple languages via Angular i18n, used for a product with an international support team.",
+    "features": [
+      "Angular i18n setup with 3+ locales",
+      "Locale switcher",
+      "RTL layout support for applicable languages",
+      "Translated validation messages"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-13",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Survey/Feedback Collection Tool",
+    "description": "A survey builder and response-collection tool with a reactive-forms-based builder and analytics view.",
+    "features": [
+      "Reactive-forms-based survey builder",
+      "Response collection and storage",
+      "Analytics view (response rates, averages)",
+      "Exportable results"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-14",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular Equipment Reservation System",
+    "description": "For shared office/lab equipment: reservation calendar, conflict prevention, and usage reporting.",
+    "features": [
+      "Equipment reservation calendar",
+      "Conflict/overlap prevention",
+      "Usage reporting per equipment item",
+      "Email reminders before reservation"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "angular-15",
+    "stack": "angular",
+    "stack_label": "Angular",
+    "category": "frontend",
+    "tools": [
+      "Angular",
+      "TypeScript"
+    ],
+    "title": "Angular + Firebase Real-Time Chat Support Widget",
+    "description": "An embeddable Angular support chat widget using Firebase Realtime Database for live messaging without a custom backend.",
+    "features": [
+      "Firebase Realtime Database messaging",
+      "Embeddable widget build",
+      "Agent-side dashboard for conversations",
+      "Typing indicator and read receipts"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "nodejs-01",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "MongoDB"
+    ],
+    "title": "RESTful API for a Mobile Fitness App",
+    "description": "A Node.js/Express API with JWT auth, workout-logging endpoints, and MongoDB storage of user progress.",
+    "features": [
+      "JWT authentication",
+      "Workout-logging CRUD endpoints",
+      "Progress history queries",
+      "Input validation middleware"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-02",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "Real-Time Multiplayer Game Backend",
+    "description": "A Node.js + Socket.io backend coordinating game state for a simple real-time multiplayer browser game.",
+    "features": [
+      "Socket.io real-time game-state sync",
+      "Room-based matchmaking",
+      "Server-authoritative game logic",
+      "Reconnect handling"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-03",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "GraphQL"
+    ],
+    "title": "GraphQL API Gateway",
+    "description": "A Node.js GraphQL server (Apollo Server) aggregating data from multiple REST microservices into one schema.",
+    "features": [
+      "Apollo Server GraphQL schema",
+      "Resolvers aggregating 3+ REST microservices",
+      "DataLoader for batching/caching",
+      "Schema stitching or federation"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-04",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "Video Streaming/Transcoding Service",
+    "description": "A Node.js service handling video upload, transcoding (ffmpeg), and adaptive-bitrate streaming delivery.",
+    "features": [
+      "Video upload handling",
+      "ffmpeg-based transcoding pipeline",
+      "Adaptive bitrate output (HLS)",
+      "Processing status polling endpoint"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "nodejs-05",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "Redis"
+    ],
+    "title": "Notification Microservice",
+    "description": "A Node.js service handling email/SMS/push dispatch, queued via Redis/Bull, with delivery-status tracking.",
+    "features": [
+      "Queued job processing (Bull + Redis)",
+      "Multi-channel dispatch (email/SMS/push)",
+      "Delivery-status tracking and retries",
+      "Template-based message rendering"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-06",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "E-Commerce Order Processing Microservice",
+    "description": "Handles order validation, payment webhook processing, and inventory deduction.",
+    "features": [
+      "Order validation logic",
+      "Stripe webhook handling",
+      "Inventory deduction on payment success",
+      "Idempotent webhook processing"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-07",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "Redis"
+    ],
+    "title": "Rate-Limited Public API with API Key Management",
+    "description": "Issues API keys to third-party developers, with per-key rate limiting and usage analytics.",
+    "features": [
+      "API key issuance and management",
+      "Per-key rate limiting (Redis-backed)",
+      "Usage analytics per key",
+      "API documentation portal"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-08",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "AWS",
+      "Docker"
+    ],
+    "title": "Serverless Node.js API on AWS Lambda",
+    "description": "A REST API built to run on AWS Lambda + API Gateway, using DynamoDB as the backing store.",
+    "features": [
+      "Lambda functions behind API Gateway",
+      "DynamoDB data access layer",
+      "IAM least-privilege roles per function",
+      "Infrastructure defined via SAM/CDK"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-09",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "Web Scraping & Data Aggregation Service",
+    "description": "A Node.js service (Playwright/Puppeteer) that periodically scrapes and normalizes data into a searchable API.",
+    "features": [
+      "Scheduled scraping jobs (Playwright)",
+      "Data normalization across sources",
+      "Searchable aggregation API",
+      "Change-detection alerting"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-10",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "MongoDB"
+    ],
+    "title": "Chat Application Backend with Socket.io",
+    "description": "Powers real-time 1:1 and group chat, with message persistence in MongoDB and typing indicators.",
+    "features": [
+      "Real-time messaging (Socket.io)",
+      "1:1 and group chat rooms",
+      "Message persistence and history",
+      "Typing indicators and read receipts"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-11",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "CI/CD Webhook Automation Service",
+    "description": "Listens to GitHub webhooks to trigger custom deployment/notification workflows.",
+    "features": [
+      "GitHub webhook signature verification",
+      "Custom deployment trigger logic",
+      "Slack/email notification on deploy",
+      "Deployment history log"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-12",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript",
+      "Redis"
+    ],
+    "title": "Job Queue Processing System",
+    "description": "Uses Bull/Redis to process background jobs with retry logic and a monitoring dashboard.",
+    "features": [
+      "Bull/Redis job queue setup",
+      "Retry logic with exponential backoff",
+      "Job monitoring dashboard (Bull Board)",
+      "Dead-letter queue for failed jobs"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-13",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "URL Shortener Service with Analytics",
+    "description": "A Node.js service shortening URLs with click analytics (referrer, location, device) and custom slugs.",
+    "features": [
+      "Short URL generation with custom slug support",
+      "Click tracking (referrer/device/approx. location)",
+      "Analytics dashboard API",
+      "Expiring/one-time-use link support"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-14",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "Multi-Tenant SaaS API with Usage-Based Billing",
+    "description": "A Node.js API metering per-tenant API usage and integrating with Stripe for usage-based billing.",
+    "features": [
+      "Per-tenant API usage metering",
+      "Stripe usage-based billing integration",
+      "Tenant usage dashboard endpoint",
+      "Overage alerting"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "nodejs-15",
+    "stack": "nodejs",
+    "stack_label": "Node.js",
+    "category": "backend",
+    "tools": [
+      "Node.js",
+      "JavaScript"
+    ],
+    "title": "Email Marketing Campaign Service",
+    "description": "A Node.js service for composing, scheduling, and sending bulk email campaigns with delivery/open tracking.",
+    "features": [
+      "Campaign composition and scheduling",
+      "Bulk send via a transactional email API",
+      "Delivery and open-rate tracking",
+      "Unsubscribe handling"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "django-01",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Multi-Tenant SaaS Platform",
+    "description": "A Django app with tenant-per-schema isolation, subscription billing, and a Django admin-based internal tool.",
+    "features": [
+      "Tenant-per-schema isolation (django-tenants style)",
+      "Stripe subscription billing",
+      "Django admin customization for internal ops",
+      "Tenant onboarding flow"
+    ],
+    "estimated_effort": "2-3 weeks"
+  },
+  {
+    "id": "django-02",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Content Management System for a News Site",
+    "description": "A CMS with article scheduling, editorial workflow (draft/review/publish), and a public REST API.",
+    "features": [
+      "Article scheduling (publish-at date)",
+      "Editorial workflow with status transitions",
+      "Public REST API for the frontend",
+      "Revision history per article"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-03",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Django REST Framework API for a Mobile App",
+    "description": "A DRF-based backend with token authentication, serializer-based validation, and a versioned API.",
+    "features": [
+      "Token authentication",
+      "Serializer-based request validation",
+      "API versioning (v1/v2)",
+      "Pagination and filtering"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-04",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Real Estate Listings Platform",
+    "description": "Property search/filtering, saved searches with email alerts, and agent account management.",
+    "features": [
+      "Search/filter by price, location, type",
+      "Saved search with email alert on new matches",
+      "Agent account and listing management",
+      "Favorite/shortlist listings"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-05",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "title": "Django + Celery Background Task Processing",
+    "description": "Offloads long-running tasks (report generation, image processing) to Celery workers with Redis as broker.",
+    "features": [
+      "Celery worker setup with Redis broker",
+      "Long-running task offloading",
+      "Task status polling endpoint",
+      "Scheduled periodic tasks (Celery Beat)"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-06",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Healthcare Appointment Scheduling System",
+    "description": "For clinics: patient records, appointment booking, and automated reminder emails/SMS.",
+    "features": [
+      "Patient record management",
+      "Appointment booking with conflict checking",
+      "Automated reminder emails/SMS",
+      "Provider schedule management"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-07",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Django E-Commerce Platform",
+    "description": "A custom e-commerce backend with product catalog, cart, checkout, and order management.",
+    "features": [
+      "Product catalog with variants",
+      "Cart and checkout flow",
+      "Order management and status tracking",
+      "Payment gateway integration"
+    ],
+    "estimated_effort": "2-3 weeks"
+  },
+  {
+    "id": "django-08",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Survey & Form Data Collection Platform",
+    "description": "Building custom surveys, collecting responses, and generating summary analytics/exports.",
+    "features": [
+      "Custom survey/form builder",
+      "Response collection and storage",
+      "Summary analytics (charts, averages)",
+      "CSV/Excel export"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-09",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Internal HR Management System",
+    "description": "Tracks employee records, leave requests/approvals, and org-chart visualization.",
+    "features": [
+      "Employee record management",
+      "Leave request/approval workflow",
+      "Org-chart visualization",
+      "Document storage per employee"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-10",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL",
+      "GraphQL",
+      "React"
+    ],
+    "title": "Django GraphQL API",
+    "description": "A Django backend exposing a GraphQL API (via Graphene) for a React frontend, replacing a legacy REST API.",
+    "features": [
+      "Graphene-based GraphQL schema",
+      "Query/mutation coverage matching prior REST endpoints",
+      "N+1 query prevention (DataLoader-style)",
+      "GraphQL playground for exploration"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-11",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Multi-Language Content Platform",
+    "description": "Supports multi-language content management, serving localized content via API.",
+    "features": [
+      "Multi-language model translation (django-modeltranslation)",
+      "Locale-aware API responses",
+      "Admin UI for managing translations",
+      "Fallback-language handling"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-12",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Django-Powered Analytics Dashboard",
+    "description": "An internal tool aggregating data from multiple sources into a Django-rendered dashboard with exportable reports.",
+    "features": [
+      "Data aggregation from 2+ sources",
+      "Django-rendered dashboard views",
+      "Exportable PDF/Excel reports",
+      "Scheduled data refresh"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-13",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Nonprofit Donation & Volunteer Management Platform",
+    "description": "Manages donor records, recurring donations (Stripe), and volunteer shift sign-ups for a nonprofit.",
+    "features": [
+      "Donor record management",
+      "Recurring donation billing (Stripe)",
+      "Volunteer shift sign-up calendar",
+      "Donation receipt PDF generation"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-14",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "Restaurant Table Reservation System",
+    "description": "A reservation system with table-capacity management, waitlist handling, and admin floor-plan view.",
+    "features": [
+      "Table capacity and availability management",
+      "Reservation booking with conflict prevention",
+      "Waitlist handling when fully booked",
+      "Admin floor-plan/table-status view"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "django-15",
+    "stack": "django",
+    "stack_label": "Django",
+    "category": "backend",
+    "tools": [
+      "Django",
+      "Python",
+      "PostgreSQL"
+    ],
+    "title": "API Rate-Limited Public Data Service",
+    "description": "Exposes a public dataset via a Django REST API with API-key issuance, rate limiting, and usage tiers.",
+    "features": [
+      "API key issuance and management",
+      "Rate limiting by tier (DRF throttling)",
+      "Usage analytics per key",
+      "API documentation (drf-spectacular/Swagger)"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "flask-01",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python",
+      "Docker"
+    ],
+    "title": "Lightweight REST API Microservice",
+    "description": "A Flask microservice handling a single bounded-context responsibility as part of a larger microservices architecture.",
+    "features": [
+      "Single-responsibility API design",
+      "Health-check endpoint",
+      "Structured error responses",
+      "Dockerized for deployment"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-02",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask + SQLAlchemy CRUD API for a Task Manager",
+    "description": "A small API with SQLAlchemy ORM, JWT auth, and full CRUD for a task-management mobile app backend.",
+    "features": [
+      "SQLAlchemy models and migrations",
+      "JWT authentication",
+      "Full CRUD endpoints",
+      "Pagination support"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-03",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Webhook Receiver & Router Service",
+    "description": "Receives webhooks from multiple third-party services and routes them to appropriate internal handlers.",
+    "features": [
+      "Signature verification per webhook source",
+      "Routing logic to internal handlers",
+      "Retry-safe idempotent processing",
+      "Webhook event logging"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-04",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask-Powered Internal Admin Tool",
+    "description": "A small internal dashboard for support staff to look up and manage customer accounts.",
+    "features": [
+      "Customer lookup and search",
+      "Account management actions",
+      "Role-based access for support staff",
+      "Action audit log"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-05",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python",
+      "AWS"
+    ],
+    "title": "File Upload & Processing Service",
+    "description": "Handles file uploads, runs validation/processing, and stores results in S3-compatible storage.",
+    "features": [
+      "File upload with type/size validation",
+      "Processing pipeline (e.g., image resize/CSV parse)",
+      "S3-compatible storage integration",
+      "Processing status endpoint"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-06",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python",
+      "Redis"
+    ],
+    "title": "Flask API with Rate Limiting and Caching",
+    "description": "A public-facing API with Redis-backed caching and rate limiting for a data-lookup service.",
+    "features": [
+      "Redis-backed response caching",
+      "Rate limiting per API key/IP",
+      "Cache invalidation strategy",
+      "Usage metrics endpoint"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-07",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Simple Blogging Platform API",
+    "description": "A REST API backing a blogging platform, with markdown post storage, tagging, and comment endpoints.",
+    "features": [
+      "Markdown post storage and rendering",
+      "Tagging and tag-based filtering",
+      "Comment endpoints with moderation flag",
+      "RSS feed endpoint"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-08",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Health-Check & Status Page Service",
+    "description": "Periodically checks the health of other internal services and serves a public status page.",
+    "features": [
+      "Scheduled health checks of dependent services",
+      "Public status page (operational/degraded/down)",
+      "Incident history log",
+      "Alert on status change"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-09",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python",
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Flask + Docker Containerized Microservice Demo",
+    "description": "A service built and deployed via Docker/Docker Compose, demonstrating a containerized deployment pipeline.",
+    "features": [
+      "Dockerfile and docker-compose setup",
+      "Multi-container local dev environment",
+      "Environment-based configuration",
+      "Basic CI build/test pipeline"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-10",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask URL Health Monitor Service",
+    "description": "Periodically checks a list of URLs for uptime/response time, alerting on failures via a Flask-managed dashboard.",
+    "features": [
+      "Scheduled URL health checks",
+      "Response time tracking over time",
+      "Alerting on downtime (email/webhook)",
+      "Simple status dashboard"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-11",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask Feature Flag Service",
+    "description": "A lightweight feature-flag management service with a Flask API and admin UI for toggling flags per environment.",
+    "features": [
+      "Feature flag CRUD API",
+      "Per-environment flag overrides",
+      "Admin UI for toggling flags",
+      "SDK/client library for flag checks"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-12",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask Invoice Generation Microservice",
+    "description": "A focused microservice that generates PDF invoices from structured JSON input, used by other internal services.",
+    "features": [
+      "JSON-to-PDF invoice generation",
+      "Configurable invoice templates",
+      "Line-item and tax calculation",
+      "Invoice storage and retrieval API"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-13",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python",
+      "Redis"
+    ],
+    "title": "Flask Geolocation/IP Lookup API",
+    "description": "A small API service providing IP-to-location lookups with caching, used internally by other apps.",
+    "features": [
+      "IP-to-location lookup logic",
+      "Redis-backed caching of lookups",
+      "Rate limiting per consumer",
+      "Usage logging"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-14",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask Slack/Discord Bot Backend",
+    "description": "A Flask backend powering a Slack or Discord bot that responds to commands and posts scheduled updates.",
+    "features": [
+      "Slash command handling",
+      "Scheduled message posting",
+      "OAuth installation flow for the bot",
+      "Command usage logging"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "flask-15",
+    "stack": "flask",
+    "stack_label": "Flask",
+    "category": "backend",
+    "tools": [
+      "Flask",
+      "Python"
+    ],
+    "title": "Flask Password/Secret Rotation Reminder Service",
+    "description": "An internal tool tracking credential/secret expiration dates across systems and sending rotation reminders.",
+    "features": [
+      "Secret/credential expiration tracking",
+      "Scheduled reminder notifications",
+      "Admin dashboard of upcoming expirations",
+      "Audit log of rotations performed"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ml-01",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning",
+      "Flask"
+    ],
+    "title": "Customer Churn Prediction Model",
+    "description": "A scikit-learn pipeline predicting customer churn from usage data, with a Flask API serving predictions.",
+    "features": [
+      "Feature engineering from usage data",
+      "scikit-learn classification model (e.g. gradient boosting)",
+      "Model evaluation (precision/recall/ROC-AUC)",
+      "Flask API serving predictions"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-02",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Sales Forecasting Dashboard",
+    "description": "A pandas + Prophet forecasting tool predicting future sales, visualized in a Streamlit dashboard.",
+    "features": [
+      "Time-series forecasting model (Prophet)",
+      "Historical vs. forecast visualization",
+      "Streamlit interactive dashboard",
+      "Confidence interval display"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-03",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning",
+      "Flask"
+    ],
+    "title": "Image Classification Model for Product Categorization",
+    "description": "A CNN classifying product images into categories, deployed behind a REST API.",
+    "features": [
+      "CNN model training (TensorFlow/PyTorch)",
+      "Transfer learning from a pretrained base model",
+      "Model evaluation on a held-out test set",
+      "REST API for inference"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-04",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Sentiment Analysis Pipeline for Customer Reviews",
+    "description": "An NLP pipeline classifying customer review sentiment, with a dashboard summarizing trends over time.",
+    "features": [
+      "Text preprocessing pipeline",
+      "Sentiment classification model",
+      "Trend dashboard over time",
+      "Per-product sentiment breakdown"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-05",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning",
+      "Flask"
+    ],
+    "title": "Recommendation Engine (Collaborative Filtering)",
+    "description": "A recommendation system suggesting products/content based on user behavior data.",
+    "features": [
+      "Collaborative filtering model",
+      "Cold-start handling for new users",
+      "Offline evaluation (precision@k)",
+      "Recommendation API endpoint"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-06",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Anomaly Detection System for Transaction Data",
+    "description": "Flags anomalous transactions using isolation forests/statistical methods, with an alerting dashboard.",
+    "features": [
+      "Isolation forest / statistical anomaly model",
+      "Real-time or batch scoring",
+      "Alerting dashboard for flagged transactions",
+      "False-positive feedback loop"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-07",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "A/B Test Analysis Toolkit",
+    "description": "A library/notebook suite for analyzing A/B test results with statistical significance testing.",
+    "features": [
+      "Statistical significance testing (t-test/chi-square)",
+      "Effect size and confidence interval calculation",
+      "Visualization of test results",
+      "Reusable notebook templates"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-08",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Data Pipeline & ETL Automation",
+    "description": "A pandas pipeline that ingests, cleans, and loads data from multiple sources into a data warehouse nightly.",
+    "features": [
+      "Multi-source data ingestion",
+      "Data cleaning/validation steps",
+      "Scheduled nightly load",
+      "Data quality monitoring/alerts"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-09",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Resume/Job Matching Model",
+    "description": "An NLP project matching resumes to job descriptions using TF-IDF/embedding similarity.",
+    "features": [
+      "Text similarity scoring (TF-IDF or embeddings)",
+      "Ranked match results",
+      "Explainability: highlighting matched keywords",
+      "Evaluation against labeled match pairs"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-10",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Time-Series Anomaly Detection for IoT Sensor Data",
+    "description": "Monitors sensor data streams for anomalies, with a real-time alerting dashboard.",
+    "features": [
+      "Time-series anomaly detection model",
+      "Streaming data ingestion",
+      "Real-time alerting dashboard",
+      "Per-sensor threshold tuning"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-11",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Automated Report Generation with Python",
+    "description": "A script/service that pulls data from multiple sources, generates a formatted report, and emails it on a schedule.",
+    "features": [
+      "Multi-source data pull",
+      "Formatted PDF/Excel report generation",
+      "Scheduled email delivery",
+      "Configurable report templates"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-12",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Exploratory Data Analysis Dashboard",
+    "description": "An interactive Streamlit/Dash app letting non-technical users explore a dataset with filters and auto-generated charts.",
+    "features": [
+      "Interactive filtering UI",
+      "Auto-generated chart suggestions",
+      "Summary statistics view",
+      "Export filtered data"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-13",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Credit Risk Scoring Model",
+    "description": "A scikit-learn model estimating credit risk from applicant data, with explainability (SHAP) for each prediction.",
+    "features": [
+      "Risk scoring model (gradient boosting)",
+      "SHAP-based explainability per prediction",
+      "Model evaluation (AUC, calibration)",
+      "API endpoint returning score + explanation"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-14",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Employee Attrition Prediction Model",
+    "description": "Predicts which employees are at risk of leaving based on HR data, with a dashboard for HR to review at-risk employees.",
+    "features": [
+      "Attrition prediction model",
+      "Feature importance analysis",
+      "HR-facing at-risk employee dashboard",
+      "Model retraining pipeline"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ml-15",
+    "stack": "ml",
+    "stack_label": "Python Machine Learning",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "Machine Learning"
+    ],
+    "title": "Demand Forecasting for Inventory Planning",
+    "description": "Forecasts product demand to inform inventory reorder decisions, reducing stockouts and overstock.",
+    "features": [
+      "Time-series demand forecasting per SKU",
+      "Reorder point recommendation",
+      "Forecast accuracy tracking over time",
+      "Dashboard for inventory planners"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-01",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI-Powered Customer Support Chatbot",
+    "description": "Integrates an LLM API to answer customer questions, with a knowledge-base retrieval step (RAG).",
+    "features": [
+      "Knowledge-base retrieval (RAG) before generation",
+      "LLM API integration for answer generation",
+      "Fallback to human handoff when uncertain",
+      "Conversation history context"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-02",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "Document Q&A Tool with LangChain",
+    "description": "Lets users upload documents and ask natural-language questions answered from the document content.",
+    "features": [
+      "Document ingestion and chunking",
+      "Vector embedding and similarity search",
+      "LangChain-based Q&A chain",
+      "Source citation in answers"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-03",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI Content Generation Assistant",
+    "description": "Uses an LLM API to help generate marketing copy/blog outlines from a few input keywords.",
+    "features": [
+      "Prompt-engineered generation from keywords",
+      "Multiple output variations per request",
+      "Simple web UI for input/output",
+      "Copy-to-clipboard export"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-04",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI",
+      "GitHub Copilot"
+    ],
+    "title": "Code Review Assistant Bot",
+    "description": "A GitHub bot that uses an LLM to leave automated code-review comments on pull requests.",
+    "features": [
+      "GitHub webhook integration for new PRs",
+      "LLM-based diff analysis",
+      "Automated review comments posted via API",
+      "Configurable review focus areas"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-05",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI",
+      "ChatGPT"
+    ],
+    "title": "AI-Assisted Resume Tailoring Tool",
+    "description": "Uses an LLM to rewrite resume bullets to match a job description, with a guardrail comparing outputs against the original for factual consistency.",
+    "features": [
+      "LLM-based bullet rewriting",
+      "Guardrail check: bullet count/facts preserved",
+      "Side-by-side diff view before/after",
+      "Fallback to unmodified text on guardrail failure"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-06",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "Voice-to-Text Meeting Summarizer",
+    "description": "Transcribes meeting audio and generates a structured summary with action items via an LLM.",
+    "features": [
+      "Audio transcription (Whisper API)",
+      "LLM-based structured summarization",
+      "Action item extraction",
+      "Exportable summary document"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-07",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI-Powered Email Triage Assistant",
+    "description": "Classifies and drafts suggested replies for incoming support emails using an LLM, with human approval.",
+    "features": [
+      "Email classification (category/urgency)",
+      "LLM-drafted suggested replies",
+      "Human-in-the-loop approval step",
+      "Learning from edited replies (feedback loop)"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-08",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "Semantic Search Engine over Internal Docs",
+    "description": "Uses embeddings + a vector database to power natural-language search over internal documentation.",
+    "features": [
+      "Document embedding pipeline",
+      "Vector database integration",
+      "Natural-language query interface",
+      "Relevance ranking and snippet highlighting"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-09",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI Image Generation Gallery App",
+    "description": "Lets users generate and browse AI-generated images from text prompts, with a gallery/voting feature.",
+    "features": [
+      "Text-to-image generation API integration",
+      "Gallery view of generated images",
+      "Upvote/favorite feature",
+      "Prompt history per user"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-10",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "LLM-Powered Data Extraction Pipeline",
+    "description": "Uses an LLM to extract structured data from unstructured documents/PDFs.",
+    "features": [
+      "PDF/document text extraction",
+      "LLM-based structured field extraction",
+      "Validation against expected schema",
+      "Human review queue for low-confidence extractions"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-11",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI Meeting Notes to Action-Item Tracker",
+    "description": "Ingests meeting transcripts and uses an LLM to extract action items, automatically creating tracked tasks.",
+    "features": [
+      "Transcript ingestion",
+      "LLM-based action-item extraction",
+      "Task creation with assignee/due-date inference",
+      "Weekly digest of open action items"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-12",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI-Powered Product Description Generator",
+    "description": "Generates SEO-friendly product descriptions from structured product attributes using an LLM, for an e-commerce catalog.",
+    "features": [
+      "Structured-attribute-to-description generation",
+      "SEO keyword incorporation",
+      "Bulk generation for a product catalog",
+      "Human review/edit step before publishing"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-13",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI Interview Practice Coach",
+    "description": "A tool that conducts mock interview Q&A via an LLM, providing feedback on answers for job-interview preparation.",
+    "features": [
+      "LLM-driven mock interview question generation",
+      "Answer feedback and scoring",
+      "Question bank tailored by job role",
+      "Session history and progress tracking"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-14",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "LLM-Powered Changelog Generator",
+    "description": "Generates human-readable release notes/changelogs from raw git commit history using an LLM.",
+    "features": [
+      "Git commit history ingestion",
+      "LLM-based summarization into changelog format",
+      "Categorization (features/fixes/breaking changes)",
+      "Publish-ready markdown output"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "ai_llm-15",
+    "stack": "ai_llm",
+    "stack_label": "Python AI/LLM",
+    "category": "ai_ml",
+    "tools": [
+      "Python",
+      "AI",
+      "OpenAI"
+    ],
+    "title": "AI-Assisted Translation & Localization Tool",
+    "description": "Uses an LLM to translate app UI strings while preserving placeholders/formatting, with a human review workflow.",
+    "features": [
+      "Batch translation of UI string files",
+      "Placeholder/formatting preservation",
+      "Human review/approval workflow",
+      "Translation memory to avoid re-translating"
+    ],
+    "estimated_effort": "1 week"
+  },
+  {
+    "id": "devops-01",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Multi-Service App Containerization with Docker Compose",
+    "description": "Taking an existing multi-service app and containerizing it with Docker Compose for consistent local dev and deployment.",
+    "features": [
+      "Dockerfile per service",
+      "docker-compose.yml orchestrating all services",
+      "Environment-based configuration",
+      "Documented local dev setup"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-02",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD",
+      "Kubernetes"
+    ],
+    "title": "Kubernetes Deployment for a Microservices App",
+    "description": "Deploying a set of microservices to Kubernetes with Helm charts, health checks, and autoscaling.",
+    "features": [
+      "Helm charts per microservice",
+      "Liveness/readiness health checks",
+      "Horizontal pod autoscaling",
+      "Rolling update strategy"
+    ],
+    "estimated_effort": "1-2 weeks"
+  },
+  {
+    "id": "devops-03",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD",
+      "GitHub Actions"
+    ],
+    "title": "CI/CD Pipeline with GitHub Actions",
+    "description": "Building a full pipeline (test, build, deploy) for a web app, including automated rollback on failure.",
+    "features": [
+      "Automated test run on every PR",
+      "Build and artifact publishing",
+      "Deployment stage with approval gate",
+      "Automated rollback on failed health check"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-04",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD",
+      "AWS"
+    ],
+    "title": "Infrastructure as Code with Terraform",
+    "description": "Provisioning cloud infrastructure for an app using Terraform, with environment-specific configurations.",
+    "features": [
+      "Terraform modules for core infrastructure",
+      "Environment-specific variable files (dev/staging/prod)",
+      "Remote state management",
+      "Plan/apply reviewed via CI"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-05",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Monitoring & Alerting Stack Setup",
+    "description": "Setting up Prometheus + Grafana monitoring for a containerized app, with custom dashboards and alert rules.",
+    "features": [
+      "Prometheus metrics scraping setup",
+      "Custom Grafana dashboards",
+      "Alert rules for key thresholds",
+      "Alert routing (email/Slack)"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-06",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Blue-Green Deployment Pipeline",
+    "description": "Implementing a blue-green deployment strategy for a web app to enable zero-downtime releases.",
+    "features": [
+      "Blue-green environment setup",
+      "Automated traffic cutover",
+      "Health-check gate before cutover",
+      "Fast rollback to previous environment"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-07",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Self-Hosted CI Runner & Build Optimization",
+    "description": "Setting up self-hosted CI runners and optimizing build/test pipeline speed for a growing codebase.",
+    "features": [
+      "Self-hosted runner setup",
+      "Build caching strategy",
+      "Parallelized test execution",
+      "Build time before/after comparison"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-08",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Log Aggregation Pipeline",
+    "description": "Centralizing logs from multiple containerized services into a searchable stack for easier debugging.",
+    "features": [
+      "Log shipping from containers",
+      "Centralized log storage/indexing",
+      "Searchable log dashboard",
+      "Log-based alerting for error spikes"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-09",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Automated Database Backup & Restore Pipeline",
+    "description": "A pipeline automating scheduled database backups, retention policies, and tested restore procedures.",
+    "features": [
+      "Scheduled automated backups",
+      "Retention policy enforcement (e.g. keep 30 days)",
+      "Periodic automated restore test",
+      "Backup failure alerting"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-10",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD",
+      "AWS"
+    ],
+    "title": "Secrets Management Setup",
+    "description": "Migrating hardcoded secrets to a proper secrets manager (AWS Secrets Manager/Vault) with rotation policies.",
+    "features": [
+      "Secrets migrated out of code/config files",
+      "Secrets manager integration in the app",
+      "Rotation policy for sensitive credentials",
+      "Audit log of secret access"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-11",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Container Image Security Scanning Pipeline",
+    "description": "Adding automated vulnerability scanning of Docker images to a CI pipeline, blocking deploys on critical findings.",
+    "features": [
+      "Image scanning integrated into CI",
+      "Severity-based deploy gating",
+      "Vulnerability report artifact per build",
+      "Base image update automation"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-12",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD",
+      "AWS"
+    ],
+    "title": "Cost Monitoring & Optimization Dashboard",
+    "description": "A dashboard tracking cloud spend by service, flagging anomalies and unused resources for a small team's AWS account.",
+    "features": [
+      "Cost data ingestion from AWS Cost Explorer API",
+      "Per-service cost breakdown dashboard",
+      "Anomaly/spike detection",
+      "Unused-resource flagging"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-13",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Disaster Recovery Runbook & Automation",
+    "description": "Documenting and partially automating a disaster-recovery process (failover, data restore) for a critical app.",
+    "features": [
+      "Documented DR runbook",
+      "Automated failover scripts where feasible",
+      "Regular DR drill scheduling",
+      "Recovery time tracking per drill"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-14",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Feature-Branch Preview Environment Automation",
+    "description": "CI/CD automation that spins up a temporary preview environment per pull request, torn down on merge/close.",
+    "features": [
+      "Automated preview environment provisioning per PR",
+      "Unique URL per preview environment",
+      "Automatic teardown on PR close/merge",
+      "PR comment with preview link"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "devops-15",
+    "stack": "devops",
+    "stack_label": "DevOps / Docker / Kubernetes",
+    "category": "backend",
+    "tools": [
+      "Docker",
+      "CI/CD"
+    ],
+    "title": "Zero-Downtime Database Migration Pipeline",
+    "description": "A pipeline pattern for running database schema migrations without downtime, integrated into the deploy process.",
+    "features": [
+      "Backward-compatible migration strategy",
+      "Migration automation in the deploy pipeline",
+      "Rollback procedure for failed migrations",
+      "Migration status monitoring"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-01",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma",
+      "React"
+    ],
+    "title": "Design System & Component Library Documentation",
+    "description": "Building a Figma-to-code design system with documented components, used consistently across web and mobile.",
+    "features": [
+      "Figma component library with variants",
+      "Design tokens (color, spacing, typography)",
+      "Documented usage guidelines",
+      "Handoff to a matching code component library"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-02",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Accessibility Audit & Remediation Project",
+    "description": "Auditing an existing web app against WCAG 2.1 AA and implementing fixes.",
+    "features": [
+      "Accessibility audit against WCAG 2.1 AA",
+      "Contrast ratio fixes",
+      "Keyboard navigation fixes",
+      "Screen-reader testing and ARIA fixes"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-03",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma",
+      "React"
+    ],
+    "title": "User Onboarding Flow Redesign",
+    "description": "Redesigning a SaaS product's onboarding flow based on user-testing insights, prototyped and implemented.",
+    "features": [
+      "User-testing session synthesis",
+      "Redesigned onboarding flow in Figma",
+      "Implementation in React",
+      "Before/after completion-rate comparison"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-04",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Mobile-First Responsive Redesign",
+    "description": "Taking a desktop-only web app and redesigning it mobile-first, with a documented breakpoint system.",
+    "features": [
+      "Mobile-first redesign in Figma",
+      "Documented breakpoint system",
+      "Touch-friendly interaction patterns",
+      "Implementation pass on key pages"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-05",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Usability Testing & Iteration on a Checkout Flow",
+    "description": "Running usability tests on an e-commerce checkout flow, identifying drop-off points, and implementing fixes.",
+    "features": [
+      "Usability test script and sessions",
+      "Drop-off point analysis",
+      "Redesigned checkout flow",
+      "Post-fix re-test comparison"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-06",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma",
+      "React"
+    ],
+    "title": "Dark Mode Design & Implementation",
+    "description": "Designing and implementing a full dark-mode theme for an existing product, with a token-based theming system.",
+    "features": [
+      "Dark-mode color palette design",
+      "Token-based theming system",
+      "Component-by-component dark-mode audit",
+      "User-toggle implementation"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-07",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Interactive Prototype for a New Product Feature",
+    "description": "Building a high-fidelity Figma prototype with interactions/animations to validate a concept before development.",
+    "features": [
+      "High-fidelity Figma prototype",
+      "Interactive click-through flows",
+      "Micro-interaction/animation design",
+      "Stakeholder feedback synthesis"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-08",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Design-to-Code Handoff Workflow Improvement",
+    "description": "Establishing a structured design-to-code handoff process between designers and a frontend team.",
+    "features": [
+      "Figma Dev Mode setup",
+      "Design token export pipeline",
+      "Documented handoff checklist",
+      "Reduced design-QA revision cycles"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-09",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Design Handoff Component Audit",
+    "description": "Auditing an existing product's UI for inconsistent components/styles and consolidating into a documented system.",
+    "features": [
+      "Component/style inconsistency audit",
+      "Consolidated component documentation",
+      "Migration plan for inconsistent instances",
+      "Before/after consistency comparison"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-10",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Landing Page Conversion Rate Optimization Project",
+    "description": "Iteratively redesigning a landing page based on heatmap/analytics data to improve conversion rate.",
+    "features": [
+      "Heatmap/analytics review of existing page",
+      "Redesign hypothesis and Figma mockups",
+      "Implementation and A/B test setup",
+      "Conversion rate before/after comparison"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-11",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Empty State & Error State Design System",
+    "description": "Designing consistent, helpful empty-state and error-state UI patterns across a product, replacing generic messages.",
+    "features": [
+      "Audit of existing empty/error states",
+      "Designed pattern library for these states",
+      "Copywriting guidelines for error messages",
+      "Implementation across key flows"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-12",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Onboarding Illustration & Micro-Copy Overhaul",
+    "description": "Improving a product's first-run experience through custom illustrations and rewritten micro-copy for clarity.",
+    "features": [
+      "First-run experience audit",
+      "Custom illustration set (or curated assets)",
+      "Micro-copy rewrite for clarity/tone",
+      "Implementation and user feedback collection"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-13",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Design System Governance Process",
+    "description": "Establishing a process for proposing, reviewing, and versioning changes to a shared design system over time.",
+    "features": [
+      "Documented contribution/review process",
+      "Versioning strategy for design tokens/components",
+      "Change-log for the design system",
+      "Cross-team adoption tracking"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-14",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Voice/Tone Guidelines & UI Copy Audit",
+    "description": "Defining a product's voice and tone guidelines, then auditing and rewriting existing UI copy to match.",
+    "features": [
+      "Voice and tone guideline document",
+      "UI copy audit against guidelines",
+      "Prioritized rewrite of key copy",
+      "Style guide for future copywriting"
+    ],
+    "estimated_effort": "3-5 days"
+  },
+  {
+    "id": "ui_ux-15",
+    "stack": "ui_ux",
+    "stack_label": "UI/UX",
+    "category": "design",
+    "tools": [
+      "UI/UX",
+      "Figma"
+    ],
+    "title": "Cross-Platform Design Consistency Audit (Web + Mobile)",
+    "description": "Auditing design consistency between a product's web and mobile apps, identifying and resolving divergence.",
+    "features": [
+      "Side-by-side web/mobile UI audit",
+      "Divergence documentation",
+      "Unified design token proposal",
+      "Implementation roadmap for alignment"
+    ],
+    "estimated_effort": "3-5 days"
+  }
+]

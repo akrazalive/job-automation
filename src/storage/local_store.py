@@ -105,6 +105,9 @@ class LocalJsonStore(ApplicationStore):
         status: Optional[str] = None,
         source: Optional[str] = None,
         company: Optional[str] = None,
+        category: Optional[str] = None,
+        title: Optional[str] = None,
+        search: Optional[str] = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         limit: int = 100,
@@ -117,6 +120,18 @@ class LocalJsonStore(ApplicationStore):
             records = [r for r in records if r["source"] == source]
         if company:
             records = [r for r in records if company.lower() in r["company"].lower()]
+        if category:
+            records = [r for r in records if (r.get("category") or "").lower() == category.lower()]
+        if title:
+            records = [r for r in records if title.lower() in r["title"].lower()]
+        if search:
+            needle = search.lower()
+            records = [
+                r for r in records
+                if needle in r["title"].lower()
+                or needle in r["company"].lower()
+                or any(needle in s.lower() for s in r.get("required_skills", []))
+            ]
         if date_from:
             records = [r for r in records if (r.get("applied_at") or r["updated_at"]) >= date_from]
         if date_to:
@@ -180,3 +195,28 @@ class LocalJsonStore(ApplicationStore):
         if found:
             self._write(records)
         return found
+
+    def get_application(self, job_id: str) -> Optional[Application]:
+        for r in self._read():
+            if r["job_id"] == job_id:
+                return Application(**r)
+        return None
+
+    def update_resume_tailoring(
+        self, job_id: str, resume_s3_key: Optional[str], tailored_skills: list[str]
+    ) -> Optional[str]:
+        records = self._read()
+        now = datetime.now(timezone.utc).isoformat()
+        found = False
+        for r in records:
+            if r["job_id"] == job_id:
+                r["resume_tailored_at"] = now
+                r["resume_tailored_skills"] = tailored_skills
+                r["updated_at"] = now
+                if resume_s3_key:
+                    r["resume_s3_key"] = resume_s3_key
+                found = True
+                break
+        if found:
+            self._write(records)
+        return now if found else None

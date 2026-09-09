@@ -30,6 +30,18 @@ from src.tailoring.pdf_renderer import render_resume_pdf
 MASTER_RESUME_PATH = Path("resume/master_resume.json")
 LOCAL_OUTPUT_DIR = Path("resume/output")
 
+# Where scripts/upload_master_resume.py puts a copy in the private S3
+# bucket (ResumeBucket, already blocked-public + SSE-encrypted — see
+# infra/aws/template.yaml) so the on-demand "Tailor Resume" button also
+# works from the AWS-hosted dashboard, not just locally — the Lambda has
+# no local resume/master_resume.json (it's git-ignored PII, never staged
+# into the Lambda package by prepare_lambda_src.py). Only read here when
+# the local file genuinely doesn't exist, so a real local run is never
+# affected by this at all.
+MASTER_RESUME_S3_KEY = os.environ.get("MASTER_RESUME_S3_KEY", "private/master_resume.json")
+
+_s3_resume_cache: Optional[MasterResume] = None  # per-warm-Lambda-container cache
+
 
 class TailoringResult(TypedDict):
     local_path: str
@@ -38,13 +50,32 @@ class TailoringResult(TypedDict):
 
 
 def load_master_resume(path: Path = MASTER_RESUME_PATH) -> MasterResume:
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found — it's git-ignored (real PII) and must exist locally. "
-            "See TECHNICAL_PLAN.txt Phase 0."
-        )
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return MasterResume(**data)
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return MasterResume(**data)
+    if os.environ.get("STORAGE_BACKEND", "local").lower() == "aws":
+        return _load_master_resume_from_s3()
+    raise FileNotFoundError(
+        f"{path} not found — it's git-ignored (real PII) and must exist locally. "
+        "See TECHNICAL_PLAN.txt Phase 0."
+    )
+
+
+def _load_master_resume_from_s3() -> MasterResume:
+    global _s3_resume_cache
+    if _s3_resume_cache is not None:
+        return _s3_resume_cache
+
+    import boto3
+
+    bucket = os.environ["S3_BUCKET_NAME"]
+    region = os.environ.get("AWS_REGION", "us-east-1")
+    response = boto3.client("s3", region_name=region).get_object(
+        Bucket=bucket, Key=MASTER_RESUME_S3_KEY
+    )
+    data = json.loads(response["Body"].read().decode("utf-8"))
+    _s3_resume_cache = MasterResume(**data)
+    return _s3_resume_cache
 
 
 def _validate_llm_content(resume: MasterResume, content: claude_client.TailoredContent) -> bool:
@@ -65,6 +96,18 @@ def _validate_llm_content(resume: MasterResume, content: claude_client.TailoredC
     return bool(content.get("summary", "").strip())
 
 
+def _local_output_dir() -> Path:
+    # The repo checkout is read-only inside a running Lambda (only /tmp is
+    # writable there) - this only matters once tailor_resume_for_job can
+    # run from the dashboard's on-demand "Tailor Resume" button, not just
+    # the local ingest pipeline. The write below is disposable either way
+    # on AWS: download_resume() (src/dashboard/app.py) always prefers the
+    # S3 copy over a local file when one exists.
+    if "AWS_LAMBDA_FUNCTION_NAME" in os.environ:
+        return Path("/tmp/resume_output")
+    return LOCAL_OUTPUT_DIR
+
+
 def tailor_resume_for_job(
     job_id: str,
     job_title: str = "",
@@ -72,9 +115,10 @@ def tailor_resume_for_job(
     required_skills: Optional[list[str]] = None,
 ) -> TailoringResult:
     """Generates and stores the tailored PDF for one job. Always writes a
-    local copy (resume/output/<job_id>.pdf, git-ignored); additionally
-    uploads to S3 when STORAGE_BACKEND=aws is set, returning that key so
-    the caller can attach it to the job's Application.resume_s3_key."""
+    local copy (resume/output/<job_id>.pdf, git-ignored — or /tmp on
+    Lambda, see _local_output_dir); additionally uploads to S3 when
+    STORAGE_BACKEND=aws is set, returning that key so the caller can
+    attach it to the job's Application.resume_s3_key."""
     resume = load_master_resume()
 
     tailored_summary = None
@@ -98,8 +142,9 @@ def tailor_resume_for_job(
         tailored_experience_bullets=tailored_bullets,
     )
 
-    LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    local_path = LOCAL_OUTPUT_DIR / f"{job_id}.pdf"
+    output_dir = _local_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    local_path = output_dir / f"{job_id}.pdf"
     local_path.write_bytes(pdf_bytes)
 
     s3_key: Optional[str] = None

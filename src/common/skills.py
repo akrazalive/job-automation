@@ -18,18 +18,18 @@ import re
 # so extract_skills() can report both without one masking the other.
 SKILL_KEYWORDS = [
     # CMS / e-commerce
-    "WordPress", "WooCommerce", "Shopify",
+    "WordPress", "WooCommerce", "Shopify", "Elementor", "ACF",
     # PHP ecosystem
     "Laravel", "CodeIgniter", "PHP",
     # Frontend frameworks/libraries
     "Next.js", "React", "Vue.js", "Vue", "Angular", "TypeScript", "JavaScript",
-    "jQuery", "HTML", "CSS",
+    "jQuery", "HTML", "CSS", "Redux", "GraphQL",
     # Backend / runtime
     "Node.js", "Django", "Flask", "Python", "C#", ".NET",
     # Databases
     "MySQL", "PostgreSQL", "MongoDB", "Redis", "SQL Server", "SQLite",
     # Infra / DevOps
-    "Docker", "Kubernetes", "AWS", "CI/CD", "GitHub Actions",
+    "Docker", "Kubernetes", "AWS", "CI/CD", "GitHub Actions", "Git",
     # AI / ML
     "Machine Learning", "AI", "ML", "OpenAI", "ChatGPT", "GitHub Copilot",
     # Design

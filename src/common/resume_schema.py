@@ -53,6 +53,7 @@ class ProjectEntry(BaseModel):
     name: str
     description: str
     tech: list[str]
+    url: Optional[str] = None  # live link, when the project has a public one (None for private/NDA work)
 
 
 class MasterResume(BaseModel):
