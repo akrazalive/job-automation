@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Add Job — Job Automation{% endblock %}
+{% block head %}
+<style>
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+  .add-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .add-form .field { flex: 1 1 420px; min-width: 260px; }
+  .add-form input { width: 100%; }
+  .error-box {
+    display: none; margin-top: 14px; padding: 10px 14px; border-radius: 8px;
+    background: color-mix(in srgb, var(--failed) 12%, transparent); color: var(--failed);
+    font-size: .84rem; font-weight: 600;
+  }
+  .error-box.visible { display: block; }
+  .result-card { display: none; margin-top: 20px; }
+  .result-card.visible { display: block; }
+  .result-card .rc-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 2px; }
+  .result-card .rc-company { color: var(--muted); font-size: .85rem; margin-bottom: 12px; }
+  .result-card .rc-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .result-card .rc-skills { font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+  .rc-note { font-size: .76rem; color: var(--accent-dark); }
+  .spinner-inline {
+    width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: -2px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; animation: spin .7s linear infinite; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Add Job</h1>
+<div class="sub">Paste a job posting URL — the description is fetched, a resume is tailored for it right away, and it's added to your Applications list.</div>
+
+<div class="card">
+  <form class="add-form" id="add-job-form">
+    <div class="field">
+      <label>Job posting URL</label>
+      <input id="job-url" type="url" placeholder="https://…" required>
+    </div>
+    <div><button class="btn" id="add-job-btn" type="submit">Add</button></div>
+  </form>
+  <div class="error-box" id="error-box"></div>
+
+  <div class="result-card card" id="result-card" style="box-shadow:none; border-style:dashed;">
+    <div class="rc-title" id="rc-title"></div>
+    <div class="rc-company" id="rc-company"></div>
+    <div class="rc-actions">
+      <a class="btn" id="rc-resume-link" href="#" target="_blank" rel="noopener">📄 Download Tailored Resume</a>
+      <a class="btn secondary" id="rc-apply-link" href="#" target="_blank" rel="noopener">🚀 Apply Now</a>
+    </div>
+    <div class="rc-skills" id="rc-skills"></div>
+    <div class="rc-note" id="rc-note"></div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('add-job-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const urlInput = document.getElementById('job-url');
+  const btn = document.getElementById('add-job-btn');
+  const errorBox = document.getElementById('error-box');
+  const resultCard = document.getElementById('result-card');
+  errorBox.classList.remove('visible');
+  resultCard.classList.remove('visible');
+
+  const url = urlInput.value.trim();
+  if (!url) return;
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span>Fetching &amp; tailoring…';
+
+  try {
+    const params = new URLSearchParams();
+    params.set('url', url);
+    const res = await fetch('/api/jobs', { method: 'POST', body: params });
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorBox.textContent = data.detail || 'Could not add this job.';
+      errorBox.classList.add('visible');
+      return;
+    }
+
+    document.getElementById('rc-title').textContent = data.title;
+    document.getElementById('rc-company').textContent = data.company;
+    document.getElementById('rc-resume-link').href = `${data.resume_url}?v=${Date.now()}`;
+    document.getElementById('rc-apply-link').href = data.url;
+    document.getElementById('rc-skills').innerHTML = (data.skills_used || []).length
+      ? 'Matched skills: ' + data.skills_used.map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')
+      : '';
+    document.getElementById('rc-note').textContent = data.llm_tailored
+      ? '✓ Summary and bullets rewritten by Claude for this posting.'
+      : '✓ Skills reordered and matched terms bolded for this posting.';
+    resultCard.classList.add('visible');
+    urlInput.value = '';
+  } catch (err) {
+    errorBox.textContent = 'Network error while adding this job — try again.';
+    errorBox.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+</script>
+{% endblock %}

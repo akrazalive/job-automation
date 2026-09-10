@@ -118,6 +118,7 @@ def run(log: Optional[Callable[[str], None]] = None) -> dict:
                     url=job.url,
                     status=ApplicationStatus.PENDING,
                     resume_s3_key=tailoring.get("s3_key"),
+                    resume_filename=tailoring.get("resume_filename"),
                     required_skills=required_skills,
                     is_remote=is_remote,
                     category=category,

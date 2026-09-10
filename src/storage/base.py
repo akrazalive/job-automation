@@ -89,18 +89,21 @@ class ApplicationStore(ABC):
 
     @abstractmethod
     def update_resume_tailoring(
-        self, job_id: str, resume_s3_key: Optional[str], tailored_skills: list[str]
+        self,
+        job_id: str,
+        resume_s3_key: Optional[str],
+        tailored_skills: list[str],
+        resume_filename: Optional[str] = None,
     ) -> Optional[str]:
         """Records that an on-demand "Tailor Resume" click regenerated
         this job's PDF: sets resume_tailored_at to now, resume_tailored_skills
-        to the skills actually used, and resume_s3_key when one is given
-        (the AWS backend uploads a fresh PDF each time; the local backend
-        always writes resume/output/<job_id>.pdf instead, so
-        resume_s3_key stays None there — same split as
-        src/tailoring/engine.py:tailor_resume_for_job). Returns the ISO
-        timestamp it set resume_tailored_at to (so the caller — the
-        dashboard route — can hand it straight back to the browser to
-        patch that row in place, without a full table reload that could
-        otherwise scroll the just-tailored row onto a different page; see
-        TECHNICAL_PLAN.txt's "PDF not updating" writeup), or None if
-        job_id doesn't exist."""
+        to the skills actually used, resume_s3_key when one is given (AWS
+        backend only — see src/tailoring/engine.py:tailor_resume_for_job),
+        and resume_filename (both backends — the on-disk/S3-key basename,
+        e.g. "senior-backend-engineer-20260910153045.pdf") when one is
+        given. Returns the ISO timestamp it set resume_tailored_at to (so
+        the caller — the dashboard route — can hand it straight back to
+        the browser to patch that row in place, without a full table
+        reload that could otherwise scroll the just-tailored row onto a
+        different page; see TECHNICAL_PLAN.txt's "PDF not updating"
+        writeup), or None if job_id doesn't exist."""

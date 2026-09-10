@@ -7,7 +7,7 @@ from src.common.resume_schema import (
     MasterResume,
     SkillItem,
 )
-from src.tailoring.engine import _validate_llm_content
+from src.tailoring.engine import _resume_filename, _slugify, _validate_llm_content
 
 
 def _sample_resume() -> MasterResume:
@@ -195,6 +195,49 @@ def test_load_profile_photo_falls_back_to_s3_when_local_file_missing(monkeypatch
     assert loaded == b"fake-s3-photo-bytes"
     assert captured["bucket_and_key"] == ("test-bucket", engine.PROFILE_PHOTO_S3_KEY)
     engine._s3_photo_cache = None  # don't leak into other tests
+
+
+def test_slugify_lowercases_and_hyphenates_job_title():
+    assert _slugify("Senior Full Stack Developer") == "senior-full-stack-developer"
+
+
+def test_slugify_collapses_punctuation_and_trims_edges():
+    assert _slugify("  React/Node.js -- Engineer!! ") == "react-node-js-engineer"
+
+
+def test_slugify_falls_back_to_resume_for_empty_input():
+    assert _slugify("") == "resume"
+    assert _slugify("   ---   ") == "resume"
+
+
+def test_resume_filename_appends_job_title_then_timestamp():
+    # Direct feedback: "the resume should be save with job title as name
+    # appended with hyphen then timestamp".
+    resume = _sample_resume()
+    filename = _resume_filename("Senior Backend Engineer", resume)
+    assert filename.startswith("senior-backend-engineer-")
+    assert filename.endswith(".pdf")
+    timestamp = filename[len("senior-backend-engineer-"):-len(".pdf")]
+    assert timestamp.isdigit() and len(timestamp) == 14  # YYYYMMDDHHMMSS
+
+
+def test_resume_filename_falls_back_to_resume_headline_when_job_title_blank():
+    resume = _sample_resume()  # headline == "Full Stack Engineer"
+    filename = _resume_filename("", resume)
+    assert filename.startswith("full-stack-engineer-")
+
+
+def test_resume_filename_is_unique_across_calls():
+    # Uniqueness (never silently overwriting a previous tailoring pass'
+    # PDF) is what actually matters here, not the exact timestamp format -
+    # see _resume_filename's docstring.
+    resume = _sample_resume()
+    first = _resume_filename("Backend Developer", resume)
+    import time
+
+    time.sleep(1.1)  # second-resolution timestamp - must actually advance
+    second = _resume_filename("Backend Developer", resume)
+    assert first != second
 
 
 def test_load_profile_photo_returns_none_when_no_photo_uploaded_to_s3(monkeypatch, tmp_path):

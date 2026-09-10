@@ -193,6 +193,19 @@ def test_update_resume_tailoring_sets_s3_key_when_given(tmp_path: Path):
     assert updated.resume_s3_key == "resumes/job-1.pdf"
 
 
+def test_update_resume_tailoring_sets_resume_filename_when_given(tmp_path: Path):
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    store.save_application(_make_application("job-1"))
+
+    store.update_resume_tailoring(
+        "job-1", resume_s3_key=None, tailored_skills=[],
+        resume_filename="senior-backend-engineer-20260910153045.pdf",
+    )
+
+    updated = store.get_application("job-1")
+    assert updated.resume_filename == "senior-backend-engineer-20260910153045.pdf"
+
+
 def test_update_resume_tailoring_returns_none_for_unknown_job(tmp_path: Path):
     store = LocalJsonStore(data_file=tmp_path / "apps.json")
     assert store.update_resume_tailoring("does-not-exist", None, []) is None

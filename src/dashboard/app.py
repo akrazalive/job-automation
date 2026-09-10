@@ -34,7 +34,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from src.common.job_schema import ApplicationStatus, JobSource
+from src.common.job_schema import Application, ApplicationStatus, JobSource
 from src.storage import get_store
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -104,13 +104,15 @@ async def auth_gate(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_form(request: Request):
-    # Prefill only when running locally. NEVER on the AWS deploy — that
-    # page is reachable by anyone with the URL with no auth at all, so
-    # baking the real password into its HTML would defeat the login
-    # entirely (view-source gets it). Locally, only you can reach
-    # 127.0.0.1, so the convenience tradeoff is reasonable there.
-    prefill_username = os.environ.get("DASHBOARD_USERNAME", "") if LOCAL_ACTIONS_ENABLED else ""
-    prefill_password = os.environ.get("DASHBOARD_PASSWORD", "") if LOCAL_ACTIONS_ENABLED else ""
+    # Prefilled on EVERY deploy, including the live AWS one — an explicit,
+    # confirmed operator choice made with the tradeoff spelled out: this
+    # login page has no auth in front of it, so anyone who has (or later
+    # gets) the live dashboard URL can view-source it and read the real
+    # DASHBOARD_USERNAME/PASSWORD straight out of the page. This was
+    # local-only before; keep that in mind before ever pointing this
+    # deploy's URL at anyone else or posting it anywhere public.
+    prefill_username = os.environ.get("DASHBOARD_USERNAME", "")
+    prefill_password = os.environ.get("DASHBOARD_PASSWORD", "")
     return templates.TemplateResponse(
         request,
         "login.html",
@@ -291,7 +293,9 @@ def tailor_application(job_id: str):
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    tailored_at = store.update_resume_tailoring(job_id, result["s3_key"], merged_skills)
+    tailored_at = store.update_resume_tailoring(
+        job_id, result["s3_key"], merged_skills, result.get("resume_filename")
+    )
     return {
         "job_id": job_id,
         "tailored_at": tailored_at,
@@ -314,17 +318,135 @@ def download_resume(job_id: str):
     same URL after "Tailor Resume" regenerates the file (this route
     always serves whatever's on disk right now; nothing here caches
     server-side, so any staleness reported was the browser's, not this
-    endpoint's)."""
+    endpoint's).
+
+    The actual on-disk filename comes from the Application record's
+    resume_filename (job-title-timestamp, see
+    src/tailoring/engine.py:_resume_filename) — NOT job_id.pdf, which was
+    this route's naming convention before that field existed. Still falls
+    back to "<job_id>.pdf" for any application tailored before this
+    change (resume_filename unset), so an existing local resume/output/
+    directory doesn't go dark on upgrade."""
     url = get_store().get_resume_url(job_id)
     if url:
         return RedirectResponse(url, headers={"Cache-Control": "no-store"})
-    local_path = RESUME_OUTPUT_DIR / f"{job_id}.pdf"
+    application = get_store().get_application(job_id)
+    filename = (application.resume_filename if application else None) or f"{job_id}.pdf"
+    local_path = RESUME_OUTPUT_DIR / filename
     if local_path.exists():
         return FileResponse(
-            local_path, media_type="application/pdf", filename=f"{job_id}.pdf",
+            local_path, media_type="application/pdf", filename=filename,
             headers={"Cache-Control": "no-store"},
         )
     raise HTTPException(status_code=404, detail="Tailored resume not available for this job yet")
+
+
+# --- Resume library (works on both backends) ------------------------------
+
+@app.get("/resumes", response_class=HTMLResponse)
+def resumes_page(request: Request):
+    """Every application that has had a resume tailored for it (either at
+    scrape time or via an on-demand "Tailor Resume" click), newest first —
+    the "see all my resumes" list from direct feedback. Reuses the same
+    Application records/download route as the Applications page rather
+    than reading resume/output/ (or S3) directly, so it works identically
+    on both storage backends with no extra listing code, and always
+    reflects the real job title/company/tailored-date a resume belongs
+    to, not just a bare filename."""
+    store = get_store()
+    # A single bulk fetch, filtered in Python — same "hobby scale, not
+    # worth a dedicated paginated query" tradeoff already made by
+    # DynamoStore.list_applications/get_summary (see that file's
+    # comments); 1000 comfortably covers a personal job search.
+    applications, _ = store.list_applications(limit=1000)
+    resumes = [a for a in applications if a.resume_filename or a.resume_tailored_at]
+    return templates.TemplateResponse(
+        request, "resumes.html", {"active": "resumes", "resumes": resumes},
+    )
+
+
+# --- Add Job by URL (works on both backends) ------------------------------
+
+def _job_id_from_url(url: str) -> str:
+    """Deterministic id derived from the URL itself, not a random one —
+    so pasting the SAME URL again re-tailors/refreshes that same
+    Application (save_application upserts by job_id) instead of piling up
+    duplicates. Mirrors the real scrapers' own idea of a stable per-
+    posting job_id; a hash is the fallback here since an arbitrary URL has
+    no natural short id of its own."""
+    import hashlib
+
+    return "url-" + hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+
+
+@app.get("/add-job", response_class=HTMLResponse)
+def add_job_page(request: Request):
+    return templates.TemplateResponse(request, "add_job.html", {"active": "add_job"})
+
+
+@app.post("/api/jobs")
+def add_job_by_url(url: str = Form(...)):
+    """"Add Job by URL" — direct feedback: "adding this url will create
+    [an] entry in job application[s] ... when I click add[,] job
+    descrip[tion] is retrieved and resume is tailored and provide[d] to
+    user right away". Fetches the posting's text and a best-effort title/
+    company guess (src/tailoring/job_fetch.py), derives required_skills
+    from it the same way src/pipeline/ingest.py does for a scraped job,
+    tailors a resume immediately, saves the Application (so it shows up
+    on /applications and /resumes exactly like a scraped one — just with
+    source=MANUAL), and hands back a resume download link + the original
+    URL as an "Apply Now" link. Works on both storage backends, same as
+    the existing on-demand "Tailor Resume" action (see
+    tailor_application's docstring above) — not gated to
+    LOCAL_ACTIONS_ENABLED, since fetching one already-known URL a human
+    just pasted carries the same low ban-risk reasoning fetch_job_text's
+    module docstring already lays out for the "Tailor Resume" click."""
+    from src.common.skills import extract_skills
+    from src.tailoring.engine import tailor_resume_for_job
+    from src.tailoring.job_fetch import fetch_job_posting
+
+    url = url.strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="Paste a job posting URL first.")
+
+    posting = fetch_job_posting(url)
+    if posting is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Couldn't fetch that page — check the URL, or the site may be blocking automated requests.",
+        )
+
+    # title_guess/company_guess are best-effort (see fetch_job_posting's
+    # docstring) - "Untitled Job Posting" is the one case a guess can
+    # come back empty (a page with no <title> tag at all), so job_title
+    # is never blank going into tailor_resume_for_job (it drives both the
+    # resume's header-band role line and its filename).
+    title = posting.title_guess or "Untitled Job Posting"
+    company = posting.company_guess
+    required_skills = extract_skills(posting.text)
+    job_id = _job_id_from_url(url)
+
+    try:
+        result = tailor_resume_for_job(job_id, title, posting.text, required_skills)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    application = Application(
+        job_id=job_id, source=JobSource.MANUAL, title=title, company=company, url=url,
+        status=ApplicationStatus.PENDING, resume_s3_key=result["s3_key"],
+        resume_filename=result.get("resume_filename"), required_skills=required_skills,
+    )
+    get_store().save_application(application)
+
+    return {
+        "job_id": job_id,
+        "title": title,
+        "company": company,
+        "url": url,
+        "skills_used": required_skills,
+        "llm_tailored": result["llm_tailored"],
+        "resume_url": f"/api/applications/{job_id}/resume",
+    }
 
 
 # --- Settings (local runs only) ------------------------------------------

@@ -262,6 +262,33 @@ def test_reorder_bullets_never_drops_a_bullet():
     assert set(reordered) == set(bullets)
 
 
+def test_render_resume_pdf_bolds_matched_terms_in_profile_summary():
+    # Direct feedback: "I want the profile summary in the resume to be
+    # updated accordingly" - deterministic mode's answer is bolding
+    # matched required_skills terms in the summary text, same treatment
+    # already given to bullets/skills/projects, no ANTHROPIC_API_KEY
+    # needed. Checked via the actual PDF's extracted text formatting
+    # (pdfplumber, like the other layout regression tests here) rather
+    # than the raw Paragraph markup, so this fails if the bolding never
+    # actually reaches the rendered page. Uses "Kubernetes" (absent from
+    # every other section of the fixture resume - skills/bullets/
+    # projects) so a passing assertion can only be explained by the
+    # summary paragraph itself getting bolded, not some unrelated bolded
+    # occurrence elsewhere on the page (e.g. a matched sidebar skill row).
+    import pdfplumber
+    from io import BytesIO
+
+    resume = _sample_resume()
+    resume.summary = "Backend engineer experienced with Kubernetes and MySQL."
+    pdf_bytes = render_resume_pdf(resume, required_skills=["Kubernetes"])
+
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    words = pdf.pages[0].extract_words(extra_attrs=["fontname"])
+    matches = [w for w in words if w["text"] == "Kubernetes"]
+    assert matches, "summary text didn't render at all"
+    assert all("Bold" in w["fontname"] for w in matches)
+
+
 def test_render_resume_pdf_tailors_experience_bullets_by_required_skills():
     resume = _sample_resume()
     resume.experience[0].bullets = [
@@ -320,11 +347,12 @@ def test_render_resume_pdf_handles_content_spanning_multiple_pages():
     assert pdf_bytes.startswith(b"%PDF")
 
 
-def test_render_resume_pdf_default_caps_at_four_projects_for_two_page_fit():
-    # User-facing requirement: a resume with a full 6 experience entries
-    # needs to fit 2 pages, which is why DEFAULT_MAX_PROJECTS is 4, not
-    # the earlier 6 - checked against a real render, not assumed.
-    assert DEFAULT_MAX_PROJECTS == 4
+def test_render_resume_pdf_default_caps_at_six_projects():
+    # Direct feedback: "as we are moving to 2nd page you can keep 6
+    # projects" - the operator's full curated set, now that the sidebar
+    # persists on page 2+ instead of that page being reclaimed as bare
+    # full-width space to force everything onto exactly 2 pages.
+    assert DEFAULT_MAX_PROJECTS == 6
 
 
 class _FakeCanvas:
@@ -421,9 +449,11 @@ def test_render_resume_pdf_main_content_never_lands_in_sidebar_column():
                 )
 
 
-def test_render_resume_pdf_no_header_or_photo_on_later_pages():
-    # Direct feedback: "no need of header on 2nd page, no need for photo
-    # on 2nd page". Confirms _draw_background's page-1-only guard.
+def test_render_resume_pdf_no_header_band_on_later_pages_but_sidebar_persists():
+    # Direct feedback: "no need of header on 2nd page" (the dark name/
+    # title band is page-1-only) BUT "I don't see the sidebar in 2nd
+    # page. We need sidebar in 2nd page" - the sidebar (photo + contact +
+    # skills) must actually repeat on every later page too, not vanish.
     import pdfplumber
     from io import BytesIO
 
@@ -440,9 +470,9 @@ def test_render_resume_pdf_no_header_or_photo_on_later_pages():
 
     for page in pdf.pages[1:]:
         words = [w["text"] for w in page.extract_words()]
-        assert "Zzyxq" not in words  # name/header must not repeat
-        assert "PERSONAL" not in words  # sidebar header shouldn't repeat either
-        assert len(page.images) == 0  # no photo drawn
+        assert "Zzyxq" not in words  # the dark header band must not repeat
+        assert "PERSONAL" in words  # but the sidebar itself must repeat
+        assert len(page.images) > 0  # ...including the photo
 
 
 def test_sidebar_content_fits_a_single_page_at_realistic_density():
@@ -452,14 +482,17 @@ def test_sidebar_content_fits_a_single_page_at_realistic_density():
     # handful of short paragraphs) - it only appeared once the sidebar's
     # own content was large enough to overflow ITS frame's height (the
     # real resume's 4 skill categories + languages, ~40 rows, didn't fit
-    # in one page at the template's ORIGINAL spacing). When frame 0
-    # itself overflows, reportlab's handling of the queued FrameBreak
-    # gets ambiguous. Rather than re-testing that reportlab internal
-    # behavior directly, this test encodes the actual constraint that
-    # avoids it: sidebar content at a realistic size must fit in one
-    # page's sidebar frame, full stop. If a future change (more skill
-    # categories, looser spacing, a taller header) breaks that, this
-    # fails BEFORE the harder-to-diagnose symptom shows up again.
+    # in one page at the template's ORIGINAL spacing). This is now doubly
+    # important: render_resume_pdf redraws the sidebar via
+    # Frame.addFromList (see its module docstring) on every page, which -
+    # unlike a normal Platypus story frame - does NOT auto-paginate on
+    # overflow, it just silently stops adding and drops whatever didn't
+    # fit. So "fits in exactly one page's sidebar frame" isn't just a
+    # nice-to-have here, it's the only thing standing between a real
+    # resume and silently losing skill categories off the bottom with no
+    # error at all. Includes a photo (_CircularPhotoFlowable), since
+    # production always includes one whenever resume/photo.jpg exists -
+    # the realistic worst case, not the easier no-photo one.
     import pdfplumber
     from io import BytesIO
 
@@ -478,7 +511,7 @@ def test_sidebar_content_fits_a_single_page_at_realistic_density():
     ]]
 
     styles = pr._styles()
-    sidebar = pr._sidebar_flowables(resume, None, styles)
+    sidebar = pr._sidebar_flowables(resume, None, styles, photo_bytes=_tiny_jpeg_bytes())
 
     from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
     from reportlab.lib.pagesizes import LETTER
@@ -500,5 +533,6 @@ def test_sidebar_content_fits_a_single_page_at_realistic_density():
     pdf = pdfplumber.open(BytesIO(buf.getvalue()))
     assert len(pdf.pages) == 1, (
         f"sidebar content needs {len(pdf.pages)} pages at realistic density - "
-        "it must fit in exactly 1, or the main-column frame-cycling bug returns"
+        "it must fit in exactly 1, or the real render silently drops content "
+        "off the bottom (Frame.addFromList doesn't auto-paginate)"
     )

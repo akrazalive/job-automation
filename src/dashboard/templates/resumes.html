@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}My Resumes — Job Automation{% endblock %}
+{% block head %}
+<style>
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
+  table#resume-table { width: 100%; border-collapse: collapse; }
+  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.wrap { white-space: normal; max-width: 320px; }
+  .filename { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .74rem; color: var(--muted); }
+  .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
+  .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>My Resumes</h1>
+<div class="sub">Every tailored resume PDF generated so far, newest first — each named &lt;job title&gt;-&lt;timestamp&gt;.pdf.</div>
+
+<div class="table-wrap">
+  <table id="resume-table">
+    <thead>
+      <tr>
+        <th>Tailored</th><th>Job Title</th><th>Company</th><th>Filename</th><th>Skills Used</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in resumes %}
+      <tr>
+        <td>{{ a.resume_tailored_at.strftime("%Y-%m-%d %H:%M") if a.resume_tailored_at else "—" }}</td>
+        <td class="wrap">{{ a.title }}</td>
+        <td>{{ a.company }}</td>
+        <td class="filename">{{ a.resume_filename or "—" }}</td>
+        <td class="wrap">{% for sk in a.resume_tailored_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
+        <td>
+          <a class="btn secondary btn-sm" href="/api/applications/{{ a.job_id }}/resume?v={{ (a.resume_tailored_at or a.updated_at).timestamp() | int }}" target="_blank" rel="noopener">Download</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No resumes tailored yet — they're generated automatically as jobs are scraped, or on-demand via "🎯 Tailor Resume" on the Applications page.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

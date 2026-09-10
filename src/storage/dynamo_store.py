@@ -185,7 +185,11 @@ class DynamoStore(ApplicationStore):
         return Application(**item) if item else None
 
     def update_resume_tailoring(
-        self, job_id: str, resume_s3_key: Optional[str], tailored_skills: list[str]
+        self,
+        job_id: str,
+        resume_s3_key: Optional[str],
+        tailored_skills: list[str],
+        resume_filename: Optional[str] = None,
     ) -> Optional[str]:
         # Same UpdateItem permission as mark_applied covers this (see its
         # comment above) - not attribute-restricted in IAM.
@@ -195,6 +199,9 @@ class DynamoStore(ApplicationStore):
         if resume_s3_key:
             update_expr += ", resume_s3_key = :key"
             expr_values[":key"] = resume_s3_key
+        if resume_filename:
+            update_expr += ", resume_filename = :fname"
+            expr_values[":fname"] = resume_filename
         try:
             self.applications_table.update_item(
                 Key={"job_id": job_id},

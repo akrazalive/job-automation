@@ -21,6 +21,11 @@ class JobSource(str, Enum):
     LINKEDIN = "linkedin"
     INDEED = "indeed"
     SIMPLYHIRED = "simplyhired"
+    # A job added by hand via the dashboard's "Add Job by URL" flow (see
+    # POST /api/jobs in src/dashboard/app.py) rather than found by one of
+    # the real scrapers above - kept distinct so the Applications page's
+    # source filter/badge can tell the two apart honestly.
+    MANUAL = "manual"
 
 
 class ApplicationStatus(str, Enum):
@@ -57,6 +62,15 @@ class Application(BaseModel):
     status: ApplicationStatus
     reason: Optional[str] = None  # why it failed/was blocked/was skipped
     resume_s3_key: Optional[str] = None
+    # Basename of the tailored PDF as written by
+    # src/tailoring/engine.py:_resume_filename (job-title-timestamp, e.g.
+    # "senior-backend-engineer-20260910153045.pdf") - NOT the same string
+    # as resume_s3_key's full "resumes/<filename>" key. Set on both
+    # backends (local disk always writes under this name; S3's key is
+    # just "resumes/" + this same filename) so the dashboard's download
+    # route and "My Resumes" list can find/label the right file without
+    # having to reconstruct a name from job_id.
+    resume_filename: Optional[str] = None
     applied_at: Optional[datetime] = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

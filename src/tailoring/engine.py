@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, TypedDict
 
@@ -50,6 +52,34 @@ class TailoringResult(TypedDict):
     local_path: str
     s3_key: Optional[str]
     llm_tailored: bool  # True if Claude's rewrite passed the guardrail and was used
+    resume_filename: str  # basename only, e.g. "senior-backend-engineer-20260910153045.pdf"
+
+
+def _slugify(text: str) -> str:
+    """Lowercases and collapses anything that isn't a letter/digit into a
+    single hyphen (leading/trailing hyphens trimmed) - used to turn a job
+    title into a filesystem- and URL-safe filename component. Falls back
+    to "resume" for an empty/all-punctuation input so a filename is never
+    just a bare "-<timestamp>.pdf"."""
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", text.strip()).strip("-").lower()
+    return slug or "resume"
+
+
+def _resume_filename(job_title: str, resume: MasterResume) -> str:
+    """<job-title-slug>-<timestamp>.pdf — direct feedback: "the resume
+    should be saved with job title as name appended with hyphen then
+    timestamp". Falls back to the resume's own headline when job_title
+    is blank (e.g. a render with no specific job in play), so this always
+    produces a meaningful name, never just "-<timestamp>.pdf". The
+    timestamp (UTC, second-resolution) is what actually guarantees
+    uniqueness - two tailoring passes for the same job title, possibly
+    even the same job, must never collide and silently overwrite each
+    other, which is also why this SUPERSEDES the old "<job_id>.pdf"
+    convention rather than living alongside it (see
+    tailor_resume_for_job)."""
+    slug = _slugify(job_title or resume.contact.headline)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return f"{slug}-{timestamp}.pdf"
 
 
 def load_master_resume(path: Path = MASTER_RESUME_PATH) -> MasterResume:
@@ -156,10 +186,15 @@ def tailor_resume_for_job(
     required_skills: Optional[list[str]] = None,
 ) -> TailoringResult:
     """Generates and stores the tailored PDF for one job. Always writes a
-    local copy (resume/output/<job_id>.pdf, git-ignored — or /tmp on
-    Lambda, see _local_output_dir); additionally uploads to S3 when
-    STORAGE_BACKEND=aws is set, returning that key so the caller can
-    attach it to the job's Application.resume_s3_key."""
+    local copy under resume/output/ (git-ignored — or /tmp on Lambda, see
+    _local_output_dir), named via _resume_filename (job-title-timestamp,
+    NOT job_id — see that function's docstring); additionally uploads to
+    S3 under the same filename when STORAGE_BACKEND=aws is set, returning
+    that key so the caller can attach it to the job's
+    Application.resume_s3_key. Because the filename is always unique
+    (timestamped), every tailoring pass leaves its own file behind rather
+    than overwriting the previous one — the "My Resumes" dashboard page
+    (and, on S3, an implicit version history) depends on that."""
     resume = load_master_resume()
     photo_bytes = load_profile_photo()
 
@@ -183,11 +218,13 @@ def tailor_resume_for_job(
         tailored_summary=tailored_summary,
         tailored_experience_bullets=tailored_bullets,
         photo_bytes=photo_bytes,
+        resume_title=job_title or None,
     )
 
+    filename = _resume_filename(job_title, resume)
     output_dir = _local_output_dir()
     output_dir.mkdir(parents=True, exist_ok=True)
-    local_path = output_dir / f"{job_id}.pdf"
+    local_path = output_dir / filename
     local_path.write_bytes(pdf_bytes)
 
     s3_key: Optional[str] = None
@@ -196,9 +233,12 @@ def tailor_resume_for_job(
 
         bucket = os.environ["S3_BUCKET_NAME"]
         region = os.environ.get("AWS_REGION", "us-east-1")
-        s3_key = f"resumes/{job_id}.pdf"
+        s3_key = f"resumes/{filename}"
         boto3.client("s3", region_name=region).put_object(
             Bucket=bucket, Key=s3_key, Body=pdf_bytes, ContentType="application/pdf"
         )
 
-    return {"local_path": str(local_path), "s3_key": s3_key, "llm_tailored": llm_tailored}
+    return {
+        "local_path": str(local_path), "s3_key": s3_key,
+        "llm_tailored": llm_tailored, "resume_filename": filename,
+    }

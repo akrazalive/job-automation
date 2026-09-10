@@ -59,6 +59,16 @@ def test_login_then_applications_page_renders():
     assert 'id="app-table"' in resp.text
 
 
+def test_resumes_page_renders_and_is_in_the_nav():
+    # Direct feedback: "I need a menu item going to which I can see all
+    # my resumees".
+    c = _login()
+    resp = c.get("/resumes")
+    assert resp.status_code == 200
+    assert "<h1>My Resumes</h1>" in resp.text
+    assert 'href="/resumes"' in resp.text  # the sidebar nav link itself
+
+
 def test_applications_page_has_search_category_and_title_filters():
     c = _login()
     resp = c.get("/applications")
@@ -183,9 +193,14 @@ def test_tailor_resume_endpoint(monkeypatch):
     monkeypatch.setattr("src.tailoring.job_fetch.fetch_job_text", lambda url, timeout=8.0: "Looking for a React and AWS expert.")
     captured = {}
 
+    fake_filename = "react-and-aws-expert-20260101000000.pdf"
+
     def fake_tailor(job_id, job_title, job_description, required_skills):
         captured["args"] = (job_id, job_title, job_description, required_skills)
-        return {"local_path": f"resume/output/{job_id}.pdf", "s3_key": None, "llm_tailored": False}
+        return {
+            "local_path": f"resume/output/{fake_filename}", "s3_key": None,
+            "llm_tailored": False, "resume_filename": fake_filename,
+        }
 
     monkeypatch.setattr("src.tailoring.engine.tailor_resume_for_job", fake_tailor)
 
@@ -209,6 +224,15 @@ def test_tailor_resume_endpoint(monkeypatch):
     refreshed = c.get("/api/applications", params={"limit": 50}).json()["items"]
     updated = next(i for i in refreshed if i["job_id"] == target["job_id"])
     assert updated["resume_tailored_at"] is not None
+    # The filename tailor_resume_for_job returns (job-title-timestamp, see
+    # src/tailoring/engine.py) must land on the Application record, not
+    # just get thrown away — it's what the download route and the "My
+    # Resumes" page key off of.
+    assert updated["resume_filename"] == fake_filename
+
+    resumes_page = c.get("/resumes")
+    assert resumes_page.status_code == 200
+    assert fake_filename in resumes_page.text
 
 
 def test_tailor_resume_unknown_job_returns_404(monkeypatch):
@@ -218,9 +242,97 @@ def test_tailor_resume_unknown_job_returns_404(monkeypatch):
     assert resp.status_code == 404
 
 
-def test_login_page_prefills_locally():
-    # LOCAL_ACTIONS_ENABLED is True in this test environment (no
-    # AWS_LAMBDA_FUNCTION_NAME set), so the login form should be prefilled.
+def test_add_job_page_renders():
+    c = _login()
+    resp = c.get("/add-job")
+    assert resp.status_code == 200
+    assert "<h1>Add Job</h1>" in resp.text
+
+
+def test_add_job_by_url_creates_application_and_returns_resume_and_apply_links(monkeypatch):
+    from src.tailoring.job_fetch import JobPosting
+
+    fake_url = "https://boards.example.com/postings/12345"
+    fake_posting = JobPosting(
+        text="Looking for a React and AWS expert.",
+        title_guess="Senior React Developer",
+        company_guess="boards.example.com",
+    )
+    monkeypatch.setattr("src.tailoring.job_fetch.fetch_job_posting", lambda url, timeout=8.0: fake_posting)
+
+    fake_filename = "senior-react-developer-20260101000000.pdf"
+
+    def fake_tailor(job_id, job_title, job_description, required_skills):
+        return {
+            "local_path": f"resume/output/{fake_filename}", "s3_key": None,
+            "llm_tailored": False, "resume_filename": fake_filename,
+        }
+
+    monkeypatch.setattr("src.tailoring.engine.tailor_resume_for_job", fake_tailor)
+
+    c = _login()
+    resp = c.post("/api/jobs", data={"url": fake_url})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["title"] == "Senior React Developer"
+    assert body["company"] == "boards.example.com"
+    assert body["url"] == fake_url
+    assert "React" in body["skills_used"]
+    assert "AWS" in body["skills_used"]
+    assert body["resume_url"] == f"/api/applications/{body['job_id']}/resume"
+
+    # It really did land as a new Application - visible on both the
+    # Applications list and the "My Resumes" list, source=manual.
+    apps = c.get("/api/applications", params={"limit": 200}).json()["items"]
+    created = next(a for a in apps if a["job_id"] == body["job_id"])
+    assert created["source"] == "manual"
+    assert created["url"] == fake_url
+    assert created["resume_filename"] == fake_filename
+
+    resumes_page = c.get("/resumes")
+    assert fake_filename in resumes_page.text
+
+
+def test_add_job_by_url_rejects_blank_url():
+    c = _login()
+    resp = c.post("/api/jobs", data={"url": "   "})
+    assert resp.status_code == 422
+
+
+def test_add_job_by_url_returns_422_when_fetch_fails(monkeypatch):
+    monkeypatch.setattr("src.tailoring.job_fetch.fetch_job_posting", lambda url, timeout=8.0: None)
+    c = _login()
+    resp = c.post("/api/jobs", data={"url": "https://example.com/unreachable"})
+    assert resp.status_code == 422
+
+
+def test_add_job_by_url_reuses_same_job_id_for_the_same_url(monkeypatch):
+    # Pasting the same URL twice should update the same Application, not
+    # create a duplicate row - _job_id_from_url is deterministic per URL.
+    from src.tailoring.job_fetch import JobPosting
+
+    fake_url = "https://boards.example.com/postings/duplicate-check"
+    monkeypatch.setattr(
+        "src.tailoring.job_fetch.fetch_job_posting",
+        lambda url, timeout=8.0: JobPosting(text="Some job text.", title_guess="Some Role", company_guess="example.com"),
+    )
+    monkeypatch.setattr(
+        "src.tailoring.engine.tailor_resume_for_job",
+        lambda job_id, job_title, job_description, required_skills: {
+            "local_path": "x", "s3_key": None, "llm_tailored": False, "resume_filename": "some-role-1.pdf",
+        },
+    )
+
+    c = _login()
+    first = c.post("/api/jobs", data={"url": fake_url}).json()
+    second = c.post("/api/jobs", data={"url": fake_url}).json()
+    assert first["job_id"] == second["job_id"]
+
+
+def test_login_page_prefills_on_every_deploy():
+    # Direct feedback: prefill everywhere, including the live AWS deploy
+    # (previously local-only — see login_form's docstring for the
+    # tradeoff this confirmed choice accepts).
     resp = client.get("/login")
     assert 'value="admin"' in resp.text
 

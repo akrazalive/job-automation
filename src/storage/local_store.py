@@ -162,7 +162,9 @@ class LocalJsonStore(ApplicationStore):
     def get_resume_url(self, job_id: str) -> Optional[str]:
         return None  # no S3 in local dev — see src/dashboard/app.py's
         # /api/applications/{job_id}/resume, which falls back to serving
-        # resume/output/<job_id>.pdf directly from disk in this backend.
+        # resume/output/<application.resume_filename> directly from disk
+        # in this backend (or resume/output/<job_id>.pdf for an
+        # application tailored before that field existed).
 
     def save_application(self, application: Application) -> None:
         records = self._read()
@@ -203,7 +205,11 @@ class LocalJsonStore(ApplicationStore):
         return None
 
     def update_resume_tailoring(
-        self, job_id: str, resume_s3_key: Optional[str], tailored_skills: list[str]
+        self,
+        job_id: str,
+        resume_s3_key: Optional[str],
+        tailored_skills: list[str],
+        resume_filename: Optional[str] = None,
     ) -> Optional[str]:
         records = self._read()
         now = datetime.now(timezone.utc).isoformat()
@@ -215,6 +221,8 @@ class LocalJsonStore(ApplicationStore):
                 r["updated_at"] = now
                 if resume_s3_key:
                     r["resume_s3_key"] = resume_s3_key
+                if resume_filename:
+                    r["resume_filename"] = resume_filename
                 found = True
                 break
         if found:
