@@ -10,19 +10,36 @@ matching it byte-for-byte, and re-themed in a deep navy (#1B3B5F/#14293F
 - see ACCENT_HEX/ACCENT_COLOR/BAND_COLOR) instead of the original's
 maroon per direct feedback asking for a different, more conventionally
 "professional" color: a dark header band (name + the title being
-applied for, white text) on page 1 only, a light sidebar (headshot
-photo, contact details, and per-category skills with dot-meter
-proficiency, matching SkillItem.level) running down the left of EVERY
-page, and Profile/Education/Employment/Projects in the main column next
-to it. The dot-meter style itself (plain colored "●" text runs, not an
-image) was read directly out of the original .docx's XML
-(word/document.xml run properties + shape fills), not guessed. The
-original's five pictogram icons (person/envelope/phone/house/LinkedIn)
-are NOT reused here — they came from a downloaded/purchased Word
-template whose icon-reuse license is unknown, so contact-detail badges
-use a plain colored square + 1-2 letters instead (the LinkedIn "in"
-badge in the original already uses exactly this style, just extended
-here to email/phone/address too).
+applied for, white text) at the top, a light sidebar (headshot photo,
+contact details, and per-category skills with dot-meter proficiency,
+matching SkillItem.level) down the left, and Profile/Education/
+Employment in the main column next to it. The dot-meter style itself
+(plain colored "●" text runs, not an image) was read directly out of the
+original .docx's XML (word/document.xml run properties + shape fills),
+not guessed. The original's five pictogram icons (person/envelope/
+phone/house/LinkedIn) are NOT reused here — they came from a downloaded/
+purchased Word template whose icon-reuse license is unknown, so
+contact-detail badges use a plain colored square + 1-2 letters instead
+(the LinkedIn "in" badge in the original already uses exactly this
+style, just extended here to email/phone/address too).
+
+ONE PAGE, always — direct feedback: "let us keep the resume to one page
+only" (a real 2-page render with a persistent sidebar was making the
+same photo/contact/skills visibly repeat, which read as a mistake, not
+a feature). Two things make one page realistic at this content density:
+no Projects section (direct feedback: "no need of projects I guess" -
+resume.projects is simply never rendered here now; the data itself, and
+_reorder_projects_for_job, are untouched in case that ever changes back
+- see git history for the removed rendering code), and font sizes/
+spacing tuned tight enough that a real render of the operator's actual
+6 experience entries fits on 1 page - checked against that real render,
+not assumed (test_render_resume_pdf_fits_one_page_at_realistic_density
+encodes the same check as a regression test, same idea as the sidebar's
+own one-page density test below). The "first"/"later" two-PageTemplate
+machinery described next is still kept as a safety net for content that
+someday doesn't fit (a future resume with many more bullets, say) - it
+degrades to a correctly-laid-out 2nd page rather than a reportlab
+LayoutError crash, it just should never actually trigger in practice.
 
 The sidebar is deliberately NOT a normal Platypus story frame (unlike
 the main column): it's built ONCE as a list of flowables (see
@@ -31,15 +48,16 @@ first thing in the sidebar") and then drawn fresh on every single page
 from _draw_background via a throwaway Frame + Frame.addFromList — the
 standard reportlab technique for "static" content (headers/footers/
 letterhead) that repeats identically on every page regardless of how
-the main column happens to paginate. This is what makes "sidebar on
-page 2" both correct and safe: letting the sidebar be a real frame in
-the page's frame LIST (like main) would put it back in the same
-frame-cycling trap the "PROFILE renders inside the sidebar" bug below
-came from, since reportlab always restarts a new page at frame[0] of
-the active PageTemplate — main must own that slot on every page so
-overflow keeps landing in the main column, not the sidebar's. Because
-of that, the sidebar's own content must fully fit ONE page's sidebar
-height on its own (nothing here paginates it across pages) — see
+the main column happens to paginate. This is what makes an overflow 2nd
+page (see above - should be rare) both correct and safe rather than
+broken: letting the sidebar be a real frame in the page's frame LIST
+(like main) would put it back in the same frame-cycling trap the
+"PROFILE renders inside the sidebar" bug below came from, since
+reportlab always restarts a new page at frame[0] of the active
+PageTemplate — main must own that slot on every page so overflow keeps
+landing in the main column, not the sidebar's. Because of that, the
+sidebar's own content must fully fit ONE page's sidebar height on its
+own (nothing here paginates it across pages) — see
 test_sidebar_content_fits_a_single_page_at_realistic_density, sized off
 the operator's actual skills/languages counts, not guessed.
 
@@ -48,45 +66,50 @@ see src/tailoring/engine.py:load_profile_photo) is drawn circular-clipped
 via _draw_circular_photo, wrapped in _CircularPhotoFlowable so it lays
 out as an ordinary (taller, per feedback) sidebar item instead of fixed
 header decoration; sidebar content below it shifts down gracefully with
-no photo at all. Font sizes/spacing throughout are deliberately tight
-and DEFAULT_MAX_PROJECTS defaults to 6 (the operator's full listed set)
-now that the sidebar (and its persistent theming) no longer needs page
-2+ to be reclaimed as bare full-width space — checked against a real
-render of the actual resume, not assumed. Project entries never render
-their `url` field (direct feedback: no project URLs on the resume) —
-_reorder_projects_for_job still reads `.tech` for relevance scoring, url
-just never reaches a Paragraph.
+no photo at all.
 
 Company names, titles, dates, and education are ALWAYS copied through
 byte-for-byte from master_resume.json — never passed as parameters that
 could override them. See src/common/resume_schema.py's PROTECTED_*
 constants and TECHNICAL_PLAN.txt section 0 for why this boundary
-matters. The one exception by design is the header band's role line:
-render_resume_pdf's `resume_title` renders there in place of the
+matters. Two exceptions by design: the header band's role line
+(render_resume_pdf's `resume_title` renders there in place of the
 resume's own generic contact.headline when a specific job title is
-known (the whole point of a *tailored* resume - falls back to
-contact.headline when it isn't, e.g. an untargeted/master render).
+known - the whole point of a *tailored* resume - falls back to
+contact.headline when it isn't), and the Profile summary's one appended
+templated sentence (see _summary_with_matched_tools below).
 
   1. Deterministic (always available): given a job's required_skills
-     (src/common/skills.py), each skill category's items, the Projects
-     section, and each Experience entry's own bullets are REORDERED to
-     put the most relevant ones first, and matching skill/tech names -
-     including inside Experience bullet TEXT and the Profile summary
-     paragraph, via _bold_matched_terms - are rendered in BOLD. Nothing
-     added, removed, or reworded anywhere;
-     purely order + emphasis on content that was already true. The
-     bolding exists because reordering alone can be too subtle to notice
-     (a skill/bullet that was already first stays first either way) -
-     bold is the always-visible proof that tailoring ran for this job.
-     See _skill_is_relevant()'s docstring for why matching a resume skill
-     name against required_skills isn't a plain string-equality check.
+     (src/common/skills.py), each skill category's items and each
+     Experience entry's own bullets are REORDERED to put the most
+     relevant ones first, and matching skill/tech names - including
+     inside Experience bullet TEXT and the Profile summary paragraph,
+     via _bold_matched_terms - are rendered in BOLD. Nothing reworded
+     anywhere; purely order + emphasis on content that was already true,
+     with ONE deliberate exception: _summary_with_matched_tools appends
+     a single templated sentence to the Profile paragraph naming the
+     candidate's own matched skills by name (direct feedback: "make sure
+     my profile summary contains a templated text tha[t] says I have
+     worked on th[e]se tools mentioned in the job description") - safe
+     specifically because every name in that sentence is copied verbatim
+     from the resume's own skills list (never the job posting's wording,
+     never a skill the resume doesn't actually list), so it restates an
+     already-true fact more explicitly rather than claiming a new one.
+     The bolding on everything else exists because reordering alone can
+     be too subtle to notice (a skill/bullet that was already first
+     stays first either way) - bold is the always-visible proof that
+     tailoring ran for this job. See _skill_is_relevant()'s docstring for
+     why matching a resume skill name against required_skills isn't a
+     plain string-equality check.
   2. LLM-assisted (when tailored_summary/tailored_experience_bullets are
      passed in — see src/tailoring/engine.py, which gets them from
      claude_client.py and only passes them through after verifying the
      bullet COUNT per experience entry matches the original exactly): the
      summary and bullet PHRASING mirror the job description's language,
      same underlying facts. This function itself does no rewriting or
-     validation — engine.py's guardrail is what makes mode 2 safe to call.
+     validation — engine.py's guardrail is what makes mode 2 safe to
+     call. _summary_with_matched_tools still runs on top of
+     tailored_summary too, same as mode 1.
 """
 
 from __future__ import annotations
@@ -136,12 +159,12 @@ MUTED_TEXT = colors.HexColor("#4b5563")       # dates/meta lines
 # Layout geometry. The sidebar and header band run edge-to-edge (x=0),
 # matching the original .docx's full-bleed color blocks; only the main
 # column respects a right-hand margin. The main column lives in a real
-# reportlab Frame (so it can paginate on its own across 2+ pages — up to
-# 6 experience entries + 6 projects routinely needs that); the sidebar
-# does NOT (see module docstring) — it's redrawn fresh on every page
-# from a throwaway Frame built with these same SIDEBAR_WIDTH/padding
-# numbers, so the two stay visually aligned despite being unrelated to
-# reportlab's own page-to-page frame bookkeeping.
+# reportlab Frame (so it CAN paginate across 2+ pages if content ever
+# doesn't fit on 1 - see module docstring's "safety net", not the normal
+# case); the sidebar does NOT (see module docstring) — it's redrawn fresh
+# on every page from a throwaway Frame built with these same
+# SIDEBAR_WIDTH/padding numbers, so the two stay visually aligned despite
+# being unrelated to reportlab's own page-to-page frame bookkeeping.
 PAGE_MARGIN = 0.5 * inch
 HEADER_HEIGHT = 0.82 * inch
 SIDEBAR_WIDTH = 2.15 * inch
@@ -244,7 +267,7 @@ def _bold_matched_terms(text: str, required_skills: Optional[list[str]]) -> str:
     "reorder/highlight, never reword" boundary as everywhere else in this
     file. Used on Experience bullets so a job's required tools are
     visibly highlighted in bullets that already truthfully mention them,
-    not just in the Skills/Projects sections."""
+    not just in the Skills section."""
     terms = sorted({s for s in (required_skills or []) if s}, key=len, reverse=True)
     if not terms:
         return text
@@ -252,18 +275,66 @@ def _bold_matched_terms(text: str, required_skills: Optional[list[str]]) -> str:
     return re.sub(pattern, r"<b>\1</b>", text, flags=re.IGNORECASE)
 
 
-# A resume shows a curated handful of projects, not an exhaustive project
-# history — this caps how many of resume.projects actually get rendered
-# per PDF, taking the most relevant N after _reorder_projects_for_job
-# (or, with no required_skills, just the first N in original order).
-# Matters once resume.projects holds a large real portfolio (see
-# scripts/import_portfolio_projects.py) rather than a handful of entries
-# - without a cap, EVERY project would render on EVERY tailored PDF. 6 -
-# the operator's full curated set - is what direct feedback asked for
-# ("as we are moving to 2nd page you can keep 6 projects") now that the
-# sidebar persists on page 2+ instead of that page being reclaimed as
-# bare full-width space to force everything onto 2 pages.
-DEFAULT_MAX_PROJECTS = 6
+def _matched_skill_names(resume: MasterResume, required_skills: Optional[list[str]]) -> list[str]:
+    """Resume skill NAMES, exactly as written in master_resume.json (so
+    always a true statement about the candidate — never the job
+    posting's own raw required_skills strings, which may be normalized/
+    lowercased and don't necessarily match how the resume itself phrases
+    a skill), that overlap the job's required_skills. Original
+    resume/category order, de-duplicated (a skill could theoretically
+    appear under more than one category). Empty when there's no job
+    context at all (required_skills falsy) — see
+    _summary_with_matched_tools for why that matters."""
+    wanted = {s.lower() for s in (required_skills or [])}
+    if not wanted:
+        return []
+    seen: set[str] = set()
+    names: list[str] = []
+    for items in resume.skills.values():
+        for item in items:
+            if item.name not in seen and _skill_is_relevant(item.name, wanted):
+                seen.add(item.name)
+                names.append(item.name)
+    return names
+
+
+def _join_with_and(items: list[str]) -> str:
+    """"a" / "a and b" / "a, b, and c" — plain Oxford-comma English list
+    join, used only by _summary_with_matched_tools's templated sentence."""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def _summary_with_matched_tools(
+    summary_text: str, resume: MasterResume, required_skills: Optional[list[str]]
+) -> str:
+    """Appends ONE templated sentence naming the candidate's own matched
+    skills (see _matched_skill_names) to the end of the Profile summary
+    paragraph — direct feedback: "make sure my profile summary contains
+    a templated text tha[t] says I have worked on th[e]se tools mentioned
+    in the job description". This is the one deliberate exception to this
+    file's usual "reorder/highlight, never ADD" rule (see module
+    docstring): safe specifically because every name in the sentence is
+    copied verbatim from the resume's OWN skills list, never the job
+    posting's wording and never a skill the resume doesn't actually
+    list — it restates an already-true fact more explicitly, it doesn't
+    claim a new one. Returns summary_text UNCHANGED when there's no job
+    context or no overlap at all (required_skills empty, or none of the
+    job's required_skills match anything this resume actually lists) —
+    a vague/empty claim would be worse than no added sentence."""
+    names = _matched_skill_names(resume, required_skills)
+    if not names:
+        return summary_text
+    # Plain ASCII punctuation only (a comma, not an em dash) - besides
+    # sidestepping a pdfplumber/reportlab text-extraction quirk with "—"
+    # seen in testing, a resume's text is also routinely run through an
+    # ATS parser, where plain punctuation is the safer choice anyway.
+    sentence = f"Hands-on experience with {_join_with_and(names)}, directly matching what this role calls for."
+    separator = " " if summary_text.rstrip().endswith((".", "!", "?")) else ". "
+    return summary_text.rstrip() + separator + sentence
 
 
 def _dot_meter(level: int) -> str:
@@ -331,11 +402,11 @@ class _CircularPhotoFlowable(Flowable):
 
 
 def _styles() -> dict[str, ParagraphStyle]:
-    # Sizes/spacing here are deliberately tight - 6 experience entries +
-    # 6 projects, plus a persistent sidebar (photo + contact + skills) on
-    # every page, doesn't have room for the looser spacing an earlier
-    # version of this template used. Every value below was checked
-    # against a real render of the actual resume, not guessed.
+    # Sizes/spacing here are deliberately tight - a hard ONE-page target
+    # (direct feedback) with 6 real experience entries + a full sidebar
+    # (photo + contact + skills) doesn't have room for looser spacing.
+    # Every value below was checked against a real render of the actual
+    # resume, not guessed.
     base = getSampleStyleSheet()
     return {
         "sidebar_section": ParagraphStyle(
@@ -454,20 +525,22 @@ def _main_flowables(
     required_skills: Optional[list[str]],
     tailored_summary: Optional[str],
     tailored_experience_bullets: Optional[list[list[str]]],
-    max_projects: int,
     styles: dict,
 ) -> list:
     wanted = {s.lower() for s in (required_skills or [])}
     flow: list = []
 
     flow.append(Paragraph("PROFILE", styles["section"]))
-    # Bolding matched required_skills terms here (same helper the bullets
-    # below use) is deterministic mode's answer to "the Profile summary
-    # should update per job too" - always on, no ANTHROPIC_API_KEY needed.
-    # Mode 2's tailored_summary (actual rewritten PHRASING, when Claude's
-    # guardrail-checked rewrite is available - see engine.py) still runs
-    # through the SAME bolding pass, not instead of it.
-    summary_text = _bold_matched_terms(tailored_summary or resume.summary, required_skills)
+    # _summary_with_matched_tools appends the templated "Hands-on
+    # experience with X, Y, and Z" sentence FIRST, then _bold_matched_terms
+    # (same helper the bullets below use) runs over the whole paragraph
+    # including that new sentence - so the names it just added get bolded
+    # too. Mode 2's tailored_summary (actual rewritten PHRASING, when
+    # Claude's guardrail-checked rewrite is available - see engine.py)
+    # goes through both passes exactly the same as mode 1's resume.summary.
+    summary_text = tailored_summary or resume.summary
+    summary_text = _summary_with_matched_tools(summary_text, resume, required_skills)
+    summary_text = _bold_matched_terms(summary_text, required_skills)
     flow.append(Paragraph(summary_text, styles["body"]))
 
     flow.append(Paragraph("EDUCATION", styles["section"]))
@@ -493,20 +566,9 @@ def _main_flowables(
             )
         )
 
-    if resume.projects:
-        flow.append(Paragraph("PROJECTS", styles["section"]))
-        selected = _reorder_projects_for_job(resume, required_skills)[:max_projects]
-        for proj in selected:
-            flow.append(Paragraph(proj.name, styles["entry_title"]))
-            # proj.url is intentionally never rendered here — direct
-            # feedback: no project URLs on the resume. Still read by
-            # _reorder_projects_for_job? No — only .tech drives relevance;
-            # .url exists purely as portfolio metadata (see
-            # src/common/resume_schema.py) that this PDF never surfaces.
-            flow.append(Paragraph(proj.description, styles["body"]))
-            rendered_tech = [f"<b>{t}</b>" if _skill_is_relevant(t, wanted) else t for t in proj.tech]
-            flow.append(Paragraph(f"<i>Tech: {', '.join(rendered_tech)}</i>", styles["entry_meta"]))
-
+    # No Projects section - direct feedback: "no need of projects I
+    # guess" (see module docstring). resume.projects is simply never
+    # touched here now.
     return flow
 
 
@@ -515,7 +577,6 @@ def render_resume_pdf(
     required_skills: Optional[list[str]] = None,
     tailored_summary: Optional[str] = None,
     tailored_experience_bullets: Optional[list[list[str]]] = None,
-    max_projects: int = DEFAULT_MAX_PROJECTS,
     photo_bytes: Optional[bytes] = None,
     resume_title: Optional[str] = None,
 ) -> bytes:
@@ -628,7 +689,7 @@ def render_resume_pdf(
     ])
 
     main = _main_flowables(
-        resume, required_skills, tailored_summary, tailored_experience_bullets, max_projects, styles,
+        resume, required_skills, tailored_summary, tailored_experience_bullets, styles,
     )
     story = [NextPageTemplate("later")] + main
 

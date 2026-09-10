@@ -9,14 +9,16 @@ from src.common.resume_schema import (
     SkillItem,
 )
 from src.tailoring.pdf_renderer import (
-    DEFAULT_MAX_PROJECTS,
     _bold_matched_terms,
     _dot_meter,
     _draw_circular_photo,
+    _join_with_and,
+    _matched_skill_names,
     _reorder_bullets,
     _reorder_projects_for_job,
     _reorder_skills_for_job,
     _skill_is_relevant,
+    _summary_with_matched_tools,
     render_resume_pdf,
 )
 
@@ -174,22 +176,26 @@ def test_reorder_projects_matches_compound_tech_label():
     assert reordered[0].name == "A - Django tool"
 
 
-def test_render_resume_pdf_caps_projects_rendered():
-    # A resume can hold a large real portfolio (see
-    # scripts/import_portfolio_projects.py); rendering all of them on
-    # every PDF would be unusable, so only the top max_projects render.
+def test_render_resume_pdf_never_renders_a_projects_section():
+    # Direct feedback: "no need of projects I guess" - resume.projects is
+    # never rendered here regardless of how many entries it holds (a
+    # large real portfolio - see scripts/import_portfolio_projects.py -
+    # would previously need a cap; now it's simply not read at all by the
+    # main flow). _reorder_projects_for_job itself is untouched/still
+    # tested below, just unused by render_resume_pdf now.
     resume = _sample_resume(projects=[
         ProjectEntry(name=f"Project {i}", description="d", tech=["React"]) for i in range(20)
     ])
-    assert len(resume.projects) > DEFAULT_MAX_PROJECTS
     pdf_bytes = render_resume_pdf(resume, required_skills=["React"])
     assert pdf_bytes.startswith(b"%PDF")
-    # Every project's name is distinct ("Project 0".."Project 19"), so a
-    # cheap proxy for "how many got rendered" is impractical without a PDF
-    # text extractor here — instead verify the cap via the same selection
-    # function render_resume_pdf uses internally.
-    selected = _reorder_projects_for_job(resume, required_skills=["React"])[:5]
-    assert len(selected) == 5
+
+    import pdfplumber
+    from io import BytesIO
+
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    all_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+    assert "PROJECTS" not in all_text
+    assert "Project 0" not in all_text
 
 
 def test_project_entry_url_is_optional_and_defaults_to_none():
@@ -262,6 +268,52 @@ def test_reorder_bullets_never_drops_a_bullet():
     assert set(reordered) == set(bullets)
 
 
+def test_matched_skill_names_returns_only_genuinely_listed_skills():
+    resume = _sample_resume()  # skills: React, Vue.js, Node.js, PHP
+    names = _matched_skill_names(resume, required_skills=["React", "AWS", "Kubernetes"])
+    assert names == ["React"]  # AWS/Kubernetes aren't in the resume - never invented
+
+
+def test_matched_skill_names_deduplicates_and_keeps_resume_order():
+    resume = _sample_resume()
+    names = _matched_skill_names(resume, required_skills=["node.js", "php"])
+    assert names == ["Node.js", "PHP"]  # original casing/order from resume.skills
+
+
+def test_matched_skill_names_empty_without_required_skills():
+    resume = _sample_resume()
+    assert _matched_skill_names(resume, required_skills=None) == []
+    assert _matched_skill_names(resume, required_skills=[]) == []
+
+
+def test_join_with_and_handles_one_two_and_many_items():
+    assert _join_with_and(["React"]) == "React"
+    assert _join_with_and(["React", "Node.js"]) == "React and Node.js"
+    assert _join_with_and(["React", "Node.js", "PHP"]) == "React, Node.js, and PHP"
+
+
+def test_summary_with_matched_tools_appends_templated_sentence():
+    # Direct feedback: "make sure my profile summary contains a templated
+    # text tha[t] says I have worked on th[e]se tools mentioned in the
+    # job description".
+    resume = _sample_resume()  # skills include React and Node.js
+    result = _summary_with_matched_tools("Experienced engineer.", resume, ["React", "Node.js"])
+    assert result.startswith("Experienced engineer.")
+    assert "React" in result and "Node.js" in result
+    assert result != "Experienced engineer."
+
+
+def test_summary_with_matched_tools_unchanged_when_nothing_matches():
+    resume = _sample_resume()
+    result = _summary_with_matched_tools("Experienced engineer.", resume, ["Rust", "Go"])
+    assert result == "Experienced engineer."  # no fabricated claim
+
+
+def test_summary_with_matched_tools_unchanged_without_required_skills():
+    resume = _sample_resume()
+    assert _summary_with_matched_tools("Experienced engineer.", resume, None) == "Experienced engineer."
+
+
 def test_render_resume_pdf_bolds_matched_terms_in_profile_summary():
     # Direct feedback: "I want the profile summary in the resume to be
     # updated accordingly" - deterministic mode's answer is bolding
@@ -287,6 +339,17 @@ def test_render_resume_pdf_bolds_matched_terms_in_profile_summary():
     matches = [w for w in words if w["text"] == "Kubernetes"]
     assert matches, "summary text didn't render at all"
     assert all("Bold" in w["fontname"] for w in matches)
+
+
+def test_render_resume_pdf_profile_includes_templated_matched_tools_sentence():
+    resume = _sample_resume()  # skills include React
+    pdf_bytes = render_resume_pdf(resume, required_skills=["React"])
+
+    import pdfplumber
+    from io import BytesIO
+
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    assert "directly matching what this role calls for" in (pdf.pages[0].extract_text() or "")
 
 
 def test_render_resume_pdf_tailors_experience_bullets_by_required_skills():
@@ -338,21 +401,63 @@ def test_render_resume_pdf_handles_content_spanning_multiple_pages():
     # every page after the first to a main-column-only template. This
     # test just needs a resume large enough to force a page break and
     # confirm doc.build() doesn't raise (LayoutError, in particular) and
-    # still produces a well-formed PDF.
-    resume = _sample_resume(projects=_sample_projects() * 3)
-    resume.experience = resume.experience * 6
+    # still produces a well-formed PDF. There's no Projects section to
+    # inflate any more (see module docstring: one page is now the design
+    # target and Projects were dropped) - overflow is forced with bullet
+    # padding alone instead, deliberately excessive, since the whole
+    # point of this test is exercising the "content doesn't fit" safety
+    # net, not realistic density (that's
+    # test_render_resume_pdf_fits_one_page_at_realistic_density's job).
+    resume = _sample_resume()
+    resume.experience = resume.experience * 10
     for entry in resume.experience:
-        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
-    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"], max_projects=20)
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 20
+    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"])
     assert pdf_bytes.startswith(b"%PDF")
 
 
-def test_render_resume_pdf_default_caps_at_six_projects():
-    # Direct feedback: "as we are moving to 2nd page you can keep 6
-    # projects" - the operator's full curated set, now that the sidebar
-    # persists on page 2+ instead of that page being reclaimed as bare
-    # full-width space to force everything onto exactly 2 pages.
-    assert DEFAULT_MAX_PROJECTS == 6
+def test_render_resume_pdf_fits_one_page_at_realistic_density():
+    # Direct feedback: "let us keep the resume to one page only". Encodes
+    # the actual real-world shape that must fit: 6 experience entries (2
+    # bullets each, like the operator's real resume), realistic skill
+    # counts (same numbers test_sidebar_content_fits_a_single_page_at_
+    # realistic_density uses, pulled from the real master_resume.json),
+    # a photo, and no Projects section. If a future content/spacing
+    # change ever pushes this back to 2 pages, this test catches it
+    # immediately rather than only being noticed on the next real render.
+    import pdfplumber
+    from io import BytesIO
+
+    from src.common.resume_schema import SkillItem
+
+    resume = _sample_resume()
+    resume.skills = {
+        "backend": [SkillItem(name=f"Backend Skill {i}", level=5) for i in range(5)],
+        "databases": [SkillItem(name=f"Database {i}", level=5) for i in range(5)],
+        "frontend": [SkillItem(name=f"Frontend Skill {i}", level=5) for i in range(9)],
+        "build_tools": [SkillItem(name=f"Build Tool {i}", level=5) for i in range(12)],
+    }
+    resume.spoken_languages = [SkillItem(name=n, level=lvl) for n, lvl in [
+        ("English", 5), ("Urdu", 5), ("Pashto", 5), ("Hindi", 4), ("Arabic", 3),
+    ]]
+    resume.experience = [
+        ExperienceEntry(
+            company=f"Company {i}", title="Fullstack Developer", location="Remote",
+            date_text="2020 - 2022", start_date="2020", end_date="2022",
+            bullets=[f"Did a realistic-length achievement bullet number one at company {i}.",
+                     f"Did a realistic-length achievement bullet number two at company {i}."],
+        )
+        for i in range(6)
+    ]
+
+    pdf_bytes = render_resume_pdf(
+        resume, required_skills=["React", "Node.js"], photo_bytes=_tiny_jpeg_bytes(),
+        resume_title="Senior Full Stack Developer",
+    )
+    pdf = pdfplumber.open(BytesIO(pdf_bytes))
+    assert len(pdf.pages) == 1, (
+        f"needs {len(pdf.pages)} pages at realistic density - the one-page design target is broken"
+    )
 
 
 class _FakeCanvas:
@@ -425,11 +530,11 @@ def test_render_resume_pdf_main_content_never_lands_in_sidebar_column():
     # confirmed fixed.
     import pdfplumber
 
-    resume = _sample_resume(projects=_sample_projects() * 3)
-    resume.experience = resume.experience * 6
+    resume = _sample_resume()
+    resume.experience = resume.experience * 10
     for entry in resume.experience:
-        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
-    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"], max_projects=20)
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 20
+    pdf_bytes = render_resume_pdf(resume, required_skills=["PHP", "React"])
 
     from io import BytesIO
 
@@ -457,12 +562,12 @@ def test_render_resume_pdf_no_header_band_on_later_pages_but_sidebar_persists():
     import pdfplumber
     from io import BytesIO
 
-    resume = _sample_resume(projects=_sample_projects() * 3)
+    resume = _sample_resume()
     resume.contact.name = "Zzyxq Wobblesworth"  # distinctive - can't collide with other fixture text ("Test Co" etc.)
-    resume.experience = resume.experience * 6
+    resume.experience = resume.experience * 10
     for entry in resume.experience:
-        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 4
-    pdf_bytes = render_resume_pdf(resume, photo_bytes=_tiny_jpeg_bytes(), max_projects=20)
+        entry.bullets = entry.bullets + ["Extra bullet padding to force overflow onto another page."] * 20
+    pdf_bytes = render_resume_pdf(resume, photo_bytes=_tiny_jpeg_bytes())
 
     pdf = pdfplumber.open(BytesIO(pdf_bytes))
     assert len(pdf.pages) >= 2, "test needs content that actually overflows to page 2+"
