@@ -39,7 +39,12 @@
 
 <div class="card section">
   <h2>Manual scrape</h2>
-  <div class="hint">Runs every search below once, right now, with the anti-ban delays already built into the scraper.</div>
+  <div class="hint">
+    Runs every search below once, on every source listed below, right now — with the anti-ban
+    delays already built into each scraper. No resume is tailored at this step (see the
+    Applications page's "🎯 Tailor Resume" button for that, once a job is worth applying to).
+  </div>
+  <div class="hint" style="margin-top:-6px;">Sources: {{ sources | join(', ') if sources else "simplyhired (default)" }}</div>
   <button class="btn" id="scrape-btn" {{ 'disabled' if not local_actions_enabled }}>Scrape now</button>
   <span id="scrape-state" class="muted" style="margin-left:10px;"></span>
   <div id="scrape-log"></div>
@@ -47,7 +52,7 @@
 
 <div class="card section">
   <h2>Search keywords</h2>
-  <div class="hint">Each row is one independent search, run every scrape cycle.</div>
+  <div class="hint">Each row is one independent search, run every scrape cycle against every source above.</div>
   <table class="plain">
     <tr><th>Query</th><th>Location</th><th>Category</th></tr>
     {% for s in searches %}

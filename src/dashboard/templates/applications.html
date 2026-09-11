@@ -141,7 +141,9 @@
         <td class="wrap">{{ a.reason or "" }}</td>
         <td class="action-cell">
           <a class="btn secondary btn-sm" href="{{ a.url }}" target="_blank" rel="noopener">Open ↗</a>
+          {% if a.resume_filename %}
           <a class="btn secondary btn-sm resume-link" href="/api/applications/{{ a.job_id }}/resume?v={{ (a.resume_tailored_at or a.updated_at).timestamp() | int }}" target="_blank" rel="noopener">Resume PDF</a>
+          {% endif %}
           <button class="btn secondary btn-sm" data-skills="{{ a.required_skills | join(',') }}" onclick="showIdeas(this)">💡 Ideas</button>
           <button class="btn secondary btn-sm tailor-btn" onclick="tailorResume('{{ a.job_id }}', this)">🎯 Tailor Resume</button>
           <span class="tailored-note">{% if a.resume_tailored_at %}✓ Tailored {{ a.resume_tailored_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</span>
@@ -302,12 +304,28 @@ async function tailorResume(jobId, btn) {
         if (note && data.tailored_at) {
           note.textContent = `✓ Tailored ${data.tailored_at.replace('T', ' ').slice(0, 16)}`;
         }
-        const resumeLink = row.querySelector('.resume-link');
-        if (resumeLink && data.tailored_at) {
-          // Cache-busting query param tied to the new version, so this
-          // link is guaranteed to fetch the just-regenerated PDF instead
-          // of a copy the browser may have cached from before tailoring.
-          resumeLink.href = `/api/applications/${jobId}/resume?v=${encodeURIComponent(data.tailored_at)}`;
+        let resumeLink = row.querySelector('.resume-link');
+        if (data.tailored_at) {
+          const href = `/api/applications/${jobId}/resume?v=${encodeURIComponent(data.tailored_at)}`;
+          if (resumeLink) {
+            // Cache-busting query param tied to the new version, so this
+            // link is guaranteed to fetch the just-regenerated PDF instead
+            // of a copy the browser may have cached from before tailoring.
+            resumeLink.href = href;
+          } else {
+            // First-ever tailor for this job (the common case now that
+            // scrape time never generates one - see
+            // src/pipeline/ingest.py) - no link existed to patch, so
+            // insert one instead of leaving the click with no visible
+            // result.
+            resumeLink = document.createElement('a');
+            resumeLink.className = 'btn secondary btn-sm resume-link';
+            resumeLink.target = '_blank';
+            resumeLink.rel = 'noopener';
+            resumeLink.textContent = 'Resume PDF';
+            resumeLink.href = href;
+            btn.insertAdjacentElement('beforebegin', resumeLink);
+          }
         }
       }
       btn.disabled = false;
@@ -368,9 +386,16 @@ function actionCell(a) {
   // patch below) - ties the URL identity to whichever version was last
   // tailored, so a browser can never show a PDF cached from a previous one.
   const version = encodeURIComponent(a.resume_tailored_at || a.updated_at || '');
+  // No resume exists yet for most jobs now (tailoring happens on demand,
+  // not at scrape time — see src/pipeline/ingest.py) - only show the link
+  // once one has actually been generated, same condition as the
+  // server-rendered rows above.
+  const resumeLink = a.resume_filename
+    ? `<a class="btn secondary btn-sm resume-link" href="/api/applications/${a.job_id}/resume?v=${version}" target="_blank" rel="noopener">Resume PDF</a>`
+    : '';
   return `
     <a class="btn secondary btn-sm" href="${a.url}" target="_blank" rel="noopener">Open ↗</a>
-    <a class="btn secondary btn-sm resume-link" href="/api/applications/${a.job_id}/resume?v=${version}" target="_blank" rel="noopener">Resume PDF</a>
+    ${resumeLink}
     <button class="btn secondary btn-sm" data-skills="${escapeHtml(skills)}" onclick="showIdeas(this)">💡 Ideas</button>
     <button class="btn secondary btn-sm tailor-btn" onclick="tailorResume('${a.job_id}', this)">🎯 Tailor Resume</button>
     <span class="tailored-note">${escapeHtml(tailoredNote)}</span>

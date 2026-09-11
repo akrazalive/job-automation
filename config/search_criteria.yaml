@@ -1,120 +1,173 @@
-# What the scrapers search for. Each entry under `searches` is one
-# independent search, run every cycle. `category` groups results for the
-# dashboard's category breakdown/report and for skill-tag matching
-# context — it's free text, not validated against a fixed list.
+# What the scrapers search for, and which scrapers run.
 #
-# This list covers the keyword set requested 2026-09-08: CMS/e-commerce,
-# PHP stack, JS frontend frameworks, backend/full-stack roles, general
-# developer/engineer titles at all seniority levels, AI/ML, and
-# UI/UX/Shopify. Add more entries any time — either by editing this file
-# directly, or via the dashboard's Settings page (local runs only).
+# REPLACED 2026-09-11 per direct request: narrowed from the previous
+# 29-entry, every-tech-stack-separately list down to exactly the role
+# titles asked for (Software/Web/Back End/Front End/Full Stack Engineer/
+# Full Stack/Laravel/React/WordPress/WooCommerce Developer), each run at
+# every seniority level (none/Senior/Junior/Intermediate) — 10 titles x 4
+# levels = 40 searches. Reasoning given for the narrowing: the specific
+# tech-stack skills (Node.js, Vue, Django, Shopify, etc.) don't need their
+# own separate search entries — src/common/skills.py already tags whatever
+# skills actually show up in a matched job's description, and the resume's
+# real skill set (resume/master_resume.json) is what src/tailoring/ reorders
+# against at tailor time, not what the search query happened to say. If the
+# old broader keyword list is wanted back later, TECHNICAL_PLAN.txt's
+# STATUS section 1 (second pass, 2026-09-08) has the original 29 entries to
+# restore from.
 #
-# Location/query syntax here is SimplyHired's; Indeed/LinkedIn (Phase
-# 4/5, not built yet) may need per-source overrides if their query params
-# differ — revisit this file's shape then rather than assuming it
-# transfers as-is.
+# `category` groups results for the dashboard's category breakdown/report
+# and for skill-tag matching context — it's free text, not validated
+# against a fixed list. Add/edit entries any time — either by editing this
+# file directly, or via the dashboard's Scraping page (local runs only,
+# see /scraping -> "Search keywords" -> "Add search").
+#
+# `sources` (new 2026-09-11): every entry below runs against EVERY listed
+# source, every scrape cycle — src/pipeline/ingest.py loops searches x
+# sources. See src/scrapers/{simplyhired,indeed,linkedin}.py for what each
+# one actually does; all three are SEARCH/READ ONLY (no login, no apply) —
+# see TECHNICAL_PLAN.txt Phase 4-6 for why the actual apply bots are a
+# separate, much bigger, still-not-started piece of work. indeed and
+# linkedin are both known to occasionally show a bot-detection challenge
+# page instead of real results (Indeed noticeably more often than LinkedIn
+# — see src/scrapers/base.py:looks_blocked() and each scraper's module
+# docstring) — that's logged and skipped per-request, not a crash, and not
+# something this file's settings can tune away.
+sources:
+  - simplyhired
+  - indeed
+  - linkedin
 
 searches:
-  # --- CMS / e-commerce ---
-  - query: "WordPress Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "WooCommerce Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Shopify Developer"
-    location: "Remote"
-    category: "cms"
-
-  # --- PHP stack ---
-  - query: "Laravel Developer"
-    location: "Remote"
-    category: "php"
-  - query: "PHP Developer"
-    location: "Remote"
-    category: "php"
-  - query: "CodeIgniter Developer"
-    location: "Remote"
-    category: "php"
-
-  # --- Frontend frameworks ---
-  - query: "React Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Next.js Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Vue.js Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Angular Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Front End Developer"
-    location: "Remote"
-    category: "frontend"
-
-  # --- Backend ---
-  - query: "Node.js Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Backend Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Python Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Django Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Flask Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "MongoDB Developer"
-    location: "Remote"
-    category: "backend"
-
-  # --- Full stack / general developer & engineer titles ---
-  - query: "Full Stack Developer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Full Stack Engineer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Full Stack Programmer"
-    location: "Remote"
-    category: "fullstack"
+  # --- Software Developer ---
   - query: "Software Developer"
     location: "Remote"
     category: "general"
-  - query: "Software Engineer"
+  - query: "Senior Software Developer"
     location: "Remote"
     category: "general"
+  - query: "Junior Software Developer"
+    location: "Remote"
+    category: "general"
+  - query: "Intermediate Software Developer"
+    location: "Remote"
+    category: "general"
+  # --- Web Developer ---
   - query: "Web Developer"
     location: "Remote"
     category: "general"
-  - query: "Webmaster"
+  - query: "Senior Web Developer"
     location: "Remote"
     category: "general"
+  - query: "Junior Web Developer"
+    location: "Remote"
+    category: "general"
+  - query: "Intermediate Web Developer"
+    location: "Remote"
+    category: "general"
+  # --- Back End Developer ---
+  - query: "Back End Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Senior Back End Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Junior Back End Developer"
+    location: "Remote"
+    category: "backend"
+  - query: "Intermediate Back End Developer"
+    location: "Remote"
+    category: "backend"
+  # --- Front End Developer ---
+  - query: "Front End Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Senior Front End Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Junior Front End Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Intermediate Front End Developer"
+    location: "Remote"
+    category: "frontend"
+  # --- Full Stack Engineer ---
+  - query: "Full Stack Engineer"
+    location: "Remote"
+    category: "fullstack"
+  - query: "Senior Full Stack Engineer"
+    location: "Remote"
+    category: "fullstack"
+  - query: "Junior Full Stack Engineer"
+    location: "Remote"
+    category: "fullstack"
+  - query: "Intermediate Full Stack Engineer"
+    location: "Remote"
+    category: "fullstack"
+  # --- Full Stack Developer ---
+  - query: "Full Stack Developer"
+    location: "Remote"
+    category: "fullstack"
   - query: "Senior Full Stack Developer"
     location: "Remote"
     category: "fullstack"
   - query: "Junior Full Stack Developer"
     location: "Remote"
     category: "fullstack"
-
-  # --- AI / ML ---
-  - query: "AI Developer"
+  - query: "Intermediate Full Stack Developer"
     location: "Remote"
-    category: "ai_ml"
-  - query: "ML Developer"
+    category: "fullstack"
+  # --- Laravel Developer ---
+  - query: "Laravel Developer"
     location: "Remote"
-    category: "ai_ml"
-
-  # --- Design ---
-  - query: "UI/UX Developer"
+    category: "php"
+  - query: "Senior Laravel Developer"
     location: "Remote"
-    category: "design"
+    category: "php"
+  - query: "Junior Laravel Developer"
+    location: "Remote"
+    category: "php"
+  - query: "Intermediate Laravel Developer"
+    location: "Remote"
+    category: "php"
+  # --- React Developer ---
+  - query: "React Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Senior React Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Junior React Developer"
+    location: "Remote"
+    category: "frontend"
+  - query: "Intermediate React Developer"
+    location: "Remote"
+    category: "frontend"
+  # --- WordPress Developer ---
+  - query: "WordPress Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Senior WordPress Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Junior WordPress Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Intermediate WordPress Developer"
+    location: "Remote"
+    category: "cms"
+  # --- WooCommerce Developer ---
+  - query: "WooCommerce Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Senior WooCommerce Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Junior WooCommerce Developer"
+    location: "Remote"
+    category: "cms"
+  - query: "Intermediate WooCommerce Developer"
+    location: "Remote"
+    category: "cms"
 
 # Safety limits (see TECHNICAL_PLAN.txt section 6). This caps SEARCH
 # volume; APPLY volume gets its own, separate daily/weekly caps in
@@ -128,10 +181,12 @@ max_results_per_search: 8
 # the obvious cases, it isn't a guarantee.
 remote_only: true
 
-# Only keep jobs posted within this many days. SimplyHired's search
-# results show a relative date stamp ("7d", "20h") which the scraper
-# parses into an absolute date — see src/scrapers/simplyhired.py
-# parse_date_stamp(). A job whose date stamp couldn't be parsed is kept
-# rather than dropped (better to show it with an unknown date than
-# silently lose it).
+# Only keep jobs posted within this many days. SimplyHired's and
+# LinkedIn's search results expose a date stamp the scrapers parse into an
+# absolute UTC datetime (relative "7d"/"20h" for SimplyHired, absolute ISO
+# for LinkedIn — see each scraper's parse_date_stamp()/parse_date_iso()).
+# Indeed's search DOM doesn't expose a reliably-selectable date at all, so
+# its jobs always have an unknown date. A job whose date couldn't be
+# determined is kept rather than dropped (better to show it with an
+# unknown date than silently lose it).
 max_age_days: 7

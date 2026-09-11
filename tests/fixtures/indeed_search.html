@@ -1,0 +1,53 @@
+<!--
+Schematic reconstruction of an Indeed search-results page, using the real
+class names/attributes verified against the live site 2026-09-11 (see
+src/scrapers/indeed.py docstring). Not a captured copy of the actual
+page — trimmed to the structural contract the parser depends on, with
+the noisy generated CSS/tracking removed.
+-->
+<html>
+<body>
+<div class="job_seen_beacon">
+  <table>
+    <tbody>
+      <tr>
+        <td class="resultContent">
+          <h3 class="jobTitle css-1o1rnx9"><a id="job_abc123" data-jk="abc123" class="jcs-JobTitle" href="/rc/clk?jk=abc123&amp;bb=xyz">
+            <span title="Full Stack Developer">Full Stack Developer</span>
+          </a></h3>
+          <span data-testid="company-name">Acme Corp</span>
+          <div data-testid="text-location"><span>Remote</span></div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="job_seen_beacon">
+  <table>
+    <tbody>
+      <tr>
+        <td class="resultContent">
+          <h3 class="jobTitle css-1o1rnx9"><a id="job_def456" data-jk="def456" class="jcs-JobTitle" href="/rc/clk?jk=def456&amp;bb=xyz">
+            <span title="Senior Backend Developer">Senior Backend Developer</span>
+          </a></h3>
+          <span data-testid="company-name">Globex Inc</span>
+          <div data-testid="text-location"><span>Chicago, IL</span></div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="job_seen_beacon">
+  <!-- edge case: no data-jk (sponsored/placeholder card) should be skipped, not crash -->
+  <table>
+    <tbody>
+      <tr>
+        <td class="resultContent">
+          <h3 class="jobTitle"><a class="jcs-JobTitle">Sponsored Placeholder</a></h3>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>

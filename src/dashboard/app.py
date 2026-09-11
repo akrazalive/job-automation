@@ -465,6 +465,13 @@ def _load_searches() -> list[dict]:
     return []
 
 
+def _load_sources() -> list[str]:
+    if SEARCH_CRITERIA_PATH.exists():
+        loaded = yaml.safe_load(SEARCH_CRITERIA_PATH.read_text(encoding="utf-8"))
+        return (loaded or {}).get("sources", [])
+    return []
+
+
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request):
     apply_settings = _load_apply_settings() if LOCAL_ACTIONS_ENABLED else DEFAULT_APPLY_SETTINGS
@@ -482,6 +489,7 @@ def settings_page(request: Request):
 @app.get("/scraping", response_class=HTMLResponse)
 def scraping_page(request: Request):
     searches = _load_searches() if LOCAL_ACTIONS_ENABLED else []
+    sources = _load_sources() if LOCAL_ACTIONS_ENABLED else []
     return templates.TemplateResponse(
         request,
         "scraping.html",
@@ -489,6 +497,7 @@ def scraping_page(request: Request):
             "active": "scraping",
             "local_actions_enabled": LOCAL_ACTIONS_ENABLED,
             "searches": searches,
+            "sources": sources,
         },
     )
 

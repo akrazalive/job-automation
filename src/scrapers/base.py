@@ -20,6 +20,52 @@ DEFAULT_USER_AGENT = (
     "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 )
 
+# Text markers seen on real bot-challenge/interstitial pages, used by
+# looks_blocked() below. Verified live 2026-09-11: a plain headless
+# Playwright request to Indeed's search page got a real 200 with real job
+# cards on the FIRST request, then a 403 "Security Check" interstitial on
+# the very next request seconds later — Indeed's bot detection is far more
+# aggressive than SimplyHired's (which has none) or LinkedIn's guest search
+# (which tolerates plain GETs). Every multi-source scraper must treat a
+# block as an expected, non-fatal outcome for that one request — log it and
+# move on — never crash the whole ingest run over it.
+#
+# Deliberately NOT included: a bare "captcha". Verified live the same
+# session — a real, fully-legitimate LinkedIn results page (200, real job
+# cards, title "30,000+ React Developer jobs in Remote") contains that
+# substring on its own, buried in an A/B-test config attribute
+# (`data-recaptcha-v3-integration-lix-value="control"`) that has nothing
+# to do with an actual challenge being shown. That one false positive
+# would have silently thrown away every real LinkedIn search. Every
+# marker actually kept below was checked against that same real page and
+# confirmed to NOT appear on it, specifically to avoid a repeat of this.
+BLOCK_MARKERS = [
+    "security check",
+    "additional verification required",
+    "unusual traffic",
+    "access denied",
+    "are you a human",
+    "verify you are a human",
+    "just a moment",  # Cloudflare's interstitial title
+    "px-captcha",  # PerimeterX's actual challenge widget id, not the bare word
+    "bot-detection",  # Indeed's own login-redirect flavor of block, verified live
+    # 2026-09-11: a job-detail fetch (not the search page itself) came
+    # back as a 735-byte "Authenticating..." stub that JS-redirects to
+    # /account/login?...&from=bot-detection-anonymous — no visible
+    # "captcha"/"security check" wording at all, so it needed its own
+    # marker. Confirmed absent from real LinkedIn/Indeed results pages.
+]
+
+
+def looks_blocked(html: str) -> bool:
+    """Best-effort check for a bot-challenge/interstitial page instead of
+    real search results — see BLOCK_MARKERS. Not authoritative (a real
+    page could coincidentally contain one of these phrases, and a novel
+    challenge page might use none of them), but good enough to decide
+    "skip this request and log it" vs. "parse it as normal results"."""
+    haystack = html.lower()
+    return any(marker in haystack for marker in BLOCK_MARKERS)
+
 
 def human_delay(min_seconds: float = 1.5, max_seconds: float = 4.0) -> None:
     """Randomized pause between actions. Per TECHNICAL_PLAN.txt section 6,

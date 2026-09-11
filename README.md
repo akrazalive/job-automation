@@ -28,8 +28,11 @@ what failed and why.
 ## What this does (end to end — the target; see "Current status" below for what's actually built today)
 
 1. **Search** — polls LinkedIn, Indeed, and SimplyHired for jobs matching
-   your title/location/keyword criteria. *(SimplyHired is live; LinkedIn/
-   Indeed are not built yet.)*
+   your title/location/keyword criteria. *(Live on all three — search/read
+   only, no login on any of them. Indeed's own bot detection is
+   noticeably more aggressive than the other two and will sometimes block
+   a request; that's logged and skipped, not a crash, but expect lower
+   real-world yield from Indeed specifically.)*
 2. **Fetch** — pulls the full job description for each new posting and
    normalizes it into a common record (title, company, location, JD text,
    URL, source, posted date), and tags it with the tech skills it
@@ -37,7 +40,9 @@ what failed and why.
 3. **Tailor** — reorders your skills section to put the job's required
    skills first and renders a real PDF. Company names, job titles, dates,
    and education are never touched. *(Live, reorder-only. Bullet-phrasing
-   rewrite via Claude is a planned addition, not built.)*
+   rewrite via Claude is a planned addition, not built. Runs on demand —
+   the dashboard's per-job "🎯 Tailor Resume" button — not automatically
+   at scrape time, so a scrape cycle stays fast; see "Current status".)*
 4. **Apply** — drives a real browser (Playwright) to open the job's Apply
    flow, upload the tailored resume, fill the form (including generic
    screening questions where possible), and submit — no human click needed.
@@ -65,20 +70,26 @@ writing code.
 > job posting to apply yourself for now.
 
 What works right now:
-- **A working SimplyHired scraper** ([src/scrapers/simplyhired.py](src/scrapers/simplyhired.py))
-  covering 29 searches across the roles you asked for — WordPress,
-  WooCommerce, Shopify, Laravel, PHP, CodeIgniter, Python, Django, Flask,
-  MongoDB, React, Next.js, Vue, Angular, Node.js, backend/frontend/
-  full-stack/general developer & engineer titles at all seniority levels,
-  AI/ML, UI/UX (see [config/search_criteria.yaml](config/search_criteria.yaml)).
+- **Working scrapers for all three sources** — [src/scrapers/simplyhired.py](src/scrapers/simplyhired.py),
+  [src/scrapers/indeed.py](src/scrapers/indeed.py),
+  [src/scrapers/linkedin.py](src/scrapers/linkedin.py) — search/read only,
+  no login on any of them (that part is Phase 4/5's apply automation,
+  still not built — see below). Each search entry in
+  [config/search_criteria.yaml](config/search_criteria.yaml) runs against
+  every source listed under that file's `sources` key. Current list: 10
+  role titles (Software/Web/Back End/Front End Developer, Full Stack
+  Engineer, Full Stack/Laravel/React/WordPress/WooCommerce Developer) x 4
+  seniority levels (none/Senior/Junior/Intermediate) = 40 searches x 3
+  sources = 120 actual searches per full cycle.
 - **Filtered to globally-remote, posted within the last 7 days**
   ([src/common/location_filters.py](src/common/location_filters.py)) —
   jobs restricted to one country ("Remote (US only)" etc.) are filtered
   out by a text heuristic (best-effort, not perfect — see the module
-  docstring), and SimplyHired's relative date stamp ("7d", "20h") is
-  parsed into a real date to drop anything older than
-  `max_age_days` (config/search_criteria.yaml, default 7). A job whose
-  date couldn't be parsed is kept rather than guessed-and-dropped.
+  docstring), and SimplyHired's relative date stamp ("7d", "20h") /
+  LinkedIn's absolute posted date are both parsed to drop anything older
+  than `max_age_days` (config/search_criteria.yaml, default 7). A job
+  whose date couldn't be parsed (always the case for Indeed — see that
+  scraper's module docstring) is kept rather than guessed-and-dropped.
 - **Automatic skill tagging** ([src/common/skills.py](src/common/skills.py))
   — each job's description is scanned for known tech keywords and shown
   as tags on the dashboard, so you can see at a glance what's required.
@@ -106,18 +117,21 @@ What works right now:
   fraud — see TECHNICAL_PLAN.txt's fifth-pass entry for the full
   reasoning).
 - **The end-to-end pipeline** ([src/pipeline/ingest.py](src/pipeline/ingest.py))
-  that ties scraping → filtering → skill tagging → resume tailoring →
-  dashboard storage together in one run.
+  that ties scraping (all 3 sources) → filtering → skill tagging →
+  dashboard storage together in one run — deliberately fast, since it
+  does NOT tailor a resume for every job it finds (see next bullet).
 - **A password-protected admin dashboard** ([src/dashboard](src/dashboard))
   — login screen (pre-filled locally), summary stats, a jobs-by-category
   report, a real paginated (5/10/15/20 per page, selectable) and
   filterable table (status/source/company/date/category) with
   posted-date, remote badges, and skill tags. Each row has an Open link,
-  a Resume PDF button, and a **"Mark Applied" button** — there's no
-  auto-apply bot yet, so this is how you record that you applied
-  yourself and get it reflected in the stats. Plus a Settings page (local
-  runs only — see below) to edit search keywords, apply-delay defaults,
-  and trigger a manual scrape.
+  a **"🎯 Tailor Resume" button** (generates the PDF on demand, only once
+  you've decided a job is worth applying to — a "Resume PDF" download
+  link appears once one exists), and a **"Mark Applied" button** — there's
+  no auto-apply bot yet, so this is how you record that you applied
+  yourself and get it reflected in the stats. Plus a Scraping page (local
+  runs only — see below) to edit search keywords/sources and trigger a
+  manual scrape, and a Settings page for apply-delay defaults.
 - A storage layer ([src/storage](src/storage)) with two interchangeable
   backends: local JSON (zero setup) and DynamoDB+S3 (real AWS) — same
   code either way, switched with one env var.
@@ -129,16 +143,17 @@ What works right now:
 - Your resume, digitized into a structured, schema-validated
   `resume/master_resume.json` (git-ignored — it's your real name, email,
   phone, and address).
-- 75 passing tests ([tests/](tests/)).
+- 210 passing tests ([tests/](tests/)).
 
-### Run the full pipeline locally (scrape → filter → tailor → save)
+### Run the full pipeline locally (scrape → filter → tag → save; no tailoring here — see above)
 
 ```bash
 pip install -r requirements-dev.txt
 playwright install chromium     # one-time browser download
 python -m src.pipeline.ingest
-# takes a while (29 searches x anti-ban delays) - progress prints live,
-# and is also visible from the dashboard's Settings page while it runs
+# takes a while (40 keyword entries x 3 sources = 120 searches x anti-ban
+# delays) - progress prints live, and is also visible from the
+# dashboard's Scraping page while it runs
 ```
 
 To write straight into the live AWS tables instead of the local file,
@@ -154,12 +169,18 @@ To have Claude also rewrite your summary and bullet *phrasing* to mirror
 each job description:
 
 1. Get an API key at [console.anthropic.com](https://console.anthropic.com/) (pay-as-you-go —
-   **this costs real money per job tailored**, roughly one API call per
-   new job found; keep that in mind before pointing it at a 29-search run).
-2. Set it before running the pipeline:
+   **this costs real money per resume tailored**, one API call each time.
+   Tailoring is on-demand — the dashboard's per-job "🎯 Tailor Resume"
+   button, not a step `python -m src.pipeline.ingest` runs automatically —
+   so the cost scales with how many jobs you actually decide to tailor,
+   not with how many a scrape cycle finds.)
+2. Set it before running the dashboard (or the pipeline, if you also want
+   [src/tailoring/job_fetch.py](src/tailoring/job_fetch.py) available —
+   it's only used by the on-demand button and by "Add Job by URL", not by
+   a scrape):
    ```bash
    $env:ANTHROPIC_API_KEY = "sk-ant-..."
-   python -m src.pipeline.ingest
+   uvicorn src.dashboard.app:app --reload
    ```
 3. That's it — [src/tailoring/engine.py](src/tailoring/engine.py) detects
    the key automatically and switches modes per job. Nothing else changes:
@@ -334,20 +355,21 @@ Decisions locked in so far:
 | Hosting/storage | AWS Free Tier for storage/dashboard only (S3 + DynamoDB) — the browser automation itself runs locally, see below |
 | Where automation runs | **Locally, on your machine/home IP** — not AWS. LinkedIn/Indeed treat datacenter IPs (like EC2) as a red flag independent of timing, so the risky part stays on your own network. |
 
-> **Worth re-confirming before Phase 4/5 (the actual apply bot) gets
-> built:** the "Apply mode" row above was decided early on, but a later
-> session described wanting to click the job link and apply yourself
-> manually — which sounds more like the semi-auto option that was
-> originally considered and turned down. Don't assume either way; ask
-> before starting Phase 4.
+> **RESOLVED 2026-09-11:** the "Apply mode" row above (full-auto submit)
+> was decided early on, but every session since has pointed toward — and
+> this one confirmed explicitly — the semi-auto option instead: this repo
+> finds jobs, tags skills, and tailors a resume on demand; you click
+> "Open" and apply yourself, then "Mark Applied" to track it. Phase 4/5's
+> actual LOGIN + AUTO-SUBMIT bot is NOT wanted for now — don't build it
+> without the user raising it again specifically.
 
 ## Architecture
 
 ```
                  ┌─────────────────┐
- search config → │   Scrapers       │  (SimplyHired live; LinkedIn/Indeed
-                 │ (Playwright)     │   not built yet — Phase 4/5)
-                 └────────┬─────────┘
+ search config → │   Scrapers       │  (SimplyHired, LinkedIn, Indeed all
+                 │ (Playwright)     │   live — search/read only, no login;
+                 └────────┬─────────┘   apply automation is Phase 4/5, NOT built)
                           │ new job postings
                           ▼
                  ┌─────────────────┐
@@ -429,7 +451,7 @@ job-automation/
 ├── requirements.txt / requirements-dev.txt
 ├── .env.example                # copy to .env, fill in your own keys — never commit .env
 ├── config/
-│   ├── search_criteria.yaml    # 29 searches; remote_only + max_age_days filters ✅
+│   ├── search_criteria.yaml    # 40 searches x sources (simplyhired/indeed/linkedin) ✅
 │   └── apply_settings.yaml     # apply-delay/cap defaults, scrape schedule      ✅
 ├── src/
 │   ├── common/
@@ -441,16 +463,19 @@ job-automation/
 │   ├── storage/                # ApplicationStore: local JSON + DynamoDB/S3,    ✅
 │   │                            # both with real cursor pagination
 │   ├── scrapers/
-│   │   ├── base.py             # shared Playwright session + anti-ban delays    ✅
-│   │   └── simplyhired.py      # live, incl. parse_date_stamp()                ✅
-│   │                            # linkedin.py, indeed.py                       ⏳ Phase 4/5
+│   │   ├── base.py             # shared Playwright session, anti-ban delays,    ✅
+│   │   │                        # looks_blocked() bot-challenge detection
+│   │   ├── simplyhired.py      # live, incl. parse_date_stamp()                ✅
+│   │   ├── linkedin.py         # live, guest search (no login), parse_date_iso() ✅
+│   │   └── indeed.py           # live but frequently bot-blocked - see its docstring ✅
 │   ├── tailoring/
 │   │   ├── pdf_renderer.py      # reportlab PDF, skill-reorder + LLM-content modes ✅
 │   │   ├── engine.py             # mode selection + LLM-result guardrail        ✅
 │   │   └── claude_client.py       # Anthropic wrapper (needs ANTHROPIC_API_KEY) ✅
 │   ├── pipeline/
-│   │   └── ingest.py            # scrape → filter → tag → tailor → save         ✅
-│   ├── apply/                    # per-site application submitters              ⏳ Phase 4-6
+│   │   └── ingest.py            # scrape (all sources) → filter → tag → save;   ✅
+│   │                              # NO tailoring here - see dashboard's on-demand button
+│   ├── apply/                    # per-site application submitters (LOGIN required) ⏳ Phase 4-6
 │   └── dashboard/
 │       ├── app.py                # FastAPI app: auth, settings, pagination API ✅
 │       └── templates/            # base.html, login.html, settings.html, index.html ✅

@@ -980,6 +980,130 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         coordinate check, photo only on page 1, no header/photo on page
         2, navy color throughout.
 
+[x] Sixteenth pass, 2026-09-11 — multi-source SEARCH (LinkedIn + Indeed
+    scrapers, both search/read-only, no login/apply — that part of Phase
+    4/5 stays NOT STARTED, see below), search list narrowed to the
+    user's exact role/seniority ask, and resume tailoring REMOVED from
+    the scrape-time hot path per direct request ("no need to tailor pdf
+    at that time so that it can be fast"; tailor later from the CRUD once
+    a job is a real candidate).
+      - NEW src/scrapers/indeed.py + src/scrapers/linkedin.py, same
+        shape as simplyhired.py (SearchResultRow, build_search_url,
+        parse_search_results, parse_job_detail, search_<site>()).
+        Selectors verified live 2026-09-11 (not guessed) — see each
+        module's docstring for the exact elements and how they were
+        checked. LinkedIn's guest job search (no login) is server-
+        rendered HTML with an absolute ISO posted-date
+        (time.job-search-card__listdate[datetime]) — easier than
+        SimplyHired's relative "7d" stamps, no relative-time math needed
+        (parse_date_iso()). Indeed has no reliably-selectable date on its
+        search DOM at all (the relative-time text that exists on the
+        page lives inside an embedded JSON blob, not a stable CSS
+        target) — posted_at is always None there, same "unknown, kept"
+        treatment as an unparseable SimplyHired stamp already gets.
+      - REAL FINDING, live-verified, not assumed: Indeed's bot detection
+        is far more aggressive than SimplyHired's (none) or LinkedIn's
+        guest search (tolerates plain GETs) — a fresh headless Playwright
+        context got a real 200 with real job cards on its FIRST request,
+        then a 403 "Security Check" interstitial on the very next
+        request seconds later, and a separate block flavor (a 735-byte
+        "Authenticating..." stub that JS-redirects to
+        /account/login?...&from=bot-detection-anonymous, no
+        "captcha"/"security check" wording at all) on a job-DETAIL fetch
+        specifically. NEW src/scrapers/base.py:looks_blocked() +
+        BLOCK_MARKERS detects both flavors (plus generic
+        Cloudflare/PerimeterX/"unusual traffic" phrasing) from page text;
+        indeed.py/linkedin.py both treat a hit as a normal, logged,
+        non-fatal per-request outcome (skip and return what's already
+        collected) rather than raising. CAUGHT AND FIXED A REAL FALSE
+        POSITIVE while verifying this against real pages: a bare
+        "captcha" marker matched a fully legitimate LinkedIn results page
+        (200, real job cards) via an unrelated A/B-test config attribute
+        (`data-recaptcha-v3-integration-lix-value="control"`) — would
+        have silently discarded every real LinkedIn search. Fixed by
+        dropping the bare word and keeping only markers individually
+        checked against real result pages first; regression tests added
+        for both the original false positive and the fix.
+      - src/pipeline/ingest.py: SOURCE_SCRAPERS dict maps a config
+        `sources` entry name to its search_<site>() function; run()
+        builds (search entry x source) pairs (40 keyword entries x 3
+        sources = 120 actual searches against the current config) and
+        calls each. One source/search failing (exception, not just the
+        already-internally-handled block case) is caught per-pair and
+        logged rather than aborting the rest of the run — verified live
+        via a real 1-search/1-source smoke run end-to-end (SimplyHired,
+        real job found, real skills tagged, saved with no resume
+        attached) and via mocked-scraper tests covering the failure-
+        isolation and unknown-source-name cases.
+      - REMOVED the tailor_resume_for_job() call from the per-job scrape
+        loop entirely — this was the actual slow part (LLM call and/or
+        reportlab render for every single newly-found job, most of which
+        are never applied to). A freshly scraped Application now always
+        has resume_s3_key/resume_filename/resume_tailored_at = None;
+        required_skills tagging stays (cheap text matching, drives the
+        dashboard's tags/filtering regardless of tailoring). The
+        dashboard's existing per-row "🎯 Tailor Resume" button (Tenth
+        pass, POST /api/applications/{job_id}/tailor) already does
+        exactly the "tailor once it's a real candidate" step the user
+        asked for, unchanged, using the same original resume template
+        either way — verified it still works for real against an
+        untailored job produced by the smoke run above.
+      - templates/applications.html + the JS-rendered actionCell(): the
+        "Resume PDF" link/button now only renders once a.resume_filename
+        is actually set (was unconditional — harmless before, since
+        every job used to have one; would have been a dead link to a 404
+        for most rows now). tailorResume()'s in-place row patch now
+        INSERTS the link on first tailor instead of only patching an
+        href that might not exist yet.
+      - config/search_criteria.yaml: `searches` list REPLACED — narrowed
+        from the previous 29-entry every-tech-stack list down to exactly
+        the 10 role titles asked for (Software/Web/Back End/Front End
+        Developer, Full Stack Engineer, Full Stack/Laravel/React/
+        WordPress/WooCommerce Developer) x 4 seniority levels (none/
+        Senior/Junior/Intermediate) = 40 searches. Reasoning recorded in
+        the file itself: tech-stack skills don't need their own search
+        entries since src/common/skills.py already tags whatever shows
+        up in a matched job's description. NEW top-level `sources` key
+        (default ["simplyhired"] if a config predates this key) — kept
+        the existing flat `searches:` list shape UNCHANGED (rather than
+        restructuring to a titles x seniority_levels schema) specifically
+        so the dashboard's existing Scraping page / "Add search" form
+        (POST /settings/add-search) keeps working with zero code changes
+        there.
+      - 3 new test files (23 new tests, 210 total): test_indeed_scraper.py,
+        test_linkedin_scraper.py (parsing against new schematic-
+        reconstruction fixtures, same style as the existing SimplyHired
+        ones, plus looks_blocked() cases including the false-positive
+        regression guard above), test_pipeline_ingest.py (multi-source
+        looping, no-tailoring-at-scrape-time, per-source failure
+        isolation, unknown-source rejection — all against mocked scraper
+        functions + a real tmp-path LocalJsonStore, no live network in
+        the test suite itself).
+      - Verified live end-to-end, not just mocked: search_linkedin() and
+        search_indeed() both run for real against a real query (LinkedIn
+        returned a real job with a 4929-char description; Indeed's
+        search page returned real results but its detail-page fetch hit
+        the "Authenticating..." block — confirmed logged and handled
+        gracefully, not a crash), a full ingest.run() smoke pass against
+        a temp store confirmed a real SimplyHired job saved with no
+        resume attached, and tailor_resume_for_job() confirmed still
+        producing a real 2-page PDF from that same untailored job
+        afterward. Dashboard boot-tested locally post-change (login,
+        /scraping showing the new "Sources: simplyhired, indeed,
+        linkedin" line, /applications rendering) — no template errors.
+      - NOT done / explicitly out of scope this pass: LinkedIn/Indeed
+        LOGIN and actual APPLY automation (Phase 4/5's real remaining
+        scope) — user's ask this pass was scraping/search only ("I will
+        then do the apply myself"), consistent with the still-open
+        question flagged in the Fifth pass's NEXT STEPS about whether
+        full-auto apply is even still wanted. Indeed's real-world
+        reliability for search should be assumed LOW without further
+        stealth work (residential proxies, a stealth plugin, etc.) — the
+        graceful block-handling built this pass means a blocked Indeed
+        run degrades to "fewer results that cycle," not a crash, but it
+        does not make Indeed reliable. Not something this file's config
+        can tune away.
+
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE
@@ -1401,38 +1525,46 @@ each:
 7. NEXT STEPS (update this each session — this is what "resume from
    here" means)
 ------------------------------------------------------------
-NEXT (as of 2026-09-09, end of fifth pass): dashboard now has real
-pagination, manual apply-tracking, a loading overlay, and a free
-(no-API-cost) project-idea-bank suggestion feature. LLM-tailoring is
-built but still INACTIVE (no ANTHROPIC_API_KEY provided). The Claude-
-subscription question from the fourth pass appears RESOLVED by the fifth
-pass's direction — the user pivoted to wanting a free/no-AI-cost path
-(the project bank) instead of pursuing the Claude API key, which is a
-reasonable read but was never stated explicitly as "no, don't use
-Claude" — if it comes up again, confirm rather than assume either way.
-Remaining work:
+NEXT (as of 2026-09-11, end of sixteenth pass): multi-source SEARCH now
+covers all three sites (LinkedIn + Indeed scrapers added this pass,
+SimplyHired already existed) across the user's exact 40-search role/
+seniority list, resume tailoring moved fully out of the scrape hot path
+and onto the existing per-row "Tailor Resume" dashboard button. LLM-
+tailoring is built but still INACTIVE (no ANTHROPIC_API_KEY provided —
+unchanged since the fifth pass). Remaining work:
 
-  A) The on-demand "Tailor with AI" button idea from the fourth pass was
-     superseded by the project-bank approach (fifth pass) as the user's
-     chosen no-cost path — probably don't build the AI button unless the
-     user brings up Claude tailoring again specifically.
-  B) The "Mark Applied" feature added this pass, plus the user's earlier
-     "using the job link I can do apply myself manually" phrasing, both
-     point toward the user actually wanting a semi-auto workflow (find +
-     tailor + manual apply + track) rather than the original FULL-AUTO
-     section-0 decision. Still hasn't been asked point-blank and
-     confirmed either way — do that before ever starting Phase 4/5/6,
-     don't assume from inference alone.
-  C) Phase 4/5/6 (LinkedIn/Indeed/SimplyHired apply automation) — still
-     NOT STARTED. Only build this if C above is confirmed as still
-     wanted. Needs real site credentials from the user and expect real
-     back-and-forth, not a single pass. SimplyHired's "Apply" button
-     confirmed (2026-09-08) to be an outbound redirect to an external ATS
-     in most cases — that one likely ends up "open the link" regardless.
+  A) Point B from the fifth-pass NEXT STEPS ("does the user actually want
+     semi-auto — find + tailor + manual apply + track — rather than
+     original FULL-AUTO submit?") is now RESOLVED, not just inferred:
+     this pass's own request said it explicitly ("I will then do the
+     apply myself"). Phase 4/5/6's actual LOGIN + APPLY automation is
+     confirmed NOT wanted for now — don't start it without the user
+     raising it again specifically. What IS wanted and now built:
+     search/scrape (fast, no tailoring) -> dashboard CRUD -> tailor
+     on-demand once a job is worth applying to -> user applies manually
+     via the "Open" link -> "Mark Applied" to track it.
+  B) The on-demand "Tailor with AI" idea (fourth pass) is effectively
+     built now in a different form than originally imagined — the
+     existing per-row "🎯 Tailor Resume" button (Tenth pass) IS that
+     button, just always-deterministic unless ANTHROPIC_API_KEY is set.
+     Still don't build a separate "Tailor with AI" control unless the
+     user brings up Claude tailoring again specifically (same caution as
+     before, now more clearly moot).
+  C) Indeed's scraper (this pass) works but is genuinely unreliable —
+     live-verified aggressive bot detection blocked a plain headless
+     Playwright request on the SECOND try in the same session. It's
+     handled gracefully (logged, skipped, never crashes the run) but
+     real-world yield from Indeed specifically should be expected to be
+     low without further stealth investment (residential proxies, a
+     stealth plugin, etc.) — not attempted this pass, flag to the user if
+     Indeed's contribution to total_found stays near zero across several
+     real runs.
   D) Windows Task Scheduler wiring so src/pipeline/ingest.py actually
      runs on the cron schedule configured in config/apply_settings.yaml,
      instead of being manually triggered — currently nothing runs it
-     automatically.
+     automatically. More relevant now than before: a full cycle is 120
+     actual searches (40 keywords x 3 sources) instead of the old 29, so
+     manual triggering is a bigger ask of the user than it used to be.
   E) Nice-to-haves noted inline where they came up: DynamoDB GSI if the
      Applications table grows large, a way to change the dashboard
      password without a redeploy, S3 orphan cleanup.
