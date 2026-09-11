@@ -30,6 +30,33 @@ def read_status() -> dict:
     return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
 
 
+def request_stop() -> None:
+    """Called by the dashboard's "Stop" button (POST /actions/scrape-stop)
+    — records that the currently-running scrape should halt at its next
+    safe checkpoint. Written to the same status file the background
+    thread already polls into, rather than an in-process flag, so it
+    works the same way every other cross-thread signal here does (the
+    dashboard route and the ingest run live in different threads within
+    one process, but sharing state via this file — not a shared Python
+    object — is what already made the "is a scrape running" check in
+    trigger_scrape() correct across a dashboard reload)."""
+    write_status(stop_requested=True)
+
+
+def should_stop() -> bool:
+    """Polled by src.pipeline.ingest.run() between searches (and it's
+    cheap - one small JSON file read - so polling every search, not just
+    once, is fine)."""
+    return bool(read_status().get("stop_requested"))
+
+
+def clear_stop() -> None:
+    """Called at the start of every run() so a stop requested during a
+    PREVIOUS scrape can never leak into halting the next one before it
+    even gets going."""
+    write_status(stop_requested=False)
+
+
 def append_log(line: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     existing = LOG_PATH.read_text(encoding="utf-8").splitlines() if LOG_PATH.exists() else []

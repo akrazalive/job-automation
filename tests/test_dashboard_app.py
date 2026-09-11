@@ -115,6 +115,59 @@ def test_login_then_api_applications():
     assert isinstance(body["items"], list)
 
 
+def test_api_applications_total_reflects_filtered_count_not_page_size():
+    # total exists for the dashboard's numbered page buttons (needs
+    # total pages = ceil(total / limit)) and must count every MATCHING
+    # record, not just what fits on one page.
+    c = _login()
+    resp = c.get("/api/applications", params={"limit": 1})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["items"]) <= 1
+    assert body["total"] >= len(body["items"])
+
+
+def test_bulk_delete_endpoint_removes_only_the_given_jobs():
+    from datetime import datetime, timezone
+
+    from src.common.job_schema import Application, ApplicationStatus, JobSource
+    from src.storage import get_store
+
+    store = get_store()
+
+    def _app(job_id: str) -> Application:
+        return Application(
+            job_id=job_id, source=JobSource.MANUAL, title="Bulk Delete Test",
+            company="Test Co", url=f"https://example.com/{job_id}",
+            status=ApplicationStatus.PENDING, updated_at=datetime.now(timezone.utc),
+        )
+
+    store.save_application(_app("bulk-delete-test-1"))
+    store.save_application(_app("bulk-delete-test-2"))
+
+    c = _login()
+    resp = c.post("/api/applications/bulk-delete", json={"job_ids": ["bulk-delete-test-1", "does-not-exist"]})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["deleted"] == ["bulk-delete-test-1"]
+    assert body["not_found"] == ["does-not-exist"]
+    assert store.get_application("bulk-delete-test-1") is None
+    assert store.get_application("bulk-delete-test-2") is not None
+
+    store.delete_application("bulk-delete-test-2")  # clean up the second test record too
+
+
+def test_scrape_stop_endpoint_sets_the_stop_flag():
+    from src.pipeline import status as pipeline_status
+
+    c = _login()
+    resp = c.post("/actions/scrape-stop")
+    assert resp.status_code == 200
+    assert resp.json() == {"stop_requested": True}
+    assert pipeline_status.should_stop() is True
+    pipeline_status.clear_stop()  # leave the real status file clean for any other local run
+
+
 def test_login_then_api_applications_filter_by_status():
     c = _login()
     resp = c.get("/api/applications", params={"status": "applied"})

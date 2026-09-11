@@ -1104,6 +1104,170 @@ especially the STATUS block and the "NEXT STEPS" section at the bottom.
         does not make Indeed reliable. Not something this file's config
         can tune away.
 
+[x] Seventeenth pass, 2026-09-11 (same day as the Sixteenth) — batch of
+    direct dashboard/scraping feedback: numbered pagination, per-source
+    location targeting (remote-only for SimplyHired, remote-OR-onsite-in-
+    an-allowed-country for Indeed/LinkedIn), search volume cut 120->30,
+    single-row filters, bulk select/export/delete, a Stop button + more
+    informative live scrape log, and a redesigned sidebar logo.
+      - JUDGMENT CALLS MADE WITHOUT BLOCKING ON A QUESTION (flagged here
+        for the user to correct if guessed wrong, per the reasoning that
+        a sensible default existed for each):
+          1. "why on scrape you are going for 120, it should just bring
+             in 20" — read as "cut total search count," not "return only
+             20 results." Dropped the Sixteenth pass's 4-way seniority
+             cross-product (10 titles x 4 levels = 40) back to one search
+             per title (10) — a plain "React Developer" search already
+             surfaces Senior/Junior postings regardless of the query's
+             own wording — landing on 10 x 3 sources = 30, close to "20"
+             while keeping full title coverage. If wrong, ask for
+             specific titles' seniority variants back rather than
+             restoring all 40.
+          2. For Indeed/LinkedIn to have a real chance of surfacing
+             ONSITE jobs in the 15 requested countries, the search QUERY
+             itself must not stay scoped to "Remote" text - changed
+             those two sources' search location to blank (SimplyHired
+             keeps the config entry's "Remote"), and added a per-job
+             accept filter afterward (remote OR country match) instead of
+             trying to run a separate search per country (which would
+             have re-exploded the search count right after cutting it).
+             This is a broader, less-targeted query than a real per-
+             country search would be - flagged as a real yield tradeoff,
+             not hidden.
+      - config/search_criteria.yaml: `searches` cut from 40 back to 10
+        (one per title, no seniority suffix); new doc comment explains
+        both the cut and the country-acceptance rule. `remote_only: true`
+        semantics generalized (still applies strictly to SimplyHired;
+        for Indeed/LinkedIn it now means "remote OR allowed-country
+        onsite" rather than "remote only").
+      - NEW src.common.location_filters.ALLOWED_ONSITE_COUNTRIES (15
+        countries, exact list from the request) + matched_onsite_country()
+        — same best-effort text-matching standard as the existing
+        is_globally_remote()/RESTRICTION_PATTERNS, checks location then
+        description, "Saudi Arabia" also matches "KSA".
+      - src/common/job_schema.py: Application gained `location:
+        Optional[str]` (raw source location text) - needed once a kept
+        job can legitimately be NOT remote (an allowed-country onsite
+        job) and the dashboard needs something to show for it.
+      - src/pipeline/ingest.py: per-job filter branches by source
+        (SimplyHired: is_remote only; Indeed/LinkedIn: is_remote OR
+        matched_onsite_country); MUCH more granular live log per job -
+        "retrieved", "checking remote/country eligibility…", then a
+        "+ <reason> — saving..." or "- skipped — <reason>" line - matches
+        the direct ask for "single line for each thing... so I know what
+        happens at every second." REAL BUG caught live (not just in
+        tests): the first version used unicode checkmark/cross (u2713/
+        u2717) in these lines - print() on this Windows target crashed
+        with UnicodeEncodeError under the legacy cp1252 console codepage
+        the very first real run. Fixed by switching to the plain ASCII
+        "+"/"-" markers the rest of this function already used - a
+        comment on emit() now explains why (em dash/ellipsis are safe in
+        cp1252, checkmark/cross are not) so a future pass doesn't
+        reintroduce it for a nicer-looking log line.
+      - Stop button: NEW src.pipeline.status.request_stop()/should_stop()/
+        clear_stop() (a status-file flag, same cross-thread-via-file
+        pattern the existing running-scrape-lock check already used, not
+        an in-process Event, since the dashboard route and the scrape
+        thread need to agree on this the same way they already agree on
+        "is a scrape running"). ingest.run() checks should_stop() once
+        per search (not literally mid-request - a Playwright page load in
+        flight finishes first, so Stop takes effect within roughly one
+        search's worth of time, not instantly) and clears the flag at the
+        start of every run so a stale Stop from a previous run can never
+        leak into a new one. NEW POST /actions/scrape-stop route +
+        scraping.html Stop button (enabled only while a scrape is
+        running).
+      - Numbered pagination: formalized the existing (accidentally
+        identical across both backends already) cursor scheme as a real,
+        documented CONTRACT in ApplicationStore.list_applications's
+        docstring - cursor is always the decimal-string OFFSET into the
+        filtered+sorted result list - so the dashboard can compute a
+        target page's cursor directly (str(page_index * limit)) instead
+        of only ever chaining forward one page at a time. NEW
+        ApplicationStore.count_applications() (+ both backends, via a new
+        shared src.storage.base.filter_records() helper so
+        list_applications and count_applications can never filter
+        differently) gives the total needed for "Page X of Y" and a
+        windowed page-number button row (current +/-2, always first/last,
+        ellipsis between). Replaced applications.html's old
+        cursorStack-based prev/next-only JS with this simpler
+        loadPage(pageIndex) model.
+      - Bulk select/export/delete: NEW ApplicationStore.delete_application()
+        (+ both backends; DynamoStore needs a NEW dynamodb:DeleteItem
+        grant on the Applications table - added to
+        infra/aws/template.yaml alongside the existing UpdateItem
+        statement, same "human cleaning up their own list, not
+        automation" reasoning as Mark Applied - NOT yet deployed, needs a
+        real `sam deploy` to take effect on the live Lambda). NEW POST
+        /api/applications/bulk-delete (job_ids list -> {deleted,
+        not_found}). Applications page: a checkbox column (header
+        checkbox selects/deselects the CURRENT PAGE's rows only;
+        selections persist across page turns in a JS Set, so a multi-page
+        bulk action is "select-all on each page you care about, then
+        Export/Delete once"), a bulk-action bar (Export links as .txt -
+        one URL per line, client-side Blob download, no server round trip
+        needed since URLs are already known; Delete selected - confirm()
+        then the bulk-delete endpoint). A `knownJobs` Map keeps full
+        records for every job the JS has ever seen (seeded from the
+        server-rendered first page via a `<script type="application/
+        json">` blob, extended on every subsequent fetch) so Export/
+        Delete work correctly even for a job selected on a page you've
+        since paged away from. SECURITY NOTE caught while building the
+        seed-data script tag: a scraped job title/company is untrusted
+        external text that could contain a literal "</script>" and
+        prematurely close the tag - the embedded JSON has `</` escaped to
+        `<\/` before embedding, not just relying on Jinja's normal
+        autoescaping (which doesn't apply inside a raw `| safe` JSON
+        blob).
+      - Filters -> one row: changed from flex-wrap (which is what was
+        spanning two rows) to flex-nowrap + horizontal scroll on the
+        filter bar itself, with fixed (not flex-grow) field widths -
+        stays one row at any viewport width, scrolls sideways on narrow
+        ones instead of wrapping.
+      - Scraping page: "Scrape now" shrunk from the default large `.btn`
+        to `.btn-sm` (direct feedback: "I dont like the scrap button...
+        it is bigger"), a `.scrape-controls` flex row groups it with the
+        new Stop button + status text + elapsed-time text with normal
+        gaps, and the log div got an explicit `margin-top` instead of
+        relying on the (missing) gap the old flat layout didn't have
+        (direct feedback: "there is no margin space below it"). Elapsed
+        time ("Running for Xm Ys") computed client-side from the status
+        payload's `started_at` on every 2s poll tick - no backend change
+        needed beyond `started_at` already existing.
+      - Sidebar logo: replaced the plain colored `<span class="dot">`
+        (direct feedback: "I dont like the black logo... come up with
+        professional logo") with a small inline SVG - a rounded-square
+        badge (accent green fill) containing a white checkmark, in
+        src/dashboard/templates/base.html so it's consistent across every
+        page, not just Scraping (the page the feedback happened to be
+        given from). Theme-aware for free (uses the existing --accent/
+        --panel tokens, already redefined per light/dark).
+      - 23 new tests (234 total): location_filters (matched_onsite_country
+        incl. the KSA synonym, the exact requested country list as a
+        regression guard), ingest (onsite-country-kept, onsite-outside-
+        list-dropped, SimplyHired-stays-remote-only-even-in-an-allowed-
+        country, per-source location scoping, the Stop mechanism halting
+        before the next search), pipeline/status (request_stop/
+        should_stop/clear_stop, preserves other status fields), storage
+        (count_applications matches filtered list length and ignores
+        limit, delete_application removes only the targeted record), and
+        dashboard (api_applications `total` field, bulk-delete endpoint,
+        scrape-stop endpoint).
+      - Verified live, not just unit tests: booted the real local
+        dashboard, logged in, confirmed /applications and /scraping both
+        render 200 with the new markers (initial-applications-data valid
+        JSON, select-all-checkbox, bulk-bar, scrape-stop-btn, logo-badge,
+        the "Sources: simplyhired, indeed, linkedin" line); re-ran the
+        ingest pipeline against a real SimplyHired search end-to-end
+        after the cp1252 fix and confirmed clean log output + a saved
+        Application with the new `location` field populated.
+      - NOT done: the AWS deploy for delete_application's new IAM grant
+        (template.yaml is updated, `sam deploy` was not run this pass -
+        bulk-delete will 403/fail against the LIVE dashboard until that
+        happens); an actual per-country targeted search for Indeed/
+        LinkedIn (judgment call #2 above - current behavior is a broader
+        query + accept-filter, not true per-country search scoping).
+
 [ ] Phase 4, 5, 6 — the actual apply bots (LinkedIn, Indeed, SimplyHired)
     — NOT STARTED. See the flag at the top of Phase 4 below; don't
     mistake the apply-delay SETTINGS existing for the apply ENGINE

@@ -1,4 +1,4 @@
-from src.common.location_filters import is_globally_remote
+from src.common.location_filters import ALLOWED_ONSITE_COUNTRIES, is_globally_remote, matched_onsite_country
 
 
 def test_plain_remote_passes():
@@ -26,3 +26,37 @@ def test_remote_with_unrelated_us_mention_still_passes():
 
 def test_none_inputs_do_not_crash():
     assert is_globally_remote(None, None) is False
+
+
+def test_matched_onsite_country_matches_location_text():
+    assert matched_onsite_country("Karachi, Pakistan", None) == "Pakistan"
+
+
+def test_matched_onsite_country_falls_back_to_description():
+    assert matched_onsite_country("On-site", "This role is based in our Doha, Qatar office.") == "Qatar"
+
+
+def test_matched_onsite_country_is_case_insensitive():
+    assert matched_onsite_country("singapore", None) == "Singapore"
+
+
+def test_matched_onsite_country_saudi_arabia_abbreviation():
+    assert matched_onsite_country("Riyadh, KSA", None) == "Saudi Arabia"
+
+
+def test_matched_onsite_country_returns_none_when_no_match():
+    assert matched_onsite_country("Berlin, Germany", "A great team in Berlin.") is None
+
+
+def test_matched_onsite_country_none_inputs_do_not_crash():
+    assert matched_onsite_country(None, None) is None
+
+
+def test_allowed_onsite_countries_matches_the_requested_list():
+    # Direct request 2026-09-11 — regression guard against a future edit
+    # accidentally dropping or renaming one of these.
+    assert set(ALLOWED_ONSITE_COUNTRIES) == {
+        "Pakistan", "Malaysia", "Maldives", "Bahrain", "Qatar", "Kuwait",
+        "Oman", "Saudi Arabia", "Azerbaijan", "Armenia", "Lithuania",
+        "Latvia", "Malta", "Singapore", "Luxembourg",
+    }

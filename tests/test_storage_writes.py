@@ -209,3 +209,60 @@ def test_update_resume_tailoring_sets_resume_filename_when_given(tmp_path: Path)
 def test_update_resume_tailoring_returns_none_for_unknown_job(tmp_path: Path):
     store = LocalJsonStore(data_file=tmp_path / "apps.json")
     assert store.update_resume_tailoring("does-not-exist", None, []) is None
+
+
+def test_count_applications_matches_filtered_list_length(tmp_path: Path):
+    data_file = tmp_path / "apps.json"
+    data_file.write_text("[]", encoding="utf-8")
+    store = LocalJsonStore(data_file=data_file)
+    store.save_application(_make_application("job-1", category="frontend"))
+    store.save_application(_make_application("job-2", category="frontend"))
+    store.save_application(_make_application("job-3", category="backend"))
+
+    assert store.count_applications() == 3
+    assert store.count_applications(category="frontend") == 2
+    assert store.count_applications(category="backend") == 1
+    assert store.count_applications(category="cms") == 0
+
+
+def test_count_applications_is_unaffected_by_limit_pagination(tmp_path: Path):
+    # The whole point of count_applications (numbered page buttons need a
+    # TOTAL, not a page size) - must reflect every matching record, not
+    # just what one page's limit would return.
+    data_file = tmp_path / "apps.json"
+    data_file.write_text("[]", encoding="utf-8")
+    store = LocalJsonStore(data_file=data_file)
+    for i in range(7):
+        store.save_application(_make_application(f"job-{i}"))
+
+    apps, _ = store.list_applications(limit=2)
+    assert len(apps) == 2
+    assert store.count_applications() == 7
+
+
+def test_delete_application_removes_record(tmp_path: Path):
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    store.save_application(_make_application("job-1"))
+
+    result = store.delete_application("job-1")
+
+    assert result is True
+    assert store.get_application("job-1") is None
+
+
+def test_delete_application_returns_false_for_unknown_job(tmp_path: Path):
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    assert store.delete_application("does-not-exist") is False
+
+
+def test_delete_application_does_not_touch_other_records(tmp_path: Path):
+    data_file = tmp_path / "apps.json"
+    data_file.write_text("[]", encoding="utf-8")
+    store = LocalJsonStore(data_file=data_file)
+    store.save_application(_make_application("job-1"))
+    store.save_application(_make_application("job-2"))
+
+    store.delete_application("job-1")
+
+    apps, _ = store.list_applications(limit=1000)
+    assert {a.job_id for a in apps} == {"job-2"}

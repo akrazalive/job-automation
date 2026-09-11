@@ -19,6 +19,50 @@ from typing import Optional
 from src.common.job_schema import Application, Job
 
 
+def filter_records(
+    records: list[dict],
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    company: Optional[str] = None,
+    category: Optional[str] = None,
+    title: Optional[str] = None,
+    search: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> list[dict]:
+    """The one filter chain both backends apply, over plain dicts (not yet
+    parsed into Application models) — shared here so LocalJsonStore and
+    DynamoStore can't drift out of sync the way they briefly did before
+    the Eleventh pass unified them, and so list_applications() and
+    count_applications() (added for numbered pagination — see that
+    method's docstring) apply IDENTICAL filtering, not a copy that could
+    silently diverge. See ApplicationStore.list_applications for what
+    each filter kwarg means."""
+    if status:
+        records = [r for r in records if r.get("status") == status]
+    if source:
+        records = [r for r in records if r.get("source") == source]
+    if company:
+        records = [r for r in records if company.lower() in (r.get("company") or "").lower()]
+    if category:
+        records = [r for r in records if (r.get("category") or "").lower() == category.lower()]
+    if title:
+        records = [r for r in records if title.lower() in (r.get("title") or "").lower()]
+    if search:
+        needle = search.lower()
+        records = [
+            r for r in records
+            if needle in (r.get("title") or "").lower()
+            or needle in (r.get("company") or "").lower()
+            or any(needle in s.lower() for s in r.get("required_skills", []))
+        ]
+    if date_from:
+        records = [r for r in records if (r.get("applied_at") or r.get("updated_at", "")) >= date_from]
+    if date_to:
+        records = [r for r in records if (r.get("applied_at") or r.get("updated_at", "")) <= date_to]
+    return records
+
+
 class ApplicationStore(ABC):
     @abstractmethod
     def list_applications(
@@ -44,7 +88,38 @@ class ApplicationStore(ABC):
         company filter. search is a broader case-insensitive substring
         match across title OR company OR required_skills combined - the
         general "find anything" box; it's independent of (and can be
-        combined with) the more specific filters above."""
+        combined with) the more specific filters above.
+
+        CURSOR CONTRACT (both backends, as of the numbered-pagination
+        addition): cursor is always the decimal string of the OFFSET into
+        the filtered+sorted result list — e.g. "25" for page 3 at
+        limit=25 — not an opaque token either backend is free to reshape.
+        This was already true of both implementations independently; it's
+        now a documented guarantee because the dashboard's numbered page
+        buttons compute a target page's cursor directly as
+        str(page_index * limit) instead of only ever chaining forward
+        through next_cursor values one page at a time."""
+
+    @abstractmethod
+    def count_applications(
+        self,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        company: Optional[str] = None,
+        category: Optional[str] = None,
+        title: Optional[str] = None,
+        search: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> int:
+        """Count of applications matching the same filters as
+        list_applications (everything except limit/cursor, which don't
+        apply to a count) — added so the dashboard can render numbered
+        page buttons (needs total pages = ceil(count / limit)), not just
+        a Prev/Next pair. Must filter identically to list_applications
+        for the same arguments - both backends implement this via the
+        shared src.storage.base.filter_records() so that's structural,
+        not just a convention to remember."""
 
     @abstractmethod
     def get_summary(self) -> dict:
@@ -67,6 +142,18 @@ class ApplicationStore(ABC):
         """Create or update (upsert by job_id) one application record.
         Called by the ingest pipeline (src/pipeline/ingest.py) after a
         job is scraped and its resume tailored."""
+
+    @abstractmethod
+    def delete_application(self, job_id: str) -> bool:
+        """Permanently removes one application record — used by the
+        Applications page's bulk "Delete selected" action (a human
+        choosing to clean up their own list, not scraping/automation, so
+        allowed on both backends like Mark Applied / project-bank CRUD).
+        Returns False if job_id doesn't exist, True on success. Does NOT
+        touch the tailored PDF (local disk / S3) that application may
+        have pointed to — orphan cleanup is a documented, low-priority,
+        separate TODO (see TECHNICAL_PLAN.txt), same as it already was
+        for deleted DynamoDB rows before this method existed."""
 
     @abstractmethod
     def get_category_breakdown(self) -> dict:

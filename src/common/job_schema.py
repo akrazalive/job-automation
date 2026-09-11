@@ -79,6 +79,13 @@ class Application(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
     posted_at: Optional[datetime] = None  # when the job was posted, if the source exposed it
     is_remote: bool = False
+    # Raw location text from the source (e.g. "Karachi, Pakistan", "Remote").
+    # Added alongside src.common.location_filters.ALLOWED_ONSITE_COUNTRIES
+    # (2026-09-11) — before that, only is_remote existed, which has
+    # nothing useful to show for an accepted ONSITE job in one of the
+    # allowed countries. None for older records saved before this field
+    # existed, or when the source didn't expose a location at all.
+    location: Optional[str] = None
     category: Optional[str] = None  # which config/search_criteria.yaml entry found this job
 
     # Set by an on-demand "Tailor Resume" click (src/dashboard/app.py's

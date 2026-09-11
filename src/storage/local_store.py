@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.common.job_schema import Application, ApplicationStatus
-from src.storage.base import ApplicationStore
+from src.storage.base import ApplicationStore, filter_records
 
 DEFAULT_DATA_FILE = Path("data/local_applications.json")
 
@@ -113,40 +113,37 @@ class LocalJsonStore(ApplicationStore):
         limit: int = 100,
         cursor: Optional[str] = None,
     ) -> tuple[list[Application], Optional[str]]:
-        records = self._read()
-        if status:
-            records = [r for r in records if r["status"] == status]
-        if source:
-            records = [r for r in records if r["source"] == source]
-        if company:
-            records = [r for r in records if company.lower() in r["company"].lower()]
-        if category:
-            records = [r for r in records if (r.get("category") or "").lower() == category.lower()]
-        if title:
-            records = [r for r in records if title.lower() in r["title"].lower()]
-        if search:
-            needle = search.lower()
-            records = [
-                r for r in records
-                if needle in r["title"].lower()
-                or needle in r["company"].lower()
-                or any(needle in s.lower() for s in r.get("required_skills", []))
-            ]
-        if date_from:
-            records = [r for r in records if (r.get("applied_at") or r["updated_at"]) >= date_from]
-        if date_to:
-            records = [r for r in records if (r.get("applied_at") or r["updated_at"]) <= date_to]
+        records = filter_records(
+            self._read(), status=status, source=source, company=company, category=category,
+            title=title, search=search, date_from=date_from, date_to=date_to,
+        )
         records.sort(key=lambda r: r["updated_at"], reverse=True)
 
-        # Cursor is the offset into this filtered+sorted list, as a string
-        # — simple and correct for a single-process local file store.
-        # (DynamoStore's cursor is shaped differently — a job_id — since
-        # it's paging a real Scan's LastEvaluatedKey; the dashboard treats
-        # both as opaque strings, never inspecting their contents.)
+        # Cursor is the offset into this filtered+sorted list, as a
+        # decimal string — DynamoStore uses the identical scheme (see its
+        # own list_applications), so this is a real cross-backend
+        # contract now, not just an implementation detail — see
+        # ApplicationStore.list_applications's CURSOR CONTRACT note.
         offset = int(cursor) if cursor else 0
         page = records[offset : offset + limit]
         next_cursor = str(offset + limit) if offset + limit < len(records) else None
         return [Application(**r) for r in page], next_cursor
+
+    def count_applications(
+        self,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        company: Optional[str] = None,
+        category: Optional[str] = None,
+        title: Optional[str] = None,
+        search: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> int:
+        return len(filter_records(
+            self._read(), status=status, source=source, company=company, category=category,
+            title=title, search=search, date_from=date_from, date_to=date_to,
+        ))
 
     def get_summary(self) -> dict:
         records = self._read()
@@ -172,6 +169,14 @@ class LocalJsonStore(ApplicationStore):
         records = [r for r in records if r["job_id"] != application.job_id]
         records.append(data)
         self._write(records)
+
+    def delete_application(self, job_id: str) -> bool:
+        records = self._read()
+        remaining = [r for r in records if r["job_id"] != job_id]
+        if len(remaining) == len(records):
+            return False
+        self._write(remaining)
+        return True
 
     def get_category_breakdown(self) -> dict:
         records = self._read()

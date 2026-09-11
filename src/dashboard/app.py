@@ -23,13 +23,14 @@ credentials; this app only reads/displays what the local pipeline wrote.
 from __future__ import annotations
 
 import hmac
+import json
 import os
 import threading
 from pathlib import Path
 from typing import Optional
 
 import yaml
-from fastapi import FastAPI, Form, HTTPException, Query, Request
+from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -181,6 +182,7 @@ def dashboard(request: Request):
 def applications_page(request: Request):
     store = get_store()
     applications, next_cursor = store.list_applications(limit=DASHBOARD_PAGE_SIZE)
+    total = store.count_applications()
     categories = sorted(store.get_category_breakdown().keys())
     return templates.TemplateResponse(
         request,
@@ -188,7 +190,18 @@ def applications_page(request: Request):
         {
             "active": "applications",
             "applications": applications,
+            # Raw JSON of the same rows, for the page's own JS to seed its
+            # cross-page selection map (knownJobs) with the FIRST page's
+            # data on load, without a redundant extra fetch to
+            # /api/applications just to get what was already rendered.
+            # `</` -> `<\/` guards against a scraped job title/company
+            # (untrusted, external text) containing a literal "</script>"
+            # and prematurely closing the embedding <script> tag early.
+            "applications_json": json.dumps(
+                [a.model_dump(mode="json") for a in applications]
+            ).replace("</", "<\\/"),
             "next_cursor": next_cursor,
+            "total": total,
             "page_size": DASHBOARD_PAGE_SIZE,
             "sources": [s.value for s in JobSource],
             "statuses": [s.value for s in ApplicationStatus],
@@ -221,15 +234,42 @@ def api_applications(
     limit: int = Query(default=5, le=500),
     cursor: Optional[str] = Query(default=None),
 ):
-    applications, next_cursor = get_store().list_applications(
+    store = get_store()
+    applications, next_cursor = store.list_applications(
         status=status, source=source, company=company,
         category=category, title=title, search=search,
         date_from=date_from, date_to=date_to, limit=limit, cursor=cursor,
     )
+    # Same filters, minus limit/cursor (a count has no page to speak of) -
+    # lets the dashboard render numbered page buttons (total pages =
+    # ceil(total / limit)), not just a Prev/Next pair.
+    total = store.count_applications(
+        status=status, source=source, company=company,
+        category=category, title=title, search=search,
+        date_from=date_from, date_to=date_to,
+    )
     return {
         "items": [a.model_dump(mode="json") for a in applications],
         "next_cursor": next_cursor,
+        "total": total,
     }
+
+
+@app.post("/api/applications/bulk-delete")
+def bulk_delete_applications(job_ids: list[str] = Body(..., embed=True)):
+    """Permanently deletes every application whose job_id is in job_ids —
+    backs the Applications page's "Delete selected" bulk action (a human
+    cleaning up their own list, not scraping/automation - allowed on both
+    backends, same reasoning as Mark Applied/project-bank CRUD; see
+    ApplicationStore.delete_application's docstring). Missing ids are
+    reported back rather than raising, since a bulk selection made in the
+    browser can legitimately go stale (someone else - or another tab -
+    deleted one first)."""
+    store = get_store()
+    deleted, not_found = [], []
+    for job_id in job_ids:
+        (deleted if store.delete_application(job_id) else not_found).append(job_id)
+    return {"deleted": deleted, "not_found": not_found}
 
 
 @app.get("/api/applications/{job_id}/resume-url")
@@ -652,6 +692,16 @@ def trigger_scrape():
 
     threading.Thread(target=_run, daemon=True).start()
     return {"started": True}
+
+
+@app.post("/actions/scrape-stop")
+def stop_scrape():
+    if not LOCAL_ACTIONS_ENABLED:
+        raise HTTPException(status_code=403, detail="Scraping runs locally only — see /actions/scrape.")
+    from src.pipeline import status as pipeline_status  # local-only
+
+    pipeline_status.request_stop()
+    return {"stop_requested": True}
 
 
 @app.get("/actions/scrape-status")

@@ -146,6 +146,10 @@ Resources:
         #     Resume" buttons (a human flagging an application as
         #     applied, or re-tailoring their own resume for one job -
         #     neither is an apply bot).
+        #   - DeleteItem on Applications: the Applications page's bulk
+        #     "Delete selected" action (a human cleaning up their own
+        #     list - same "not automation" reasoning as UpdateItem above,
+        #     added alongside src.storage.dynamo_store.DynamoStore.delete_application).
         #   - PutItem/DeleteItem on ProjectBank: the /projects page's
         #     Add/Edit/Delete actions (static reference data, not user
         #     PII - Edit is just PutItem again, upsert by id).
@@ -165,6 +169,7 @@ Resources:
             - Effect: Allow
               Action:
                 - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
               Resource: !GetAtt ApplicationsTable.Arn
             - Effect: Allow
               Action:

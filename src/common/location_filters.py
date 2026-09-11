@@ -44,3 +44,34 @@ def is_globally_remote(location: Optional[str], description: Optional[str]) -> b
         return False
     haystack = f"{location}\n{description or ''}"
     return not any(p.search(haystack) for p in _COMPILED)
+
+
+# Direct request (2026-09-11): besides globally-remote postings, Indeed
+# and LinkedIn should also surface ONSITE jobs based in any of these
+# countries (SimplyHired stays remote-only — see src/pipeline/ingest.py).
+# Order doesn't matter for matching; kept as given. "Saudi Arabia" also
+# matches its common short form.
+ALLOWED_ONSITE_COUNTRIES = [
+    "Pakistan", "Malaysia", "Maldives", "Bahrain", "Qatar", "Kuwait", "Oman",
+    "Saudi Arabia", "Azerbaijan", "Armenia", "Lithuania", "Latvia", "Malta",
+    "Singapore", "Luxembourg",
+]
+
+_COUNTRY_SYNONYMS = {"Saudi Arabia": ["Saudi Arabia", "KSA"]}
+
+
+def matched_onsite_country(location: Optional[str], description: Optional[str]) -> Optional[str]:
+    """Best-effort text match (same "good enough for tagging, not a
+    guarantee" standard as is_globally_remote/RESTRICTION_PATTERNS above)
+    for whether a job is based in one of ALLOWED_ONSITE_COUNTRIES —
+    checked against the location text first (cheap, usually sufficient:
+    "Karachi, Pakistan", "Doha, Qatar") and the description as a
+    fallback for postings whose location field is vague ("On-site") but
+    name the country in the body text. Returns the matched country name
+    (from ALLOWED_ONSITE_COUNTRIES, for logging/display) or None."""
+    haystack = f"{location or ''}\n{description or ''}".lower()
+    for country in ALLOWED_ONSITE_COUNTRIES:
+        names = _COUNTRY_SYNONYMS.get(country, [country])
+        if any(name.lower() in haystack for name in names):
+            return country
+    return None

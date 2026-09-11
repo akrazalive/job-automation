@@ -78,18 +78,24 @@ What works right now:
   [config/search_criteria.yaml](config/search_criteria.yaml) runs against
   every source listed under that file's `sources` key. Current list: 10
   role titles (Software/Web/Back End/Front End Developer, Full Stack
-  Engineer, Full Stack/Laravel/React/WordPress/WooCommerce Developer) x 4
-  seniority levels (none/Senior/Junior/Intermediate) = 40 searches x 3
-  sources = 120 actual searches per full cycle.
-- **Filtered to globally-remote, posted within the last 7 days**
-  ([src/common/location_filters.py](src/common/location_filters.py)) —
-  jobs restricted to one country ("Remote (US only)" etc.) are filtered
-  out by a text heuristic (best-effort, not perfect — see the module
-  docstring), and SimplyHired's relative date stamp ("7d", "20h") /
-  LinkedIn's absolute posted date are both parsed to drop anything older
-  than `max_age_days` (config/search_criteria.yaml, default 7). A job
-  whose date couldn't be parsed (always the case for Indeed — see that
-  scraper's module docstring) is kept rather than guessed-and-dropped.
+  Engineer, Full Stack/Laravel/React/WordPress/WooCommerce Developer) x 3
+  sources = 30 actual searches per full cycle (narrowed down from 120 —
+  direct feedback 2026-09-11 that 120 was too many; see
+  config/search_criteria.yaml's header comment for the reasoning). A
+  running scrape can be stopped early from the Scraping page's **Stop**
+  button.
+- **Location filtering, different per source** — SimplyHired stays
+  globally-remote-only; Indeed and LinkedIn additionally keep ONSITE jobs
+  based in one of 15 allowed countries (Pakistan, Malaysia, Maldives,
+  Bahrain, Qatar, Kuwait, Oman, Saudi Arabia, Azerbaijan, Armenia,
+  Lithuania, Latvia, Malta, Singapore, Luxembourg — see
+  [src/common/location_filters.py](src/common/location_filters.py)'s
+  `ALLOWED_ONSITE_COUNTRIES`). SimplyHired's relative date stamp ("7d",
+  "20h") / LinkedIn's absolute posted date are both parsed to drop
+  anything older than `max_age_days` (config/search_criteria.yaml,
+  default 7). A job whose date couldn't be parsed (always the case for
+  Indeed — see that scraper's module docstring) is kept rather than
+  guessed-and-dropped.
 - **Automatic skill tagging** ([src/common/skills.py](src/common/skills.py))
   — each job's description is scanned for known tech keywords and shown
   as tags on the dashboard, so you can see at a glance what's required.
@@ -143,7 +149,7 @@ What works right now:
 - Your resume, digitized into a structured, schema-validated
   `resume/master_resume.json` (git-ignored — it's your real name, email,
   phone, and address).
-- 210 passing tests ([tests/](tests/)).
+- 234 passing tests ([tests/](tests/)).
 
 ### Run the full pipeline locally (scrape → filter → tag → save; no tailoring here — see above)
 
@@ -151,9 +157,11 @@ What works right now:
 pip install -r requirements-dev.txt
 playwright install chromium     # one-time browser download
 python -m src.pipeline.ingest
-# takes a while (40 keyword entries x 3 sources = 120 searches x anti-ban
-# delays) - progress prints live, and is also visible from the
-# dashboard's Scraping page while it runs
+# takes a while (10 keyword entries x 3 sources = 30 searches x anti-ban
+# delays) - progress prints live (one line per search, plus one per job:
+# retrieved / checking eligibility / saved-or-skipped), and is also
+# visible from the dashboard's Scraping page while it runs, including
+# elapsed time and a Stop button
 ```
 
 To write straight into the live AWS tables instead of the local file,

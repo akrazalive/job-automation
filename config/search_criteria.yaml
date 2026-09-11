@@ -1,19 +1,18 @@
 # What the scrapers search for, and which scrapers run.
 #
-# REPLACED 2026-09-11 per direct request: narrowed from the previous
-# 29-entry, every-tech-stack-separately list down to exactly the role
-# titles asked for (Software/Web/Back End/Front End/Full Stack Engineer/
-# Full Stack/Laravel/React/WordPress/WooCommerce Developer), each run at
-# every seniority level (none/Senior/Junior/Intermediate) — 10 titles x 4
-# levels = 40 searches. Reasoning given for the narrowing: the specific
-# tech-stack skills (Node.js, Vue, Django, Shopify, etc.) don't need their
-# own separate search entries — src/common/skills.py already tags whatever
-# skills actually show up in a matched job's description, and the resume's
-# real skill set (resume/master_resume.json) is what src/tailoring/ reorders
-# against at tailor time, not what the search query happened to say. If the
-# old broader keyword list is wanted back later, TECHNICAL_PLAN.txt's
-# STATUS section 1 (second pass, 2026-09-08) has the original 29 entries to
-# restore from.
+# NARROWED AGAIN 2026-09-11 (second time same day): direct feedback "why
+# on scrape you are going for 120, it should just bring in 20" — the
+# previous version of this file crossed 10 role titles x 4 seniority
+# levels (none/Senior/Junior/Intermediate) = 40 entries x 3 sources = 120
+# searches per cycle. Dropped the seniority cross-product back to one
+# search per title (10 entries x 3 sources = 30 searches) — a plain
+# "React Developer" search already surfaces Senior/Junior postings
+# regardless of the query's own wording (companies title postings however
+# they want), so the seniority variants were adding search VOLUME without
+# adding much real COVERAGE. If that turns out wrong — e.g. certain sites'
+# ranking genuinely surfaces different results for "Senior X" vs "X" —
+# ask to have specific titles' seniority variants added back rather than
+# restoring all 40 at once.
 #
 # `category` groups results for the dashboard's category breakdown/report
 # and for skill-tag matching context — it's free text, not validated
@@ -21,11 +20,11 @@
 # file directly, or via the dashboard's Scraping page (local runs only,
 # see /scraping -> "Search keywords" -> "Add search").
 #
-# `sources` (new 2026-09-11): every entry below runs against EVERY listed
-# source, every scrape cycle — src/pipeline/ingest.py loops searches x
-# sources. See src/scrapers/{simplyhired,indeed,linkedin}.py for what each
-# one actually does; all three are SEARCH/READ ONLY (no login, no apply) —
-# see TECHNICAL_PLAN.txt Phase 4-6 for why the actual apply bots are a
+# `sources`: every entry below runs against EVERY listed source, every
+# scrape cycle — src/pipeline/ingest.py loops searches x sources. See
+# src/scrapers/{simplyhired,indeed,linkedin}.py for what each one actually
+# does; all three are SEARCH/READ ONLY (no login, no apply) — see
+# TECHNICAL_PLAN.txt Phase 4-6 for why the actual apply bots are a
 # separate, much bigger, still-not-started piece of work. indeed and
 # linkedin are both known to occasionally show a bot-detection challenge
 # page instead of real results (Indeed noticeably more often than LinkedIn
@@ -38,134 +37,34 @@ sources:
   - linkedin
 
 searches:
-  # --- Software Developer ---
   - query: "Software Developer"
     location: "Remote"
     category: "general"
-  - query: "Senior Software Developer"
-    location: "Remote"
-    category: "general"
-  - query: "Junior Software Developer"
-    location: "Remote"
-    category: "general"
-  - query: "Intermediate Software Developer"
-    location: "Remote"
-    category: "general"
-  # --- Web Developer ---
   - query: "Web Developer"
     location: "Remote"
     category: "general"
-  - query: "Senior Web Developer"
-    location: "Remote"
-    category: "general"
-  - query: "Junior Web Developer"
-    location: "Remote"
-    category: "general"
-  - query: "Intermediate Web Developer"
-    location: "Remote"
-    category: "general"
-  # --- Back End Developer ---
   - query: "Back End Developer"
     location: "Remote"
     category: "backend"
-  - query: "Senior Back End Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Junior Back End Developer"
-    location: "Remote"
-    category: "backend"
-  - query: "Intermediate Back End Developer"
-    location: "Remote"
-    category: "backend"
-  # --- Front End Developer ---
   - query: "Front End Developer"
     location: "Remote"
     category: "frontend"
-  - query: "Senior Front End Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Junior Front End Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Intermediate Front End Developer"
-    location: "Remote"
-    category: "frontend"
-  # --- Full Stack Engineer ---
   - query: "Full Stack Engineer"
     location: "Remote"
     category: "fullstack"
-  - query: "Senior Full Stack Engineer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Junior Full Stack Engineer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Intermediate Full Stack Engineer"
-    location: "Remote"
-    category: "fullstack"
-  # --- Full Stack Developer ---
   - query: "Full Stack Developer"
     location: "Remote"
     category: "fullstack"
-  - query: "Senior Full Stack Developer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Junior Full Stack Developer"
-    location: "Remote"
-    category: "fullstack"
-  - query: "Intermediate Full Stack Developer"
-    location: "Remote"
-    category: "fullstack"
-  # --- Laravel Developer ---
   - query: "Laravel Developer"
     location: "Remote"
     category: "php"
-  - query: "Senior Laravel Developer"
-    location: "Remote"
-    category: "php"
-  - query: "Junior Laravel Developer"
-    location: "Remote"
-    category: "php"
-  - query: "Intermediate Laravel Developer"
-    location: "Remote"
-    category: "php"
-  # --- React Developer ---
   - query: "React Developer"
     location: "Remote"
     category: "frontend"
-  - query: "Senior React Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Junior React Developer"
-    location: "Remote"
-    category: "frontend"
-  - query: "Intermediate React Developer"
-    location: "Remote"
-    category: "frontend"
-  # --- WordPress Developer ---
   - query: "WordPress Developer"
     location: "Remote"
     category: "cms"
-  - query: "Senior WordPress Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Junior WordPress Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Intermediate WordPress Developer"
-    location: "Remote"
-    category: "cms"
-  # --- WooCommerce Developer ---
   - query: "WooCommerce Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Senior WooCommerce Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Junior WooCommerce Developer"
-    location: "Remote"
-    category: "cms"
-  - query: "Intermediate WooCommerce Developer"
     location: "Remote"
     category: "cms"
 
@@ -174,11 +73,22 @@ searches:
 # config/apply_settings.yaml — don't conflate the two.
 max_results_per_search: 8
 
-# Only keep jobs that look remote with no location restriction (not
-# "Remote - US only" etc.) — best-effort text heuristic, see
-# src/pipeline/ingest.py:is_globally_remote(). Some restricted listings
-# may slip through if they don't use a recognizable phrase; this filters
-# the obvious cases, it isn't a guarantee.
+# Location acceptance rule, applied per job AFTER it's found (this does
+# NOT scope the search query itself for Indeed/LinkedIn — see
+# src/pipeline/ingest.py's comment on SOURCE location handling for why):
+#   - SimplyHired: keep ONLY jobs that look remote with no location
+#     restriction (not "Remote - US only" etc.) — best-effort text
+#     heuristic, see src/common/location_filters.py:is_globally_remote().
+#   - Indeed / LinkedIn: keep a job if it's globally remote OR its
+#     location/description mentions one of
+#     src/common/location_filters.py:ALLOWED_ONSITE_COUNTRIES (Pakistan,
+#     Malaysia, Maldives, Bahrain, Qatar, Kuwait, Oman, Saudi Arabia,
+#     Azerbaijan, Armenia, Lithuania, Latvia, Malta, Singapore,
+#     Luxembourg) — direct request 2026-09-11. Both checks are
+#     best-effort text matching, not a guarantee — see that module's
+#     docstring for the known limits.
+# Set to false to disable ALL location filtering (every source keeps
+# everything found, remote or not, anywhere).
 remote_only: true
 
 # Only keep jobs posted within this many days. SimplyHired's and

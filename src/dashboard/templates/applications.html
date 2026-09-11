@@ -4,22 +4,55 @@
 <style>
   h1 { margin: 0 0 4px; font-size: 1.4rem; }
   .sub { color: var(--muted); font-size: .85rem; margin-bottom: 4px; }
-  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
-  .filters .search-field { flex: 1 1 220px; min-width: 200px; }
+
+  /* One scrollable row rather than wrapping to a second line - direct
+     feedback: "the above filters spanning two rows. find a way to show
+     them in a row". Each field gets a fixed width instead of flex-
+     growing, and the row scrolls horizontally on narrow screens instead
+     of wrapping. */
+  .filters { display: flex; gap: 10px; align-items: end; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
+  .filters > div { flex: 0 0 auto; }
+  .filters .search-field { width: 190px; }
   .filters .search-field input { width: 100%; }
+  .filters select, .filters input:not([type="date"]) { width: 150px; }
+  .filters input[type="date"] { width: 130px; }
+
   table#app-table { width: 100%; border-collapse: collapse; }
   .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); position: relative; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: .82rem; white-space: nowrap; vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; }
   td.wrap { white-space: normal; max-width: 260px; }
+  .select-col { width: 32px; }
   .remote-pill { font-size: .68rem; color: var(--accent-dark); font-weight: 700; }
+  .location-text { font-size: .78rem; color: var(--muted); }
   .empty { padding: 40px 32px; color: var(--muted); text-align: center; }
-  .pagination { display: flex; align-items: center; gap: 10px; padding: 14px 16px; justify-content: flex-end; flex-wrap: wrap; }
+
+  .pagination { display: flex; align-items: center; gap: 6px; padding: 14px 16px; justify-content: flex-end; flex-wrap: wrap; }
   .pagination .page-info { font-size: .8rem; color: var(--muted); margin-right: auto; }
+  .pagination .page-btn {
+    min-width: 30px; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
+  }
+  .pagination .page-btn:hover:not(:disabled) { background: var(--accent-light); color: var(--accent-dark); }
+  .pagination .page-btn.current { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); cursor: default; }
+  .pagination .page-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .pagination .page-ellipsis { color: var(--muted); padding: 0 2px; font-size: .8rem; }
+
   .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
   .action-cell { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .btn-sm.applied-flag { background: var(--applied); border-color: var(--applied); color: #fff; cursor: default; }
   .tailored-note { font-size: .7rem; color: var(--accent-dark); white-space: nowrap; }
+
+  /* Bulk selection bar - direct feedback: "select all deselect all
+     functionality and we can export job links in select all, or we can
+     do delete in select all". */
+  .bulk-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--accent-light); border-bottom: 1px solid var(--border); font-size: .82rem;
+  }
+  .bulk-bar .count { font-weight: 700; color: var(--accent-dark); margin-right: auto; }
+  .btn.danger { background: var(--failed); border-color: var(--failed); color: #fff; }
+  .btn.danger:hover { background: #b91c1c; border-color: #b91c1c; }
 
   .toast {
     position: fixed; bottom: 24px; right: 24px; z-index: 60; max-width: 360px;
@@ -119,23 +152,33 @@
     <div class="spinner"></div>
     <div class="loading-text">Loading results…</div>
   </div>
+
+  <div class="bulk-bar" id="bulk-bar" hidden>
+    <span class="count" id="bulk-count"></span>
+    <button class="btn secondary btn-sm" id="bulk-export-btn">⬇ Export links (.txt)</button>
+    <button class="btn danger btn-sm" id="bulk-delete-btn">🗑 Delete selected</button>
+    <button class="btn secondary btn-sm" id="bulk-clear-btn">Clear selection</button>
+  </div>
+
   <table id="app-table">
     <thead>
       <tr>
+        <th class="select-col"><input type="checkbox" id="select-all-checkbox" title="Select all on this page"></th>
         <th>Updated</th><th>Posted</th><th>Source</th><th>Company</th><th>Title</th><th>Category</th>
-        <th>Remote</th><th>Skills</th><th>Status</th><th>Reason</th><th>Actions</th>
+        <th>Location</th><th>Skills</th><th>Status</th><th>Reason</th><th>Actions</th>
       </tr>
     </thead>
     <tbody id="app-tbody">
       {% for a in applications %}
       <tr data-job-id="{{ a.job_id }}">
+        <td class="select-col"><input type="checkbox" class="row-select" data-job-id="{{ a.job_id }}"></td>
         <td>{{ a.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
         <td>{{ a.posted_at.strftime("%Y-%m-%d") if a.posted_at else "—" }}</td>
         <td>{{ a.source.value }}</td>
         <td>{{ a.company }}</td>
         <td class="wrap">{{ a.title }}</td>
         <td>{{ a.category or "—" }}</td>
-        <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if a.is_remote %}<span class="remote-pill">REMOTE</span>{% elif a.location %}<span class="location-text">{{ a.location }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         <td class="wrap">{% for sk in a.required_skills %}<span class="tag">{{ sk }}</span>{% endfor %}</td>
         <td class="status-cell"><span class="badge {{ a.status.value }}">{{ a.status.value }}</span></td>
         <td class="wrap">{{ a.reason or "" }}</td>
@@ -155,15 +198,11 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="11" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
+      <tr><td colspan="12" class="empty">No applications yet. Run a scrape from Settings, or locally: <code>python -m src.pipeline.ingest</code></td></tr>
       {% endfor %}
     </tbody>
   </table>
-  <div class="pagination">
-    <span class="page-info" id="page-info">Page 1</span>
-    <button class="btn secondary" id="page-prev" disabled>&larr; Prev</button>
-    <button class="btn secondary" id="page-next" {{ 'disabled' if not next_cursor }}>Next &rarr;</button>
-  </div>
+  <div class="pagination" id="pagination"></div>
 </div>
 
 <div class="modal-backdrop" id="ideas-modal" onclick="if (event.target === this) closeIdeas()">
@@ -180,11 +219,22 @@
 
 <div class="toast" id="toast"></div>
 
+<script id="initial-applications-data" type="application/json">{{ applications_json | safe }}</script>
+
 <script>
 let PAGE_SIZE = {{ page_size }};
-let cursorStack = [null];   // cursorStack[pageIndex] = cursor used to FETCH that page
-let currentPage = 0;
-let nextCursor = {{ (next_cursor | tojson) if next_cursor else 'null' }};
+let currentPage = 0;               // 0-indexed
+let total = {{ total }};
+
+// Cross-page selection: which job_ids are checked, and everything this
+// page's JS has ever seen about each one (title/company/url — needed for
+// Export even for a job selected on a page that isn't currently loaded).
+// Cursor for page N is always the decimal string N*PAGE_SIZE — see
+// ApplicationStore.list_applications's CURSOR CONTRACT note
+// (src/storage/base.py) — both backends guarantee this, so numbered
+// pages can be fetched directly instead of only ever chaining forward.
+let selectedIds = new Set();
+let knownJobs = new Map();
 
 function currentFilters() {
   const params = new URLSearchParams();
@@ -210,50 +260,64 @@ function currentFilters() {
 
 function setLoading(isLoading) {
   document.getElementById('loading-overlay').classList.toggle('visible', isLoading);
-  ['f-search', 'f-status', 'f-source', 'f-category', 'f-title', 'f-company', 'f-from', 'f-to', 'f-pagesize', 'f-apply', 'page-prev', 'page-next']
+  ['f-search', 'f-status', 'f-source', 'f-category', 'f-title', 'f-company', 'f-from', 'f-to', 'f-pagesize', 'f-apply']
     .forEach(id => { document.getElementById(id).disabled = isLoading; });
-  if (!isLoading) updatePaginationControls();  // restores correct prev/next disabled state
 }
 
-async function loadPage(cursor) {
+async function loadPage(pageIndex) {
   setLoading(true);
   try {
     const params = currentFilters();
-    if (cursor) params.set('cursor', cursor);
+    if (pageIndex > 0) params.set('cursor', String(pageIndex * PAGE_SIZE));
 
     const appsRes = await fetch('/api/applications?' + params.toString());
     const apps = await appsRes.json();
+    currentPage = pageIndex;
+    total = apps.total;
     renderTable(apps.items);
-    nextCursor = apps.next_cursor;
   } finally {
-    setLoading(false);  // also restores correct prev/next disabled state
+    setLoading(false);
+    renderPagination();
   }
 }
 
-function updatePaginationControls() {
-  document.getElementById('page-info').textContent = `Page ${currentPage + 1}`;
-  document.getElementById('page-prev').disabled = currentPage === 0;
-  document.getElementById('page-next').disabled = !nextCursor;
+function renderPagination() {
+  const el = document.getElementById('pagination');
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages - 1) currentPage = totalPages - 1;
+
+  const parts = [];
+  parts.push(`<span class="page-info">Page ${currentPage + 1} of ${totalPages} — ${total} total</span>`);
+  parts.push(`<button class="page-btn" id="page-prev" ${currentPage === 0 ? 'disabled' : ''}>&larr; Prev</button>`);
+
+  // Windowed page numbers (current ± 2), always with the first/last page
+  // and an ellipsis for whatever's skipped in between - keeps the button
+  // row short even with dozens of pages.
+  const windowStart = Math.max(0, currentPage - 2);
+  const windowEnd = Math.min(totalPages - 1, currentPage + 2);
+  const pageNumbers = [];
+  if (windowStart > 0) { pageNumbers.push(0); if (windowStart > 1) pageNumbers.push('…'); }
+  for (let p = windowStart; p <= windowEnd; p++) pageNumbers.push(p);
+  if (windowEnd < totalPages - 1) { if (windowEnd < totalPages - 2) pageNumbers.push('…'); pageNumbers.push(totalPages - 1); }
+
+  pageNumbers.forEach(p => {
+    if (p === '…') { parts.push('<span class="page-ellipsis">…</span>'); return; }
+    parts.push(`<button class="page-btn ${p === currentPage ? 'current' : ''}" data-page="${p}" ${p === currentPage ? 'disabled' : ''}>${p + 1}</button>`);
+  });
+
+  parts.push(`<button class="page-btn" id="page-next" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next &rarr;</button>`);
+  el.innerHTML = parts.join('');
+
+  document.getElementById('page-prev').addEventListener('click', () => { if (currentPage > 0) loadPage(currentPage - 1); });
+  document.getElementById('page-next').addEventListener('click', () => { if (currentPage < totalPages - 1) loadPage(currentPage + 1); });
+  el.querySelectorAll('.page-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => loadPage(parseInt(btn.dataset.page, 10)));
+  });
 }
 
 async function resetAndLoad() {
-  cursorStack = [null];
-  currentPage = 0;
-  await loadPage(null);
+  await loadPage(0);
 }
-
-document.getElementById('page-next').addEventListener('click', async () => {
-  if (!nextCursor) return;
-  cursorStack.push(nextCursor);
-  currentPage += 1;
-  await loadPage(cursorStack[currentPage]);
-});
-
-document.getElementById('page-prev').addEventListener('click', async () => {
-  if (currentPage === 0) return;
-  currentPage -= 1;
-  await loadPage(cursorStack[currentPage]);
-});
 
 document.getElementById('f-pagesize').addEventListener('change', (e) => {
   PAGE_SIZE = parseInt(e.target.value, 10);
@@ -265,7 +329,7 @@ async function markApplied(jobId, btn) {
   btn.textContent = 'Marking...';
   const res = await fetch(`/api/applications/${jobId}/mark-applied`, { method: 'POST' });
   if (res.ok) {
-    await loadPage(cursorStack[currentPage]);  // refresh current page in place
+    await loadPage(currentPage);  // refresh current page in place
   } else {
     btn.disabled = false;
     btn.textContent = 'Mark Applied';
@@ -374,6 +438,12 @@ function closeIdeas() {
   document.getElementById('ideas-modal').classList.remove('visible');
 }
 
+function locationCell(a) {
+  if (a.is_remote) return '<span class="remote-pill">REMOTE</span>';
+  if (a.location) return `<span class="location-text">${escapeHtml(a.location)}</span>`;
+  return '<span class="muted">—</span>';
+}
+
 function actionCell(a) {
   const appliedFlag = a.status === 'applied'
     ? '<span class="btn-sm applied-flag">✓ Applied</span>'
@@ -404,31 +474,135 @@ function actionCell(a) {
 }
 
 function renderTable(items) {
+  items.forEach(a => knownJobs.set(a.job_id, a));  // available for Export/Delete even after paging away
+
   const tbody = document.getElementById('app-tbody');
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">No matching applications.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">No matching applications.</td></tr>';
+    updateBulkBar();
     return;
   }
   tbody.innerHTML = items.map(a => `
     <tr data-job-id="${a.job_id}">
+      <td class="select-col"><input type="checkbox" class="row-select" data-job-id="${a.job_id}" ${selectedIds.has(a.job_id) ? 'checked' : ''}></td>
       <td>${(a.updated_at || '').replace('T', ' ').slice(0, 16)}</td>
       <td>${a.posted_at ? a.posted_at.slice(0, 10) : '—'}</td>
       <td>${a.source}</td>
       <td>${escapeHtml(a.company)}</td>
       <td class="wrap">${escapeHtml(a.title)}</td>
       <td>${escapeHtml(a.category || '—')}</td>
-      <td>${a.is_remote ? '<span class="remote-pill">REMOTE</span>' : '<span class="muted">—</span>'}</td>
+      <td>${locationCell(a)}</td>
       <td class="wrap">${(a.required_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</td>
       <td class="status-cell"><span class="badge ${a.status}">${a.status}</span></td>
       <td class="wrap">${escapeHtml(a.reason || '')}</td>
       <td class="action-cell">${actionCell(a)}</td>
     </tr>
   `).join('');
+  wireRowCheckboxes();
+  updateBulkBar();
 }
 
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// --- Bulk selection: select all / deselect all, export links, delete ------
+// Direct feedback: "there should be select all deselect all functionality
+// and we can export job links in select all, or we can do delete in
+// select all. the job links can be in a simple text document, one job per
+// line." "Select all" (the header checkbox) only ever acts on the rows
+// visible on the CURRENT page - selections made on earlier pages stay
+// selected underneath, so a multi-page bulk action is just "select all"
+// on each page you care about, then Export/Delete once at the end.
+
+function wireRowCheckboxes() {
+  document.querySelectorAll('.row-select').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) selectedIds.add(cb.dataset.jobId); else selectedIds.delete(cb.dataset.jobId);
+      updateBulkBar();
+    });
+  });
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const count = document.getElementById('bulk-count');
+  bar.hidden = selectedIds.size === 0;
+  count.textContent = `${selectedIds.size} selected`;
+
+  const visible = Array.from(document.querySelectorAll('.row-select'));
+  const selectAll = document.getElementById('select-all-checkbox');
+  if (visible.length) {
+    const allChecked = visible.every(cb => selectedIds.has(cb.dataset.jobId));
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = !allChecked && visible.some(cb => selectedIds.has(cb.dataset.jobId));
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  }
+}
+
+document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+  document.querySelectorAll('.row-select').forEach(cb => {
+    cb.checked = e.target.checked;
+    if (e.target.checked) selectedIds.add(cb.dataset.jobId); else selectedIds.delete(cb.dataset.jobId);
+  });
+  updateBulkBar();
+});
+
+document.getElementById('bulk-clear-btn').addEventListener('click', () => {
+  selectedIds.clear();
+  document.querySelectorAll('.row-select').forEach(cb => { cb.checked = false; });
+  updateBulkBar();
+});
+
+document.getElementById('bulk-export-btn').addEventListener('click', () => {
+  const lines = Array.from(selectedIds)
+    .map(id => knownJobs.get(id))
+    .filter(Boolean)
+    .map(a => a.url);
+  if (!lines.length) { showToast('Nothing to export — the selected rows are no longer loaded.', true); return; }
+  const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `job-links-${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Exported ${lines.length} job link${lines.length === 1 ? '' : 's'}`, false);
+});
+
+document.getElementById('bulk-delete-btn').addEventListener('click', async () => {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} selected application${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+  const btn = document.getElementById('bulk-delete-btn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    const res = await fetch('/api/applications/bulk-delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_ids: ids }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`✓ Deleted ${data.deleted.length} application${data.deleted.length === 1 ? '' : 's'}`, false);
+      selectedIds.clear();
+      data.deleted.forEach(id => knownJobs.delete(id));
+      await resetAndLoad();  // counts/pages shifted - safest to start from page 1
+    } else {
+      showToast(data.detail || 'Could not delete the selected applications.', true);
+    }
+  } catch (e) {
+    showToast('Network error while deleting — try again.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🗑 Delete selected';
+  }
+});
 
 document.getElementById('f-apply').addEventListener('click', resetAndLoad);
 // Enter in any text filter applies immediately, same as clicking "Apply
@@ -439,6 +613,12 @@ document.getElementById('f-apply').addEventListener('click', resetAndLoad);
     if (e.key === 'Enter') resetAndLoad();
   });
 });
-updatePaginationControls();
+
+// Seed knownJobs from the server-rendered first page (see
+// applications_json in src/dashboard/app.py) so Export/Delete work for
+// these rows even before any client-side fetch has run.
+JSON.parse(document.getElementById('initial-applications-data').textContent).forEach(a => knownJobs.set(a.job_id, a));
+wireRowCheckboxes();
+renderPagination();
 </script>
 {% endblock %}
