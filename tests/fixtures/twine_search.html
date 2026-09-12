@@ -1,0 +1,71 @@
+<!--
+Schematic reconstruction of Twine's (twine.net) job-listing page AFTER its
+own client-side React hydration has run (see src/scrapers/twine.py's
+module docstring — the raw server HTML has no cards at all, only skeleton
+loaders), using the real CSS-Modules class names/structure verified
+against the live site 2026-09-12. Not a captured copy of any real
+posting — trimmed to the structural contract the parser depends on, with
+synthetic company/job data, same convention as the sibling fixtures
+(linkedin_search.html etc.).
+-->
+<html>
+<body>
+<div id="brief-listings">
+  <div><div>
+
+    <!-- Card 1: company name present -->
+    <div class="_3U80iian ">
+      <div class="_1uiGxoF2">
+        <div class="_1c7esvdj">
+          <a class="_3tpM6xU8" href="/projects/abc123-full-stack-developer-remote-job" target="_blank" rel="noreferrer">
+            <div class="_31H8NHvu">Full Stack Developer<span class="_2ADUwIKe">Easy Apply ⚡</span></div>
+            <div class="_2AVoZB9y dmimCZdB _3KyCmAmB">POPULAR</div>
+          </a>
+          <div class="_13pKcrs-"><svg class="_348WzpfT"></svg></div>
+        </div>
+        <div class="_17QBDj78">Acme Corp</div>
+        <div class="_1L_9v_yL">
+          <div class="_3CVhFNlp" style="cursor:pointer;">🌎 Remote</div>
+          <div class="_3CVhFNlp" style="cursor:pointer;">💰 $3,000</div>
+          <div class="_3CVhFNlp" style="cursor:pointer;">Web Developer</div>
+        </div>
+        <a class="_1CgbVbmX" href="/projects/abc123-full-stack-developer-remote-job" target="_blank" rel="noreferrer">
+          We need a full stack developer to build out our React and Node.js platform...
+          <span class="_2OFkQWsR">Read more</span>
+        </a>
+        <div class="_3IjB0tuC">Posted <!-- -->a day ago<span class="_36ws8WHG">•</span><div class="_1dxLwscI">Expires in a month</div></div>
+      </div>
+    </div>
+
+    <!-- Card 2: no company name (anonymous client) - must fall back to "Unknown" -->
+    <div class="_3U80iian ">
+      <div class="_1uiGxoF2">
+        <div class="_1c7esvdj">
+          <a class="_3tpM6xU8" href="/projects/def456-python-django-backend-in-india-job" target="_blank" rel="noreferrer">
+            <div class="_31H8NHvu">Python/Django Backend Developer [Searching]<span class="_2ADUwIKe">Easy Apply ⚡</span></div>
+            <div class="_2AVoZB9y dmimCZdB _32r0_h_w"> OPEN JOB </div>
+          </a>
+          <div class="_13pKcrs-"><svg class="_348WzpfT"></svg></div>
+        </div>
+        <div class="_1L_9v_yL">
+          <div class="_3CVhFNlp" style="cursor:pointer;">📍 India</div>
+          <div class="_3CVhFNlp" style="cursor:pointer;">💰 $120.00</div>
+          <div class="_3CVhFNlp" style="cursor:pointer;">Web Developer</div>
+        </div>
+        <a class="_1CgbVbmX" href="/projects/def456-python-django-backend-in-india-job" target="_blank" rel="noreferrer">
+          I need a Django developer to help maintain an existing API...
+          <span class="_2OFkQWsR">Read more</span>
+        </a>
+        <div class="_3IjB0tuC">Posted <!-- -->7 days ago<span class="_36ws8WHG">•</span><div class="_1dxLwscI">Expires in 24 days</div></div>
+      </div>
+    </div>
+
+    <!-- Card 3: edge case - no wrapping title div at all (e.g. a promoted
+         banner reusing the /projects/ href pattern) - must be skipped,
+         not crash. -->
+    <a href="/projects/">Sponsored placeholder</a>
+
+  </div></div>
+</div>
+</body>
+</html>

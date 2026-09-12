@@ -21,6 +21,7 @@ class JobSource(str, Enum):
     LINKEDIN = "linkedin"
     INDEED = "indeed"
     SIMPLYHIRED = "simplyhired"
+    TWINE = "twine"
     # A job added by hand via the dashboard's "Add Job by URL" flow (see
     # POST /api/jobs in src/dashboard/app.py) rather than found by one of
     # the real scrapers above - kept distinct so the Applications page's

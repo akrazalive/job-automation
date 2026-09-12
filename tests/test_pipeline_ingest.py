@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.common.job_schema import Job, JobSource
@@ -299,3 +299,127 @@ searches:
 
     assert len(calls) == 1  # the second search never ran
     assert result["stopped_early"] is True
+
+
+# --- Tiered age-window + per-run cap (age_tier_hours/max_new_jobs_per_run) -
+
+def _aged_job(source: str, key: str, hours_ago: float | None) -> Job:
+    """Same shape as _job() above, but with an explicit posted_at age (or
+    None for an Indeed-style unknown date) instead of always "now" — what
+    every tiered-mode test below actually needs to exercise."""
+    posted_at = (
+        None if hours_ago is None
+        else datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    )
+    return Job(
+        job_id=f"{source}-{key}",
+        source=JobSource(source),
+        title=f"{source.title()} Developer {key}",
+        company=f"{key} Co",
+        location="Remote",
+        url=f"https://example.com/{source}/{key}",
+        description="React and Node.js role, fully remote, no restrictions.",
+        posted_at=posted_at,
+    )
+
+
+def _tiered_config(cap: int = 2, extra_searches: str = "") -> str:
+    return f"""
+sources:
+  - simplyhired
+searches:
+  - query: "React Developer"
+    location: "Remote"
+    category: "frontend"{extra_searches}
+max_new_jobs_per_run: {cap}
+age_tier_hours: [24, 48, 72]
+"""
+
+
+def test_tiered_mode_caps_total_new_and_holds_back_the_rest(monkeypatch, tmp_path):
+    store = _patch_common(monkeypatch, tmp_path, _tiered_config(cap=2))
+    jobs = [_aged_job("simplyhired", str(i), hours_ago=5) for i in range(3)]  # all fresh, all tier 0
+    monkeypatch.setitem(ingest.SOURCE_SCRAPERS, "simplyhired", lambda *a, **kw: jobs)
+
+    result = ingest.run()
+
+    assert result["total_new"] == 2  # capped at max_new_jobs_per_run
+    assert result["total_skipped"] == 0  # held back, not disqualified
+    apps, _ = store.list_applications(limit=10)
+    assert len(apps) == 2
+
+
+def test_tiered_mode_prefers_the_freshest_tier_over_discovery_order(monkeypatch, tmp_path):
+    store = _patch_common(monkeypatch, tmp_path, _tiered_config(cap=1))
+    older = _aged_job("simplyhired", "older", hours_ago=30)  # 48h tier, found FIRST
+    newer = _aged_job("simplyhired", "newer", hours_ago=5)  # 24h tier, found SECOND
+    monkeypatch.setitem(ingest.SOURCE_SCRAPERS, "simplyhired", lambda *a, **kw: [older, newer])
+
+    result = ingest.run()
+
+    assert result["total_new"] == 1
+    apps, _ = store.list_applications(limit=10)
+    assert len(apps) == 1
+    assert apps[0].job_id == newer.job_id  # the fresher one wins despite being found second
+
+
+def test_tiered_mode_drops_jobs_older_than_the_last_tier(monkeypatch, tmp_path):
+    store = _patch_common(monkeypatch, tmp_path, _tiered_config(cap=2))
+    stale = _aged_job("simplyhired", "stale", hours_ago=100)  # older than the 72h ceiling
+    monkeypatch.setitem(ingest.SOURCE_SCRAPERS, "simplyhired", lambda *a, **kw: [stale])
+
+    result = ingest.run()
+
+    assert result["total_new"] == 0
+    assert result["total_skipped"] == 1
+    apps, _ = store.list_applications(limit=10)
+    assert len(apps) == 0
+
+
+def test_tiered_mode_unknown_posted_at_is_lowest_priority(monkeypatch, tmp_path):
+    store = _patch_common(monkeypatch, tmp_path, _tiered_config(cap=1))
+    unknown = _aged_job("simplyhired", "unknown", hours_ago=None)  # Indeed-style, found FIRST
+    dated = _aged_job("simplyhired", "dated", hours_ago=5)  # confirmed-recent, found SECOND
+    monkeypatch.setitem(ingest.SOURCE_SCRAPERS, "simplyhired", lambda *a, **kw: [unknown, dated])
+
+    result = ingest.run()
+
+    assert result["total_new"] == 1
+    apps, _ = store.list_applications(limit=10)
+    assert len(apps) == 1
+    assert apps[0].job_id == dated.job_id  # confirmed-recent beats unknown-date despite discovery order
+
+
+def test_tiered_mode_stops_early_once_the_freshest_tier_fills_the_cap(monkeypatch, tmp_path):
+    config_yaml = _tiered_config(
+        cap=1, extra_searches='\n  - query: "Vue Developer"\n    location: "Remote"\n    category: "frontend"'
+    )
+    _patch_common(monkeypatch, tmp_path, config_yaml)
+
+    second_search_calls = []
+
+    def first_search(query, *a, **kw):
+        return [_aged_job("simplyhired", "1", hours_ago=5)]  # already fills the cap=1 tier-0 bucket
+
+    def second_search(query, *a, **kw):
+        second_search_calls.append(query)
+        return []
+
+    # Both search entries hit the same fake source - swap the fake
+    # implementation between calls by query text instead of two sources,
+    # since this config intentionally uses one source for both entries.
+    call_count = {"n": 0}
+
+    def dispatching_scraper(query, *a, **kw):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return first_search(query, *a, **kw)
+        return second_search(query, *a, **kw)
+
+    monkeypatch.setitem(ingest.SOURCE_SCRAPERS, "simplyhired", dispatching_scraper)
+
+    result = ingest.run()
+
+    assert call_count["n"] == 1  # the second search entry never ran
+    assert result["stopped_early"] is False  # this is a normal early finish, not a user Stop
+    assert result["total_new"] == 1

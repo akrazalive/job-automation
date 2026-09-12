@@ -1,10 +1,40 @@
 """End-to-end local pipeline: search every configured source x every
 configured search (config/search_criteria.yaml) -> dedupe -> filter
 (remote-only for SimplyHired; remote OR onsite in an allowed country for
-Indeed/LinkedIn — see src/common/location_filters.py:ALLOWED_ONSITE_COUNTRIES
-— plus posted within max_age_days for all three) -> tag required
-skills/category -> save an Application record (status=pending, no resume
+Indeed/LinkedIn/Twine — see src/common/location_filters.py:ALLOWED_ONSITE_COUNTRIES
+— plus a posting-age check for all sources) -> tag required skills/
+category -> save an Application record (status=pending, no resume
 attached) to the configured ApplicationStore.
+
+TIERED AGE WINDOW + PER-RUN CAP (direct feedback 2026-09-12: "get me only
+jobs from the last 24 hrs... first search in first 24 hrs then first 48
+hrs then 72. no need to get 4 days back" + "initially I want you to
+scrape just 20 jobs"): when config/search_criteria.yaml sets
+`age_tier_hours` (e.g. [24, 48, 72]), run() below no longer saves a job
+the moment it's found. Every eligible job across the WHOLE run is instead
+bucketed by which age tier its posted_at falls in (an unknown posted_at —
+e.g. every Indeed job, see src/scrapers/indeed.py — sorts into its own
+lowest-priority trailing bucket rather than being either always-kept or
+always-dropped), and ONLY after every configured search has run (or Stop
+was requested) are buckets drained newest-tier-first, up to
+`max_new_jobs_per_run`, to decide what actually gets saved. Anything
+older than the LAST configured tier is dropped outright (never "get 4
+days back"); anything that would've been a good candidate but didn't fit
+under the cap is simply left unmarked-seen, so a later run can still pick
+it up. This is deliberately ONE scrape pass with post-hoc SELECTION, not
+three separate re-scrapes at three different age windows — re-querying
+the same site for the same keyword returns the same top results
+regardless of an age window none of these four sources reliably exposes
+a verified URL parameter for (see src/scrapers/twine.py's own docstring
+for a concrete example), so a second or third pass would just re-fetch
+and re-filter identical data at 2-3x the request cost/bot-detection
+exposure for zero actual behavior difference.
+
+A config that sets the legacy `max_age_days` instead (or neither key) get
+this module's ORIGINAL behavior unchanged: a flat cutoff, decided and
+saved immediately per job as it's found, every source has always worked
+this way and any config predating 2026-09-12 keeps working exactly as it
+did before this note was added.
 
 Deliberately does NOT tailor a resume PDF here — that used to happen
 inline for every new job (LLM call and/or reportlab render each time),
@@ -52,6 +82,7 @@ from src.scrapers.base import human_delay
 from src.scrapers.indeed import search_indeed
 from src.scrapers.linkedin import search_linkedin
 from src.scrapers.simplyhired import search_simplyhired
+from src.scrapers.twine import search_twine
 from src.storage import get_store
 
 CONFIG_PATH = Path("config/search_criteria.yaml")
@@ -66,6 +97,7 @@ SOURCE_SCRAPERS: dict[str, Callable] = {
     "simplyhired": search_simplyhired,
     "indeed": search_indeed,
     "linkedin": search_linkedin,
+    "twine": search_twine,
 }
 
 
@@ -96,7 +128,17 @@ def run(log: Optional[Callable[[str], None]] = None) -> dict:
     max_results = config.get("max_results_per_search", 8)
     searches = config.get("searches", [])
     remote_only = config.get("remote_only", True)
-    max_age_days = config.get("max_age_days")  # None = no age filter
+    max_age_days = config.get("max_age_days")  # None = no age filter (legacy flat-cutoff mode)
+
+    # Tiered mode (see this module's docstring) activates only when
+    # age_tier_hours is actually set — a config that only sets the legacy
+    # max_age_days (or neither) keeps the original flat-cutoff,
+    # save-immediately behavior byte-for-byte.
+    age_tier_hours: Optional[list[int]] = config.get("age_tier_hours")
+    tiered_mode = bool(age_tier_hours)
+    if tiered_mode:
+        age_tier_hours = sorted(age_tier_hours)
+    max_new_jobs_per_run = config.get("max_new_jobs_per_run")  # None = unlimited
 
     # Default to simplyhired-only if a config predates the `sources` key
     # (or omits it) — matches this pipeline's original single-source
@@ -130,7 +172,24 @@ def run(log: Optional[Callable[[str], None]] = None) -> dict:
     total_new = 0
     total_skipped = 0
     stopped_early = False
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)) if max_age_days else None
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=max_age_days)) if (max_age_days and not tiered_mode) else None
+    # Tiered mode only - the hard, absolute "no need to get 4 days back"
+    # boundary (the LAST/oldest configured tier); jobs older than this
+    # are dropped outright, same as the legacy cutoff above, just at a
+    # different granularity (hours, not days) and only ever active
+    # alongside the bucketed candidates list below rather than an
+    # immediate per-job save.
+    tier_cutoff = (now - timedelta(hours=age_tier_hours[-1])) if tiered_mode else None
+    # Tiered mode only - every eligible job found this run, held here
+    # (NOT saved, NOT marked seen) until every configured search has run
+    # (or Stop fires) - see the selection pass after the loop below and
+    # this module's docstring for why. Each entry is
+    # (tier_bucket, discovery_order, job_id, application_kwargs);
+    # discovery_order only exists so the final sort is stable (ties
+    # within a bucket keep first-found order) since Python's sort key
+    # can't compare the dict/Job objects directly.
+    candidates: list[tuple[int, int, str, dict]] = []
     try:
         for i, (entry, source_name) in enumerate(runs, start=1):
             # Checked once per search (not mid-search) - a Playwright page
@@ -199,24 +258,13 @@ def run(log: Optional[Callable[[str], None]] = None) -> dict:
                     emit(f"  {source_name}: - skipped — not remote and not in an allowed onsite country")
                     continue
 
-                if cutoff and job.posted_at and job.posted_at < cutoff:
-                    seen.mark_seen(job.job_id)
-                    total_skipped += 1
-                    age_days = (datetime.now(timezone.utc) - job.posted_at).days
-                    emit(f"  {source_name}: - skipped — posted {age_days}d ago (older than {max_age_days}d)")
-                    continue
-
-                seen.mark_seen(job.job_id)
-                total_new += 1
-
                 # No resume tailoring here on purpose — see this module's
                 # docstring. required_skills is still tagged now (cheap,
                 # pure text matching, no LLM/PDF work) since it drives the
                 # dashboard's skill tags/filtering regardless of whether
                 # this job is ever tailored or applied to.
                 required_skills = extract_skills(job.description)
-
-                application = Application(
+                app_kwargs = dict(
                     job_id=job.job_id,
                     source=job.source,
                     title=job.title,
@@ -228,16 +276,100 @@ def run(log: Optional[Callable[[str], None]] = None) -> dict:
                     location=job.location,
                     category=category,
                     posted_at=job.posted_at,
-                    updated_at=datetime.now(timezone.utc),
                 )
-                store.save_application(application)
-                emit(f"  {source_name}: + {match_note} — saving to Applications ({len(required_skills)} skills tagged)")
+
+                if not tiered_mode:
+                    if cutoff and job.posted_at and job.posted_at < cutoff:
+                        seen.mark_seen(job.job_id)
+                        total_skipped += 1
+                        age_days = (datetime.now(timezone.utc) - job.posted_at).days
+                        emit(f"  {source_name}: - skipped — posted {age_days}d ago (older than {max_age_days}d)")
+                        continue
+
+                    seen.mark_seen(job.job_id)
+                    total_new += 1
+                    store.save_application(Application(**app_kwargs, updated_at=datetime.now(timezone.utc)))
+                    emit(f"  {source_name}: + {match_note} — saving to Applications ({len(required_skills)} skills tagged)")
+                    continue
+
+                # Tiered mode: drop outright anything older than the last
+                # configured tier ("no need to get 4 days back") - same
+                # "mark seen so it's never re-evaluated" treatment as any
+                # other permanent disqualification above.
+                if job.posted_at and job.posted_at < tier_cutoff:
+                    seen.mark_seen(job.job_id)
+                    total_skipped += 1
+                    age_hours = (now - job.posted_at).total_seconds() / 3600
+                    emit(f"  {source_name}: - skipped — posted {age_hours:.0f}h ago (older than {age_tier_hours[-1]}h)")
+                    continue
+
+                if job.posted_at is not None:
+                    age_hours = (now - job.posted_at).total_seconds() / 3600
+                    bucket = next(idx for idx, hours in enumerate(age_tier_hours) if age_hours <= hours)
+                else:
+                    # Unknown posting date (e.g. every Indeed job — see
+                    # src/scrapers/indeed.py) - kept, not dropped, same as
+                    # the legacy flat-cutoff's convention, but as the
+                    # LOWEST-priority bucket now rather than always-kept:
+                    # it only fills a cap slot once every job with a
+                    # confirmed-recent date already has one.
+                    bucket = len(age_tier_hours)
+                candidates.append((bucket, len(candidates), job.job_id, app_kwargs))
+                emit(f"  {source_name}: ~ candidate (age tier {bucket + 1}/{len(age_tier_hours) + 1}) — held for final selection")
 
             pipeline_status.write_status(
                 completed_searches=i, total_found=total_found,
                 total_new=total_new, total_skipped=total_skipped,
             )
+
+            # Tiered mode only - once the freshest tier alone already has
+            # enough candidates to fill the whole cap, no further search
+            # this run can possibly improve the final selection (see the
+            # selection pass below - ties within a bucket are arbitrary
+            # either way), so stop searching early rather than spending
+            # more requests/bot-detection exposure for a result that
+            # can't change. Not the same as a user-requested Stop
+            # (stopped_early stays False - this is a normal, intentional
+            # early finish, not an interruption).
+            if tiered_mode and max_new_jobs_per_run is not None:
+                tier0_count = sum(1 for c in candidates if c[0] == 0)
+                if tier0_count >= max_new_jobs_per_run:
+                    emit(
+                        f"Found {tier0_count} candidates within the freshest "
+                        f"{age_tier_hours[0]}h window (target was {max_new_jobs_per_run}) "
+                        "— stopping early, no need to search older tiers."
+                    )
+                    break
+
             human_delay(5, 12)  # extra gap between distinct searches
+
+        if tiered_mode:
+            # Drain buckets newest-tier-first, stable within a tier (see
+            # `candidates`'s own comment) - this is the only place a
+            # tiered-mode job actually gets marked seen/saved/counted.
+            candidates.sort(key=lambda c: (c[0], c[1]))
+            selected = candidates if max_new_jobs_per_run is None else candidates[:max_new_jobs_per_run]
+            held_back = len(candidates) - len(selected)
+            for bucket, _, job_id, app_kwargs in selected:
+                seen.mark_seen(job_id)
+                total_new += 1
+                store.save_application(Application(**app_kwargs, updated_at=datetime.now(timezone.utc)))
+                emit(
+                    f"  + saved {app_kwargs['title']!r} @ {app_kwargs['company']} "
+                    f"(age tier {bucket + 1}/{len(age_tier_hours) + 1}, {len(app_kwargs['required_skills'])} skills tagged)"
+                )
+            if held_back:
+                # Deliberately NOT marked seen and NOT counted in
+                # total_skipped (that counter means "permanently
+                # disqualified" - see this function's docstring) - these
+                # remain fully eligible for a future run that has more
+                # cap room.
+                emit(
+                    f"{held_back} additional eligible job(s) found but held back — the "
+                    f"{max_new_jobs_per_run}-job cap for this run was already reached; "
+                    "they remain eligible for the next scrape."
+                )
+            pipeline_status.write_status(total_found=total_found, total_new=total_new, total_skipped=total_skipped)
 
         if stopped_early:
             emit(f"Stopped. {total_found} found, {total_new} new, {total_skipped} skipped so far.")

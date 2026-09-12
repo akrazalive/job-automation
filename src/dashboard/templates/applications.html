@@ -95,6 +95,31 @@
     font-size: .78rem; color: var(--muted); background: var(--accent-light); color: var(--accent-dark);
     padding: 8px 10px; border-radius: 8px; margin: 10px 0 16px;
   }
+
+  /* Delete-All confirm dialog: a small fixed-size dialog reads better
+     truly centered on screen than the Ideas modal's tall/scrollable
+     top-anchored layout above, so this gets its own backdrop variant. */
+  .confirm-modal-backdrop { align-items: center; }
+  .confirm-modal-card { max-width: 420px; }
+  .modal-warn {
+    font-size: .8rem; color: var(--failed); background: color-mix(in srgb, var(--failed) 10%, transparent);
+    border: 1px solid var(--failed); padding: 10px 12px; border-radius: 8px; margin: 10px 0 18px;
+  }
+  .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* Short progress log under the Delete All button - direct feedback:
+     "short log under delete button that tell us this is getting
+     deleted, resume get deleted from s3". */
+  .page-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .delete-log {
+    display: none; font-size: .74rem; font-family: ui-monospace, monospace;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; max-width: 320px; width: max-content;
+  }
+  .delete-log.visible { display: block; }
+  .delete-log .log-line { padding: 1px 0; color: var(--muted); }
+  .delete-log .log-line.ok { color: var(--accent-dark); }
+  .delete-log .log-line.err { color: var(--failed); }
   .idea-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
   .idea-card h3 { margin: 0 0 4px; font-size: .95rem; }
   .idea-meta { font-size: .72rem; color: var(--muted); margin-bottom: 8px; }
@@ -109,7 +134,24 @@
     <h1>Applications</h1>
     <div class="sub">Every job the agent found and applied to, what failed, and why.</div>
   </div>
-  <button class="btn danger btn-sm" id="delete-all-btn" title="Delete every application and its tailored resume">🗑 Delete All</button>
+  <div class="page-header-actions">
+    <button class="btn danger btn-sm" id="delete-all-btn" title="Delete every application and its tailored resume">🗑 Delete All</button>
+    <div class="delete-log" id="delete-all-log"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop confirm-modal-backdrop" id="delete-all-modal">
+  <div class="modal-card confirm-modal-card">
+    <h2>Delete ALL applications?</h2>
+    <div class="modal-warn" id="delete-all-modal-text">
+      This permanently removes every application record — including ones hidden by your
+      current filters — and each one's tailored resume file. This cannot be undone.
+    </div>
+    <div class="confirm-actions">
+      <button class="btn secondary btn-sm" id="delete-all-cancel-btn">Cancel</button>
+      <button class="btn danger btn-sm" id="delete-all-confirm-btn">Yes, delete everything</button>
+    </div>
+  </div>
 </div>
 
 <div class="filters">
@@ -613,38 +655,84 @@ document.getElementById('bulk-delete-btn').addEventListener('click', async () =>
 // --- Delete All: every application in the system, regardless of the
 // filters/page currently shown - a separate, always-visible action from
 // the bulk-selection bar above (which only ever acts on checked rows).
-document.getElementById('delete-all-btn').addEventListener('click', async () => {
+// Uses an in-page confirm dialog (styled to match the rest of the
+// dashboard, centered with an overlay) instead of the browser's own
+// confirm() alert, plus a short progress log under the button - direct
+// feedback: "create good one matching our site design... appears at
+// center of screen with overlay" and "short log under delete button that
+// tell us this is getting deleted, resume get deleted from s3".
+const deleteAllBtn = document.getElementById('delete-all-btn');
+const deleteAllModal = document.getElementById('delete-all-modal');
+const deleteAllModalText = document.getElementById('delete-all-modal-text');
+const deleteAllConfirmBtn = document.getElementById('delete-all-confirm-btn');
+const deleteAllLog = document.getElementById('delete-all-log');
+let deleteAllPendingCount = null;
+
+function logDeleteAllLine(text, kind) {
+  deleteAllLog.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (kind ? ' ' + kind : '');
+  line.textContent = text;
+  deleteAllLog.appendChild(line);
+  deleteAllLog.scrollTop = deleteAllLog.scrollHeight;
+}
+
+function closeDeleteAllModal() {
+  deleteAllModal.classList.remove('visible');
+}
+
+deleteAllModal.addEventListener('click', (e) => { if (e.target === deleteAllModal) closeDeleteAllModal(); });
+document.getElementById('delete-all-cancel-btn').addEventListener('click', closeDeleteAllModal);
+
+deleteAllBtn.addEventListener('click', async () => {
+  deleteAllLog.classList.remove('visible');
+  deleteAllLog.innerHTML = '';
+
   // total reflects whatever filters are currently applied, but this
   // action ignores filters and deletes everything - fetch the real
-  // unfiltered count first so the confirm dialog never understates it.
-  let allCount = total;
+  // unfiltered count first so the dialog never understates it.
+  deleteAllPendingCount = total;
   try {
     const countRes = await fetch('/api/applications?limit=1');
-    if (countRes.ok) allCount = (await countRes.json()).total;
+    if (countRes.ok) deleteAllPendingCount = (await countRes.json()).total;
   } catch (e) { /* fall back to the (possibly filtered) `total` above */ }
 
-  if (!confirm(`Delete ALL ${allCount} application${allCount === 1 ? '' : 's'} — including filtered-out ones — and their tailored resume files? This cannot be undone.`)) return;
+  deleteAllModalText.textContent =
+    `This permanently removes all ${deleteAllPendingCount} application` +
+    `${deleteAllPendingCount === 1 ? '' : 's'} — including ones hidden by your current filters — ` +
+    `and each one's tailored resume file. This cannot be undone.`;
+  deleteAllModal.classList.add('visible');
+});
 
-  const btn = document.getElementById('delete-all-btn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Deleting…';
+deleteAllConfirmBtn.addEventListener('click', async () => {
+  closeDeleteAllModal();
+  const count = deleteAllPendingCount;
+
+  deleteAllBtn.disabled = true;
+  const originalText = deleteAllBtn.textContent;
+  deleteAllBtn.textContent = 'Deleting…';
+  logDeleteAllLine(`Deleting ${count} application record${count === 1 ? '' : 's'} from the database…`);
+  logDeleteAllLine('Deleting their tailored resumes (local disk / S3)…');
   try {
     const res = await fetch('/api/applications/delete-all', { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
+      logDeleteAllLine(`✓ Deleted ${data.deleted} application record${data.deleted === 1 ? '' : 's'}`, 'ok');
+      logDeleteAllLine('✓ Resume files removed', 'ok');
       showToast(`✓ Deleted all ${data.deleted} application${data.deleted === 1 ? '' : 's'}`, false);
       selectedIds.clear();
       knownJobs.clear();
       await resetAndLoad();
     } else {
+      logDeleteAllLine(`✗ ${data.detail || 'Could not delete all applications.'}`, 'err');
       showToast(data.detail || 'Could not delete all applications.', true);
     }
   } catch (e) {
+    logDeleteAllLine('✗ Network error while deleting — try again.', 'err');
     showToast('Network error while deleting — try again.', true);
   } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+    deleteAllBtn.disabled = false;
+    deleteAllBtn.textContent = originalText;
   }
 });
 

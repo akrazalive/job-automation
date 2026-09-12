@@ -31,10 +31,17 @@
 # — see src/scrapers/base.py:looks_blocked() and each scraper's module
 # docstring) — that's logged and skipped per-request, not a crash, and not
 # something this file's settings can tune away.
+# twine: unlike the other three, it has no working keyword-search URL, so
+# every search entry below hits the exact same Twine "Web Developer Jobs"
+# category page regardless of its own query text - see
+# src/scrapers/twine.py's module docstring for why, and why that's wasted
+# requests but never wrong/duplicate results (the pipeline's own
+# SeenJobsCache dedupes the repeats for free).
 sources:
   - simplyhired
   - indeed
   - linkedin
+  - twine
 
 searches:
   - query: "Software Developer"
@@ -91,12 +98,28 @@ max_results_per_search: 8
 # everything found, remote or not, anywhere).
 remote_only: true
 
-# Only keep jobs posted within this many days. SimplyHired's and
-# LinkedIn's search results expose a date stamp the scrapers parse into an
-# absolute UTC datetime (relative "7d"/"20h" for SimplyHired, absolute ISO
-# for LinkedIn — see each scraper's parse_date_stamp()/parse_date_iso()).
-# Indeed's search DOM doesn't expose a reliably-selectable date at all, so
-# its jobs always have an unknown date. A job whose date couldn't be
-# determined is kept rather than dropped (better to show it with an
-# unknown date than silently lose it).
-max_age_days: 7
+# How many NEW jobs (after dedupe/remote/age filters) one scrape cycle
+# should save before stopping - direct feedback 2026-09-12: "initially I
+# want you to scrape just 20 jobs." Once this many have been selected
+# (see age_tier_hours below), run() stops early rather than searching
+# every remaining entry for no possible benefit. Remove this key (or set
+# it to `null`) for no cap at all.
+max_new_jobs_per_run: 20
+
+# Tiered posting-age window, newest-first, direct feedback 2026-09-12:
+# "get me only jobs from the last 24 hrs... first search in first 24 hrs
+# then first 48 hrs then 72. no need to get 4 days back". Every eligible
+# job found this run is bucketed by which of these it was posted within;
+# buckets are drained newest-first up to max_new_jobs_per_run above, only
+# reaching into an older tier if the newer one(s) didn't fill the target.
+# Nothing older than the LAST value here (72h) is ever kept, regardless
+# of max_new_jobs_per_run. A job whose posting date couldn't be
+# determined at all (every Indeed job - its search DOM has no reliably-
+# selectable date; see src/scrapers/indeed.py) is kept rather than
+# dropped, same as before, but now as its own lowest-priority tier rather
+# than always-accepted - see src/pipeline/ingest.py's module docstring
+# for the full mechanics. Remove this key entirely to fall back to the
+# simpler legacy `max_age_days` flat-cutoff behavior instead (kept below,
+# commented out, for exactly that rollback).
+age_tier_hours: [24, 48, 72]
+# max_age_days: 7
