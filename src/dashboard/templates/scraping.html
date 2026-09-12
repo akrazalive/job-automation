@@ -108,7 +108,14 @@ async function pollStatus() {
     scrapeBtn.disabled = true;
     stopBtn.disabled = false;
   } else {
-    scrapeState.textContent = data.total_new !== undefined ? `Last run: ${data.total_new} new jobs found.` : '';
+    // stale_recovered: the status file claimed a scrape was still
+    // running long after whatever process was driving it actually died
+    // (e.g. a `--reload` restart mid-scrape) - src/pipeline/status.py
+    // auto-recovers from this after a few minutes of silence, surfaced
+    // here so it's obvious this wasn't a real completed run.
+    scrapeState.textContent = data.stale_recovered
+      ? 'Recovered from a stalled previous run — ready to scrape.'
+      : (data.total_new !== undefined ? `Last run: ${data.total_new} new jobs found.` : '');
     scrapeElapsed.textContent = '';
     scrapeBtn.disabled = false;
     stopBtn.disabled = true;
@@ -120,7 +127,14 @@ if (scrapeBtn && !scrapeBtn.disabled) {
   scrapeBtn.addEventListener('click', async () => {
     scrapeBtn.disabled = true;
     scrapeState.textContent = 'Starting...';
-    await fetch('/actions/scrape', { method: 'POST' });
+    const res = await fetch('/actions/scrape', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (data.started === false) {
+      // A scrape is genuinely already in flight in this process (a
+      // real, non-stale lock) - keep polling so real progress still
+      // shows, rather than silently doing nothing.
+      scrapeState.textContent = data.reason || 'A scrape is already running.';
+    }
     polling = setInterval(pollStatus, 2000);
     pollStatus();
   });

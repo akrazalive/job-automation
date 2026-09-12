@@ -15,6 +15,24 @@ STATUS_PATH = Path("data/ingest_status.json")
 LOG_PATH = Path("data/ingest_log.txt")
 MAX_LOG_LINES = 200
 
+# A genuinely running scrape calls write_status() at least once per
+# search (plus append_log() per progress line) - real gaps between those
+# writes are at most a few dozen seconds (human_delay's 5-12s inter-
+# search pause plus one search's own page loads), never minutes. Direct
+# feedback 2026-09-12: an orphaned run - one whose process died mid-scrape
+# (e.g. `uvicorn --reload` restarting after a code edit, or the terminal
+# it was started from being closed) without ever reaching the code that
+# writes running=False - left this file stuck at running=true forever,
+# with nothing left alive to ever flip it back. Two knock-on symptoms:
+# the dashboard's "Scrape now" button stayed disabled permanently (it
+# just mirrors this file's `running`), and "Stop" appeared to do nothing
+# (request_stop() only sets a flag; should_stop() needs an actual live
+# run() loop polling it to have any effect at all). read_status() now
+# treats a `running: true` status this stale as dead rather than
+# trusting it forever, which un-sticks both symptoms without needing a
+# real live process to ever clean up after itself.
+STALE_RUNNING_SECONDS = 300
+
 
 def write_status(**fields) -> None:
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -25,9 +43,33 @@ def write_status(**fields) -> None:
 
 
 def read_status() -> dict:
+    """Returns the raw status file contents, EXCEPT `running` is forced
+    False when the file claims running=True but hasn't been touched in
+    STALE_RUNNING_SECONDS — see that constant's comment. Deliberately a
+    pure read (never writes the correction back to disk): the next real
+    run() call overwrites the whole file anyway via its own
+    write_status(running=True, ...) at start, and not writing here avoids
+    any risk of this "healing" read racing a genuinely-just-started run
+    whose first write hasn't landed yet (impossible in practice at a
+    5-minute threshold, but there's no reason to risk it for a write this
+    function doesn't need to make)."""
     if not STATUS_PATH.exists():
         return {"running": False}
-    return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+    status = json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+    if status.get("running") and _is_stale(status):
+        status = {**status, "running": False, "stale_recovered": True}
+    return status
+
+
+def _is_stale(status: dict) -> bool:
+    updated_at = status.get("updated_at")
+    if not updated_at:
+        return True  # no timestamp to trust at all - assume dead, not eternally alive
+    try:
+        last_update = datetime.fromisoformat(updated_at)
+    except ValueError:
+        return True
+    return (datetime.now(timezone.utc) - last_update).total_seconds() > STALE_RUNNING_SECONDS
 
 
 def request_stop() -> None:
