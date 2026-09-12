@@ -147,9 +147,11 @@ Resources:
         #     applied, or re-tailoring their own resume for one job -
         #     neither is an apply bot).
         #   - DeleteItem on Applications: the Applications page's bulk
-        #     "Delete selected" action (a human cleaning up their own
-        #     list - same "not automation" reasoning as UpdateItem above,
-        #     added alongside src.storage.dynamo_store.DynamoStore.delete_application).
+        #     "Delete selected" AND "Delete All" actions (a human cleaning
+        #     up their own list - same "not automation" reasoning as
+        #     UpdateItem above, added alongside
+        #     src.storage.dynamo_store.DynamoStore.delete_application/
+        #     delete_all_applications).
         #   - PutItem/DeleteItem on ProjectBank: the /projects page's
         #     Add/Edit/Delete actions (static reference data, not user
         #     PII - Edit is just PutItem again, upsert by id).
@@ -157,6 +159,10 @@ Resources:
         #     "private/*" - the Lambda only ever READS the master resume
         #     back, it has no route that would let it overwrite that
         #     copy): "Tailor Resume" uploading the freshly rendered PDF.
+        #   - DeleteObject on ResumeBucket ("resumes/*" only, same
+        #     "private/*" carve-out): delete_application/
+        #     delete_all_applications removing a job's tailored PDF
+        #     alongside its DynamoDB record.
         - DynamoDBReadPolicy:
             TableName: !Ref JobsTable
         - DynamoDBReadPolicy:
@@ -179,6 +185,7 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
+                - s3:DeleteObject
               Resource: !Sub "${ResumeBucket.Arn}/resumes/*"
       Events:
         RootGet:

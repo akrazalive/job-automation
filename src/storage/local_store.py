@@ -21,6 +21,11 @@ from src.common.job_schema import Application, ApplicationStatus
 from src.storage.base import ApplicationStore, filter_records
 
 DEFAULT_DATA_FILE = Path("data/local_applications.json")
+# Same path src/dashboard/app.py's download_resume() serves tailored PDFs
+# from, and src/tailoring/engine.py's LOCAL_OUTPUT_DIR renders into - kept
+# as its own constant here (rather than importing either of those) so
+# src/storage stays a leaf module with no dashboard/tailoring dependency.
+RESUME_OUTPUT_DIR = Path("resume/output")
 
 
 def _seed_data() -> list[dict]:
@@ -170,13 +175,33 @@ class LocalJsonStore(ApplicationStore):
         records.append(data)
         self._write(records)
 
+    def _delete_resume_file(self, record: dict) -> None:
+        """Best-effort delete of one application's tailored PDF from
+        resume/output/ — same filename resolution as download_resume()
+        (src/dashboard/app.py): the record's own resume_filename when
+        set, else the legacy "<job_id>.pdf" convention. A missing file
+        (never tailored, or already cleaned up) is not an error."""
+        filename = record.get("resume_filename") or f"{record['job_id']}.pdf"
+        try:
+            (RESUME_OUTPUT_DIR / filename).unlink(missing_ok=True)
+        except OSError:
+            pass  # e.g. a locked file - must never block the record delete
+
     def delete_application(self, job_id: str) -> bool:
         records = self._read()
-        remaining = [r for r in records if r["job_id"] != job_id]
-        if len(remaining) == len(records):
+        match = next((r for r in records if r["job_id"] == job_id), None)
+        if match is None:
             return False
-        self._write(remaining)
+        self._delete_resume_file(match)
+        self._write([r for r in records if r["job_id"] != job_id])
         return True
+
+    def delete_all_applications(self) -> int:
+        records = self._read()
+        for r in records:
+            self._delete_resume_file(r)
+        self._write([])
+        return len(records)
 
     def get_category_breakdown(self) -> dict:
         records = self._read()

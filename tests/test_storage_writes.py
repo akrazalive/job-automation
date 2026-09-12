@@ -266,3 +266,67 @@ def test_delete_application_does_not_touch_other_records(tmp_path: Path):
 
     apps, _ = store.list_applications(limit=1000)
     assert {a.job_id for a in apps} == {"job-2"}
+
+
+def test_delete_application_also_deletes_its_local_resume_file(tmp_path: Path, monkeypatch):
+    from src.storage import local_store as local_store_module
+
+    resume_dir = tmp_path / "resume_output"
+    resume_dir.mkdir()
+    monkeypatch.setattr(local_store_module, "RESUME_OUTPUT_DIR", resume_dir)
+
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    app = _make_application("job-1")
+    app.resume_filename = "job-1-tailored.pdf"
+    store.save_application(app)
+    resume_file = resume_dir / "job-1-tailored.pdf"
+    resume_file.write_bytes(b"%PDF-1.4 fake")
+
+    assert store.delete_application("job-1") is True
+    assert not resume_file.exists()
+
+
+def test_delete_application_with_no_resume_file_does_not_raise(tmp_path: Path, monkeypatch):
+    from src.storage import local_store as local_store_module
+
+    # Points at a directory that doesn't exist at all - the common case
+    # for a job that was never tailored - to confirm cleanup is genuinely
+    # best-effort rather than assuming the directory is already there.
+    monkeypatch.setattr(local_store_module, "RESUME_OUTPUT_DIR", tmp_path / "no-such-dir")
+
+    store = LocalJsonStore(data_file=tmp_path / "apps.json")
+    store.save_application(_make_application("job-1"))
+
+    assert store.delete_application("job-1") is True
+
+
+def test_delete_all_applications_removes_every_record_and_resume_file(tmp_path: Path, monkeypatch):
+    from src.storage import local_store as local_store_module
+
+    resume_dir = tmp_path / "resume_output"
+    resume_dir.mkdir()
+    monkeypatch.setattr(local_store_module, "RESUME_OUTPUT_DIR", resume_dir)
+
+    data_file = tmp_path / "apps.json"
+    data_file.write_text("[]", encoding="utf-8")  # skip the ctor's sample-data seed
+    store = LocalJsonStore(data_file=data_file)
+    for i in range(3):
+        app = _make_application(f"job-{i}")
+        app.resume_filename = f"job-{i}.pdf"
+        store.save_application(app)
+        (resume_dir / f"job-{i}.pdf").write_bytes(b"%PDF-1.4 fake")
+
+    deleted = store.delete_all_applications()
+
+    assert deleted == 3
+    apps, _ = store.list_applications(limit=1000)
+    assert apps == []
+    assert list(resume_dir.iterdir()) == []
+
+
+def test_delete_all_applications_on_empty_store_returns_zero(tmp_path: Path):
+    data_file = tmp_path / "apps.json"
+    data_file.write_text("[]", encoding="utf-8")
+    store = LocalJsonStore(data_file=data_file)
+
+    assert store.delete_all_applications() == 0

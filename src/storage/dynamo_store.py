@@ -139,14 +139,32 @@ class DynamoStore(ApplicationStore):
         item = json.loads(application.model_dump_json())
         self.applications_table.put_item(Item=item)
 
+    def _delete_resume_object(self, item: dict) -> None:
+        """Best-effort delete of one application's tailored PDF from S3 —
+        same resume_s3_key get_resume_url() reads. A missing key/bucket
+        (never tailored) or an already-gone object is not an error; S3
+        cleanup must never block the DynamoDB record delete."""
+        key = item.get("resume_s3_key")
+        if not key or not self.bucket:
+            return
+        try:
+            self._s3.delete_object(Bucket=self.bucket, Key=key)
+        except ClientError:
+            pass
+
     def delete_application(self, job_id: str) -> bool:
-        # Requires dynamodb:DeleteItem on the Applications table — a NEW
-        # grant, not covered by mark_applied/update_resume_tailoring's
-        # existing UpdateItem permission. See infra/aws/template.yaml's
-        # DashboardFunction Policies (same deliberate-IAM-change pattern
-        # as those two) — the template was updated alongside this method,
-        # but the LIVE Lambda only gets the permission after a real
-        # `sam deploy`, not from this code change alone.
+        # Requires dynamodb:DeleteItem on the Applications table and
+        # s3:DeleteObject on the ResumeBucket's "resumes/*" prefix — see
+        # infra/aws/template.yaml's DashboardFunction Policies (same
+        # deliberate-IAM-change pattern noted there) - the template was
+        # updated alongside this method, but the LIVE Lambda only gets
+        # the permission after a real `sam deploy`, not from this code
+        # change alone.
+        response = self.applications_table.get_item(Key={"job_id": job_id})
+        item = response.get("Item")
+        if item is None:
+            return False
+        self._delete_resume_object(item)
         try:
             self.applications_table.delete_item(
                 Key={"job_id": job_id},
@@ -157,6 +175,17 @@ class DynamoStore(ApplicationStore):
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 return False
             raise
+
+    def delete_all_applications(self) -> int:
+        # Same hobby-scale "fetch everything, loop in Python" tradeoff as
+        # _scan_all's other callers - a real batch_writer() would need its
+        # own dynamodb:BatchWriteItem grant for marginal benefit at this
+        # table size.
+        items = self._scan_all()
+        for item in items:
+            self._delete_resume_object(item)
+            self.applications_table.delete_item(Key={"job_id": item["job_id"]})
+        return len(items)
 
     def get_category_breakdown(self) -> dict:
         # Same hobby-scale Scan caveat as list_applications/get_summary.

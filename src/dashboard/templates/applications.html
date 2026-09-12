@@ -38,6 +38,7 @@
   .pagination .page-btn:disabled { opacity: .45; cursor: not-allowed; }
   .pagination .page-ellipsis { color: var(--muted); padding: 0 2px; font-size: .8rem; }
 
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .btn-sm { padding: 5px 10px; font-size: .74rem; border-radius: 6px; }
   .action-cell { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .btn-sm.applied-flag { background: var(--applied); border-color: var(--applied); color: #fff; cursor: default; }
@@ -103,8 +104,13 @@
 </style>
 {% endblock %}
 {% block content %}
-<h1>Applications</h1>
-<div class="sub">Every job the agent found and applied to, what failed, and why.</div>
+<div class="page-header">
+  <div>
+    <h1>Applications</h1>
+    <div class="sub">Every job the agent found and applied to, what failed, and why.</div>
+  </div>
+  <button class="btn danger btn-sm" id="delete-all-btn" title="Delete every application and its tailored resume">🗑 Delete All</button>
+</div>
 
 <div class="filters">
   <div class="search-field">
@@ -601,6 +607,44 @@ document.getElementById('bulk-delete-btn').addEventListener('click', async () =>
   } finally {
     btn.disabled = false;
     btn.textContent = '🗑 Delete selected';
+  }
+});
+
+// --- Delete All: every application in the system, regardless of the
+// filters/page currently shown - a separate, always-visible action from
+// the bulk-selection bar above (which only ever acts on checked rows).
+document.getElementById('delete-all-btn').addEventListener('click', async () => {
+  // total reflects whatever filters are currently applied, but this
+  // action ignores filters and deletes everything - fetch the real
+  // unfiltered count first so the confirm dialog never understates it.
+  let allCount = total;
+  try {
+    const countRes = await fetch('/api/applications?limit=1');
+    if (countRes.ok) allCount = (await countRes.json()).total;
+  } catch (e) { /* fall back to the (possibly filtered) `total` above */ }
+
+  if (!confirm(`Delete ALL ${allCount} application${allCount === 1 ? '' : 's'} — including filtered-out ones — and their tailored resume files? This cannot be undone.`)) return;
+
+  const btn = document.getElementById('delete-all-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    const res = await fetch('/api/applications/delete-all', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(`✓ Deleted all ${data.deleted} application${data.deleted === 1 ? '' : 's'}`, false);
+      selectedIds.clear();
+      knownJobs.clear();
+      await resetAndLoad();
+    } else {
+      showToast(data.detail || 'Could not delete all applications.', true);
+    }
+  } catch (e) {
+    showToast('Network error while deleting — try again.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 });
 

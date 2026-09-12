@@ -149,11 +149,20 @@ class ApplicationStore(ABC):
         Applications page's bulk "Delete selected" action (a human
         choosing to clean up their own list, not scraping/automation, so
         allowed on both backends like Mark Applied / project-bank CRUD).
-        Returns False if job_id doesn't exist, True on success. Does NOT
-        touch the tailored PDF (local disk / S3) that application may
-        have pointed to — orphan cleanup is a documented, low-priority,
-        separate TODO (see TECHNICAL_PLAN.txt), same as it already was
-        for deleted DynamoDB rows before this method existed."""
+        Also best-effort deletes the tailored PDF that application record
+        pointed to (local disk file, or the S3 object named by its
+        resume_s3_key) — never lets a missing/already-gone file block the
+        record delete itself. Returns False if job_id doesn't exist, True
+        on success."""
+
+    @abstractmethod
+    def delete_all_applications(self) -> int:
+        """Permanently removes EVERY application record, plus each one's
+        tailored PDF (same best-effort local-disk/S3 cleanup as
+        delete_application) — backs the Applications page's "Delete All"
+        button (a human wiping their own list, same allowed-because-not-
+        automation reasoning as delete_application/mark_applied). Returns
+        how many records were deleted."""
 
     @abstractmethod
     def get_category_breakdown(self) -> dict:

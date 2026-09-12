@@ -272,6 +272,18 @@ def bulk_delete_applications(job_ids: list[str] = Body(..., embed=True)):
     return {"deleted": deleted, "not_found": not_found}
 
 
+@app.post("/api/applications/delete-all")
+def delete_all_applications():
+    """Permanently deletes every application record and each one's
+    tailored PDF (local disk or S3, whichever backend is active) — backs
+    the Applications page's "Delete All" button. Same "human cleaning up
+    their own list" reasoning as bulk_delete_applications above, just
+    unconditional rather than scoped to a selection; ignores whatever
+    filters happen to be applied on the page when it's clicked."""
+    deleted_count = get_store().delete_all_applications()
+    return {"deleted": deleted_count}
+
+
 @app.get("/api/applications/{job_id}/resume-url")
 def api_resume_url(job_id: str):
     return {"job_id": job_id, "resume_url": get_store().get_resume_url(job_id)}

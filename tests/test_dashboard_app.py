@@ -157,6 +157,28 @@ def test_bulk_delete_endpoint_removes_only_the_given_jobs():
     store.delete_application("bulk-delete-test-2")  # clean up the second test record too
 
 
+def test_delete_all_endpoint_calls_the_store_and_returns_its_count(monkeypatch):
+    # Deliberately does NOT exercise this against the real shared local
+    # store (unlike the bulk-delete test above) - delete_all_applications
+    # would wipe every fixture/sample record every OTHER test in this
+    # session depends on. The store-level behavior (every record AND its
+    # resume file actually gone) is covered in isolation, per tmp_path
+    # store, by tests/test_storage_writes.py instead; this just checks
+    # the route wires up to it and shapes its response correctly.
+    from src.dashboard import app as dashboard_app
+
+    class _FakeStore:
+        def delete_all_applications(self) -> int:
+            return 42
+
+    monkeypatch.setattr(dashboard_app, "get_store", lambda: _FakeStore())
+
+    c = _login()
+    resp = c.post("/api/applications/delete-all")
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 42}
+
+
 def test_scrape_stop_endpoint_sets_the_stop_flag():
     from src.pipeline import status as pipeline_status
 
